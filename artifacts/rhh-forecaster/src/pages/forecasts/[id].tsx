@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   useGetForecast, useUpdateForecast, useCalculateForecast,
   useListForecastScenarios, useGetForecastMonthly,
@@ -79,22 +79,41 @@ export default function ForecastDetail() {
   const { data: scenarios } = useListForecastScenarios(forecastId);
   const { data: monthly } = useGetForecastMonthly(forecastId);
 
+  const [isDirty, setIsDirty] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [proposalTab, setProposalTab] = useState<"share" | null>(null);
+  const [activeTab, setActiveTab] = useState("inputs");
+
   const updateForecast = useUpdateForecast();
   const calculateForecast = useCalculateForecast();
   const aiRecommend = useGenerateAiRecommendation();
   const publishProposal = usePublishProposal();
-  const { data: proposals } = useListProposals();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: proposals } = useListProposals({
+    query: { refetchInterval: activeTab === "proposal" ? 30_000 : false } as any,
+  });
 
   const proposal = proposals?.find((p: any) => p.forecastId === forecastId);
   const hasShareLink = !!(proposal?.shareUrl && proposal?.isLinkActive);
 
-  const [isDirty, setIsDirty] = useState(false);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [proposalTab, setProposalTab] = useState<"share" | null>(null);
-
   const updateProposal = useUpdateProposal();
   const [narrativeText, setNarrativeText] = useState("");
   const [narrativeSaved, setNarrativeSaved] = useState(false);
+
+  // Toast when the owner opens the proposal while staff is on the Proposal tab
+  const prevProposalViewsRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!proposal) return;
+    const current = proposal.totalViews ?? 0;
+    if (prevProposalViewsRef.current !== null && current > prevProposalViewsRef.current) {
+      toast({
+        title: "Owner just viewed the proposal",
+        description: `${proposal.referenceNumber} was opened — this is a great moment to follow up.`,
+        duration: 8000,
+      });
+    }
+    prevProposalViewsRef.current = current;
+  }, [proposal?.totalViews]);
 
   // Sync narrative from proposal when it loads
   useEffect(() => {
@@ -337,7 +356,7 @@ export default function ForecastDetail() {
 
       {/* Tabs */}
       <div className="flex-1 overflow-auto">
-        <Tabs defaultValue="inputs" className="w-full h-full">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full">
           <div className="px-6 pt-4 border-b border-border bg-background sticky top-0 z-10">
             <TabsList className="grid grid-cols-5 max-w-[700px]">
               <TabsTrigger value="summary">Summary</TabsTrigger>
@@ -1130,17 +1149,30 @@ export default function ForecastDetail() {
                           </Button>
                         </div>
                         {/* Engagement stats */}
-                        <div className="grid grid-cols-3 gap-4 pt-2">
-                          {[
-                            { label: "Total Views", val: proposal?.totalViews ?? 0 },
-                            { label: "PDF Downloads", val: proposal?.pdfDownloads ?? 0 },
-                            { label: "Status", val: proposal?.ownerAction ? `Owner: ${proposal.ownerAction.replace(/_/g, " ")}` : "Awaiting response" },
-                          ].map(({ label, val }) => (
-                            <div key={label} className="text-center p-4 bg-muted/20 rounded-lg border border-border/50">
-                              <div className="text-xs text-muted-foreground mb-1">{label}</div>
-                              <div className="text-lg font-bold text-foreground">{val}</div>
-                            </div>
-                          ))}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Engagement</p>
+                            <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              <Eye className="h-3 w-3" /> Auto-refreshes every 30s
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4">
+                            {[
+                              { label: "Total Views", val: proposal?.totalViews ?? 0 },
+                              { label: "PDF Downloads", val: proposal?.pdfDownloads ?? 0 },
+                              { label: "Status", val: proposal?.ownerAction ? `Owner: ${proposal.ownerAction.replace(/_/g, " ")}` : "Awaiting response" },
+                            ].map(({ label, val }) => (
+                              <div key={label} className="text-center p-4 bg-muted/20 rounded-lg border border-border/50">
+                                <div className="text-xs text-muted-foreground mb-1">{label}</div>
+                                <div className="text-lg font-bold text-foreground">{val}</div>
+                              </div>
+                            ))}
+                          </div>
+                          {proposal?.lastViewedAt && (
+                            <p className="text-xs text-muted-foreground mt-2">
+                              Last viewed {new Date(proposal.lastViewedAt).toLocaleString("en-AE", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          )}
                         </div>
                         {/* Expiry notice */}
                         {proposal?.expiresAt && (

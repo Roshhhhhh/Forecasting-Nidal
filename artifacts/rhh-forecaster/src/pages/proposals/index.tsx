@@ -3,14 +3,46 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Search, Eye, Download, MoreHorizontal, Globe } from "lucide-react";
-import { useState } from "react";
+import { Search, MoreHorizontal, Globe, Bell } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+
+/** A proposal counts as "recently viewed" if viewed within this window */
+const NEW_VIEW_WINDOW_MS = 2 * 60 * 60 * 1000; // 2 hours
 
 export default function ProposalsList() {
-  const { data: proposals, isLoading } = useListProposals();
+  const { toast } = useToast();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: proposals, isLoading } = useListProposals({
+    query: { refetchInterval: 30_000 } as any,
+  });
   const [search, setSearch] = useState("");
+
+  // Track previous totalViews per proposal id to detect new views
+  const prevViewsRef = useRef<Record<number, number>>({});
+
+  useEffect(() => {
+    if (!proposals) return;
+    const prev = prevViewsRef.current;
+    proposals.forEach((p) => {
+      const prevCount = prev[p.id];
+      const currentCount = p.totalViews ?? 0;
+      // Only toast when we have a baseline (not the very first load) and count increased
+      if (prevCount !== undefined && currentCount > prevCount) {
+        toast({
+          title: "Owner viewed a proposal",
+          description: `Proposal ${p.referenceNumber} was just opened — great time to follow up.`,
+          duration: 8000,
+        });
+      }
+    });
+    // Save current counts as baseline
+    const next: Record<number, number> = {};
+    proposals.forEach((p) => { next[p.id] = p.totalViews ?? 0; });
+    prevViewsRef.current = next;
+  }, [proposals]);
 
   const filteredProposals = proposals?.filter(p => 
     `${p.referenceNumber}`.toLowerCase().includes(search.toLowerCase())
@@ -99,7 +131,16 @@ export default function ProposalsList() {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-muted-foreground">
-                      {proposal.lastViewedAt ? new Date(proposal.lastViewedAt).toLocaleDateString() : '-'}
+                      {proposal.lastViewedAt ? (
+                        <div className="flex flex-col gap-1">
+                          <span>{new Date(proposal.lastViewedAt).toLocaleDateString()}</span>
+                          {(Date.now() - new Date(proposal.lastViewedAt).getTime()) < NEW_VIEW_WINDOW_MS && (
+                            <Badge className="text-[10px] px-1.5 py-0 h-4 w-fit bg-blue-500 hover:bg-blue-500 text-white gap-1">
+                              <Bell className="h-2.5 w-2.5" /> New View
+                            </Badge>
+                          )}
+                        </div>
+                      ) : '-'}
                     </td>
                     <td className="px-6 py-4 text-muted-foreground">
                       {proposal.expiresAt ? new Date(proposal.expiresAt).toLocaleDateString() : '-'}

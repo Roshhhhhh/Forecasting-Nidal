@@ -19,17 +19,16 @@ interface ForecastInputs {
   miscCost: number;
 }
 
+/** Per-month manual overrides keyed by month (1–12). Null fields = use calculated value. */
+export type MonthlyOverrides = Record<number, { occupancyRate?: number | null; adr?: number | null }>;
+
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 // Abu Dhabi seasonal calendar (month 1-12)
 function getSeasonType(month: number): "low" | "shoulder" | "peak" | "event" {
-  // Low: June, July, August (summer heat)
   if ([6, 7, 8].includes(month)) return "low";
-  // Peak: November, December, January, February, March (winter season)
   if ([11, 12, 1, 2, 3].includes(month)) return "peak";
-  // Event: December special events (F1, NYE), January (ADIPEC sometimes)
   if (month === 12) return "event"; // F1/NYE period override
-  // Shoulder: April, May, September, October
   return "shoulder";
 }
 
@@ -46,7 +45,11 @@ function getMonthlyAdr(season: "low" | "shoulder" | "peak" | "event", inputs: Fo
   }
 }
 
-export function calculateMonthlyProjections(inputs: ForecastInputs, year = 2025) {
+export function calculateMonthlyProjections(
+  inputs: ForecastInputs,
+  year = 2025,
+  overrides: MonthlyOverrides = {},
+) {
   const projections = [];
   let totalOccupiedNights = 0;
   let totalRevenue = 0;
@@ -57,39 +60,45 @@ export function calculateMonthlyProjections(inputs: ForecastInputs, year = 2025)
     const daysInMonth = getDaysInMonth(month, year);
     const availableNights = Math.max(0, daysInMonth - blockedPerMonth);
     const season = getSeasonType(month);
-    const adr = getMonthlyAdr(season, inputs);
-    const occupiedNights = availableNights * inputs.occupancyRate;
-    const grossRevenue = occupiedNights * adr;
+
+    // Apply overrides if present, otherwise use base inputs
+    const mo = overrides[month] ?? {};
+    const effectiveOccupancy = (mo.occupancyRate != null) ? mo.occupancyRate : inputs.occupancyRate;
+    const effectiveAdr       = (mo.adr         != null) ? mo.adr          : getMonthlyAdr(season, inputs);
+
+    const occupiedNights = availableNights * effectiveOccupancy;
+    const grossRevenue   = occupiedNights * effectiveAdr;
 
     // Monthly share of annual expenses
-    const monthlyExpenses = (
-      inputs.internetCost +
-      inputs.utilityCost +
-      inputs.maintenanceCost +
-      inputs.miscCost
-    ) / 12;
+    const monthlyExpenses =
+      (inputs.internetCost + inputs.utilityCost + inputs.maintenanceCost + inputs.miscCost) / 12;
     const monthlyManagementFee = grossRevenue * (inputs.managementFeePercent / 100);
     const netOwnerIncome = grossRevenue - monthlyExpenses - monthlyManagementFee;
 
     // LTR monthly comparison
-    const ltrBenchmark = inputs.annualLtr ? (inputs.annualLtr * (1 - inputs.ltrVacancyPercent / 100)) / 12 : null;
+    const ltrBenchmark = inputs.annualLtr
+      ? (inputs.annualLtr * (1 - inputs.ltrVacancyPercent / 100)) / 12
+      : null;
 
     projections.push({
       month,
       year,
       monthName: MONTH_NAMES[month - 1],
       availableNights,
-      occupiedNights: Math.round(occupiedNights * 10) / 10,
-      occupancyRate: inputs.occupancyRate,
-      adr,
-      grossRevenue: Math.round(grossRevenue),
-      netOwnerIncome: Math.round(netOwnerIncome),
-      ltrBenchmark: ltrBenchmark ? Math.round(ltrBenchmark) : null,
-      seasonType: season,
+      occupiedNights:   Math.round(occupiedNights * 10) / 10,
+      occupancyRate:    effectiveOccupancy,
+      adr:              effectiveAdr,
+      grossRevenue:     Math.round(grossRevenue),
+      netOwnerIncome:   Math.round(netOwnerIncome),
+      ltrBenchmark:     ltrBenchmark ? Math.round(ltrBenchmark) : null,
+      seasonType:       season,
+      // Carry overrides through so the DB row records them
+      occupancyOverride: mo.occupancyRate ?? null,
+      adrOverride:       mo.adr ?? null,
     });
 
     totalOccupiedNights += occupiedNights;
-    totalRevenue += grossRevenue;
+    totalRevenue        += grossRevenue;
   }
 
   const weightedAdr = totalOccupiedNights > 0 ? totalRevenue / totalOccupiedNights : 0;
@@ -99,26 +108,26 @@ export function calculateMonthlyProjections(inputs: ForecastInputs, year = 2025)
     inputs.maintenanceCost +
     inputs.miscCost +
     totalRevenue * (inputs.managementFeePercent / 100);
-  const netOwnerIncome = totalRevenue - totalAnnualExpenses;
-  const netLtrIncome = inputs.annualLtr
+  const netOwnerIncome  = totalRevenue - totalAnnualExpenses;
+  const netLtrIncome    = inputs.annualLtr
     ? inputs.annualLtr * (1 - inputs.ltrVacancyPercent / 100)
     : null;
-  const increaseVsLtr = netLtrIncome != null ? netOwnerIncome - netLtrIncome : null;
+  const increaseVsLtr   = netLtrIncome != null ? netOwnerIncome - netLtrIncome : null;
   const increaseVsLtrPct =
     netLtrIncome != null && netLtrIncome > 0
       ? ((netOwnerIncome - netLtrIncome) / netLtrIncome) * 100
       : null;
 
   return {
-    monthlyProjections: projections,
-    grossAnnualRevenue: Math.round(totalRevenue),
-    totalAnnualExpenses: Math.round(totalAnnualExpenses),
-    netOwnerIncome: Math.round(netOwnerIncome),
-    netLtrIncome: netLtrIncome != null ? Math.round(netLtrIncome) : null,
-    increaseVsLtr: increaseVsLtr != null ? Math.round(increaseVsLtr) : null,
-    increaseVsLtrPct: increaseVsLtrPct != null ? Math.round(increaseVsLtrPct * 10) / 10 : null,
-    weightedAdr: Math.round(weightedAdr),
-    managementFeeAmount: Math.round(totalRevenue * (inputs.managementFeePercent / 100)),
+    monthlyProjections:   projections,
+    grossAnnualRevenue:   Math.round(totalRevenue),
+    totalAnnualExpenses:  Math.round(totalAnnualExpenses),
+    netOwnerIncome:       Math.round(netOwnerIncome),
+    netLtrIncome:         netLtrIncome != null ? Math.round(netLtrIncome) : null,
+    increaseVsLtr:        increaseVsLtr != null ? Math.round(increaseVsLtr) : null,
+    increaseVsLtrPct:     increaseVsLtrPct != null ? Math.round(increaseVsLtrPct * 10) / 10 : null,
+    weightedAdr:          Math.round(weightedAdr),
+    managementFeeAmount:  Math.round(totalRevenue * (inputs.managementFeePercent / 100)),
     reconciliationStatus: "passed" as const,
   };
 }
@@ -127,15 +136,15 @@ export function calculateScenario(baseInputs: ForecastInputs, occupancyRate: num
   const scenarioInputs = {
     ...baseInputs,
     occupancyRate,
-    lowSeasonAdr: baseInputs.lowSeasonAdr * adrMultiplier,
+    lowSeasonAdr:      baseInputs.lowSeasonAdr      * adrMultiplier,
     shoulderSeasonAdr: baseInputs.shoulderSeasonAdr * adrMultiplier,
-    peakSeasonAdr: baseInputs.peakSeasonAdr * adrMultiplier,
-    eventAdr: baseInputs.eventAdr * adrMultiplier,
+    peakSeasonAdr:     baseInputs.peakSeasonAdr     * adrMultiplier,
+    eventAdr:          baseInputs.eventAdr          * adrMultiplier,
   };
   const result = calculateMonthlyProjections(scenarioInputs);
   return {
-    grossRevenue: result.grossAnnualRevenue,
+    grossRevenue:   result.grossAnnualRevenue,
     netOwnerIncome: result.netOwnerIncome,
-    totalExpenses: result.totalAnnualExpenses,
+    totalExpenses:  result.totalAnnualExpenses,
   };
 }

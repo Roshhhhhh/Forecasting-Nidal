@@ -2,3 +2,4 @@
 - [RHH auth setup](rhh-auth.md) — Session-based email/password auth; seeded super_admin: admin@royalholidayhomes.ae / Admin123!; sessions table in DB must exist before server starts.
 - [RHH Zod codegen fix](rhh-zod-codegen.md) — Orval generates for Zod v3; all integer OpenAPI fields must use `type: number`; no `format: email`; schema files must import from `zod` not `zod/v4`.
 - [Drizzle raw SQL array binding](drizzle-array-literal.md) — Cannot bind a JS array directly as `${arr}::text[]` in Drizzle `sql` templates; build a PG literal string first.
+- [Monthly projection row ID instability](monthly-projection-ids.md) — Row IDs in monthly_projections change on every recalculate (delete+reinsert); always address rows by forecastId+month (1–12), never by row id.

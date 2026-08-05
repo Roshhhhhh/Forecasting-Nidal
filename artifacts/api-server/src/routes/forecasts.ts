@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import {
   db, forecastsTable, forecastScenariosTable, monthlyProjectionsTable,
   aiRecommendationsTable, ownersTable, propertiesTable, usersTable, proposalsTable,
@@ -10,7 +10,7 @@ import {
   ApproveForecastBody, CreateScenarioBody,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
-import { calculateMonthlyProjections, calculateScenario } from "../lib/calculate";
+import { calculateMonthlyProjections, calculateScenario, type MonthlyOverrides } from "../lib/calculate";
 import { bustCommissionCache } from "./referees";
 
 /** Bust the server-side commission cache for whichever referee is linked to this forecast's owner. */
@@ -179,7 +179,24 @@ router.post("/forecasts/:id/calculate", requireAuth, async (req, res): Promise<v
     utilityCost: f.utilityCost ?? 0, maintenanceCost: f.maintenanceCost ?? 0, miscCost: f.miscCost ?? 0,
   };
 
-  const result = calculateMonthlyProjections(inputs);
+  // Preserve any per-month overrides before wiping the table
+  const existingRows = await db.select({
+    month: monthlyProjectionsTable.month,
+    occupancyOverride: monthlyProjectionsTable.occupancyOverride,
+    adrOverride: monthlyProjectionsTable.adrOverride,
+  }).from(monthlyProjectionsTable).where(eq(monthlyProjectionsTable.forecastId, id));
+
+  const overrides: MonthlyOverrides = {};
+  for (const row of existingRows) {
+    if (row.occupancyOverride != null || row.adrOverride != null) {
+      overrides[row.month] = {
+        occupancyRate: row.occupancyOverride ?? undefined,
+        adr: row.adrOverride ?? undefined,
+      };
+    }
+  }
+
+  const result = calculateMonthlyProjections(inputs, 2025, overrides);
 
   // Save monthly projections
   await db.delete(monthlyProjectionsTable).where(eq(monthlyProjectionsTable.forecastId, id));
@@ -263,6 +280,84 @@ router.get("/forecasts/:id/monthly", requireAuth, async (req, res): Promise<void
     .where(eq(monthlyProjectionsTable.forecastId, id))
     .orderBy(monthlyProjectionsTable.month);
   res.json(projections);
+});
+
+// PATCH /forecasts/:id/monthly/:monthNum — save per-month override then recalculate
+// monthNum is 1–12 (stable; do NOT use row id which changes on every recalculate)
+router.patch("/forecasts/:id/monthly/:monthNum", requireAuth, async (req, res): Promise<void> => {
+  const forecastId = parseInt(req.params.id, 10);
+  const monthNum   = parseInt(req.params.monthNum, 10);
+  if (monthNum < 1 || monthNum > 12) { res.status(400).json({ error: "monthNum must be 1–12" }); return; }
+
+  const { occupancyOverride, adrOverride } = req.body as {
+    occupancyOverride?: number | null;
+    adrOverride?: number | null;
+  };
+
+  const [f] = await db.select().from(forecastsTable).where(eq(forecastsTable.id, forecastId));
+  if (!f) { res.status(404).json({ error: "Forecast not found" }); return; }
+
+  // Save the override on the specific month row (by month number, not row id)
+  await db.update(monthlyProjectionsTable)
+    .set({ occupancyOverride: occupancyOverride !== undefined ? occupancyOverride : null,
+           adrOverride: adrOverride !== undefined ? adrOverride : null })
+    .where(
+      and(
+        eq(monthlyProjectionsTable.forecastId, forecastId),
+        eq(monthlyProjectionsTable.month, monthNum),
+      )
+    );
+
+  // Recalculate the full forecast respecting all overrides
+  const inputs = {
+    lowSeasonAdr: f.lowSeasonAdr!, shoulderSeasonAdr: f.shoulderSeasonAdr!,
+    peakSeasonAdr: f.peakSeasonAdr!, eventAdr: f.eventAdr!,
+    occupancyRate: f.recommendedOccupancy ?? 0.80,
+    ownerBlockedNights: f.ownerBlockedNights ?? 0,
+    managementFeePercent: f.managementFeePercent ?? 20,
+    ltrVacancyPercent: f.ltrVacancyPercent ?? 10,
+    annualLtr: f.annualLtr, internetCost: f.internetCost ?? 0,
+    utilityCost: f.utilityCost ?? 0, maintenanceCost: f.maintenanceCost ?? 0, miscCost: f.miscCost ?? 0,
+  };
+
+  // Read all current overrides (including the one we just saved)
+  const allRows = await db.select({
+    month: monthlyProjectionsTable.month,
+    occupancyOverride: monthlyProjectionsTable.occupancyOverride,
+    adrOverride: monthlyProjectionsTable.adrOverride,
+  }).from(monthlyProjectionsTable).where(eq(monthlyProjectionsTable.forecastId, forecastId));
+
+  const overrides: MonthlyOverrides = {};
+  for (const row of allRows) {
+    if (row.occupancyOverride != null || row.adrOverride != null) {
+      overrides[row.month] = { occupancyRate: row.occupancyOverride ?? undefined, adr: row.adrOverride ?? undefined };
+    }
+  }
+
+  const result = calculateMonthlyProjections(inputs, 2025, overrides);
+
+  await db.delete(monthlyProjectionsTable).where(eq(monthlyProjectionsTable.forecastId, forecastId));
+  await db.insert(monthlyProjectionsTable).values(
+    result.monthlyProjections.map(m => ({ ...m, forecastId }))
+  );
+
+  // Update scenarios + forecast aggregates
+  const scenarios = await db.select().from(forecastScenariosTable).where(eq(forecastScenariosTable.forecastId, forecastId));
+  for (const scenario of scenarios) {
+    const sc = calculateScenario(inputs, scenario.occupancyRate, scenario.adrMultiplier ?? 1);
+    await db.update(forecastScenariosTable).set(sc).where(eq(forecastScenariosTable.id, scenario.id));
+  }
+  const recScenario = scenarios.find(s => s.isRecommended) ?? scenarios[1];
+  const recommendedOccupancy = recScenario?.occupancyRate ?? inputs.occupancyRate;
+  await db.update(forecastsTable).set({ ...result, recommendedOccupancy, monthlyProjections: undefined } as any).where(eq(forecastsTable.id, forecastId));
+
+  await bustCacheForForecast(f.ownerId);
+
+  // Return updated projections
+  const updated = await db.select().from(monthlyProjectionsTable)
+    .where(eq(monthlyProjectionsTable.forecastId, forecastId))
+    .orderBy(monthlyProjectionsTable.month);
+  res.json(updated);
 });
 
 router.post("/forecasts/:id/ai-recommend", requireAuth, async (req, res): Promise<void> => {

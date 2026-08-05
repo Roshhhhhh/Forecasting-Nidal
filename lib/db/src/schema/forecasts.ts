@@ -111,6 +111,9 @@ export const monthlyProjectionsTable = pgTable("monthly_projections", {
   netOwnerIncome: real("net_owner_income").notNull(),
   ltrBenchmark: real("ltr_benchmark"),
   seasonType: text("season_type").notNull().default("shoulder"),
+  // Per-month manual overrides — null means "use calculated value"
+  occupancyOverride: real("occupancy_override"),
+  adrOverride: real("adr_override"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

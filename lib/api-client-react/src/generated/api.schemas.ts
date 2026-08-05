@@ -824,6 +824,11 @@ export interface ScenarioInput {
   isRecommended?: boolean;
 }
 
+export interface MonthlyProjectionOverrideBody {
+  occupancyOverride?: number | null;
+  adrOverride?: number | null;
+}
+
 export interface MonthlyProjection {
   month: number;
   year: number;
@@ -837,6 +842,10 @@ export interface MonthlyProjection {
   /** @nullable */
   ltrBenchmark?: number | null;
   seasonType?: string;
+  /** @nullable */
+  occupancyOverride?: number | null;
+  /** @nullable */
+  adrOverride?: number | null;
 }
 
 export interface AiRecommendation {

@@ -2522,6 +2522,10 @@ components:
           type: ["number", "null"]
         seasonType:
           type: string
+        occupancyOverride:
+          type: ["number", "null"]
+        adrOverride:
+          type: ["number", "null"]
 
     AiRecommendation:
       type: object

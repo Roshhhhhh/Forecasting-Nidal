@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import {
   useGetForecast, useUpdateForecast, useCalculateForecast,
-  useListForecastScenarios, useGetForecastMonthly,
+  useListForecastScenarios, useGetForecastMonthly, useUpdateMonthlyOverride,
   useGenerateAiRecommendation, useGenerateNarrativeDraft, useListProposals, usePublishProposal,
   useUpdateProposal,
 } from "@workspace/api-client-react";
@@ -67,6 +67,260 @@ function getStatusColor(status: string) {
     case "draft": return "bg-gray-400/20 text-gray-600 border-gray-400/30";
     default: return "bg-secondary/20 text-secondary-foreground border-secondary/30";
   }
+}
+
+// ── Monthly Projections Tab — inline editable Occupancy % and ADR ─────────────
+function MonthlyProjectionsTab({ forecastId, monthly }: {
+  forecastId: number;
+  monthly: any[];
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const updateOverride = useUpdateMonthlyOverride();
+
+  // Local editing state: { [monthId]: { occupancy: string; adr: string } }
+  const [editing, setEditing] = useState<Record<number, { occupancy: string; adr: string }>>({});
+  const [saving, setSaving] = useState<Record<number, boolean>>({});
+
+  function startEdit(m: any) {
+    setEditing(prev => ({
+      ...prev,
+      [m.month]: {
+        occupancy: String(Math.round((m.occupancyRate ?? 0) * 100)),
+        adr: String(Math.round(m.adr ?? 0)),
+      },
+    }));
+  }
+
+  function cancelEdit(key: number) {
+    setEditing(prev => { const n = { ...prev }; delete n[key]; return n; });
+  }
+
+  // Key by month number (1–12) — stable across recalculations, unlike row id
+  async function saveOverride(m: any) {
+    const key = m.month as number;
+    const e = editing[key];
+    if (!e) return;
+
+    const occPct   = parseFloat(e.occupancy);
+    const adrVal   = parseFloat(e.adr);
+
+    if (isNaN(occPct) || occPct < 0 || occPct > 100) { toast({ title: "Invalid occupancy", description: "Enter a value between 0 and 100.", variant: "destructive" }); return; }
+    if (isNaN(adrVal) || adrVal < 0) { toast({ title: "Invalid ADR", description: "Enter a positive number.", variant: "destructive" }); return; }
+
+    setSaving(prev => ({ ...prev, [key]: true }));
+    try {
+      await updateOverride.mutateAsync({
+        forecastId,
+        monthNum: key,
+        data: { occupancyOverride: occPct / 100, adrOverride: adrVal },
+      });
+      cancelEdit(key);
+      queryClient.invalidateQueries({ queryKey: [`/api/forecasts/${forecastId}/monthly`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/forecasts/${forecastId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/forecasts/${forecastId}/scenarios`] });
+      toast({ title: "Override saved", description: `${m.monthName} updated and recalculated.` });
+    } catch {
+      toast({ title: "Save failed", description: "Could not save override.", variant: "destructive" });
+    } finally {
+      setSaving(prev => ({ ...prev, [key]: false }));
+    }
+  }
+
+  async function clearOverride(m: any) {
+    const key = m.month as number;
+    setSaving(prev => ({ ...prev, [key]: true }));
+    try {
+      await updateOverride.mutateAsync({
+        forecastId,
+        monthNum: key,
+        data: { occupancyOverride: null, adrOverride: null },
+      });
+      cancelEdit(key);
+      queryClient.invalidateQueries({ queryKey: [`/api/forecasts/${forecastId}/monthly`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/forecasts/${forecastId}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/forecasts/${forecastId}/scenarios`] });
+      toast({ title: "Override cleared", description: `${m.monthName} restored to calculated values.` });
+    } catch {
+      toast({ title: "Failed", description: "Could not clear override.", variant: "destructive" });
+    } finally {
+      setSaving(prev => ({ ...prev, [key]: false }));
+    }
+  }
+
+  const hasAnyOverride = monthly.some(m => m.occupancyOverride != null || m.adrOverride != null);
+
+  if (!monthly || monthly.length === 0) {
+    return (
+      <Card className="border-border/50 shadow-sm">
+        <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+          <CardTitle className="font-serif text-base">Monthly Projections</CardTitle>
+        </CardHeader>
+        <CardContent className="p-12 text-center text-muted-foreground">
+          <Calendar className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+          <p className="font-medium">No monthly data yet</p>
+          <p className="text-sm mt-1">Fill in the Data Inputs tab and click <strong>Save & Calculate</strong></p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-border/50 shadow-sm">
+      <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="font-serif text-base">Monthly Projections</CardTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">Click any Occupancy % or ADR cell to override it for that month</p>
+          </div>
+          {hasAnyOverride && (
+            <span className="text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400 px-2 py-1 rounded-full font-medium border border-amber-200 dark:border-amber-800">
+              ✦ Overrides active
+            </span>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="overflow-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-muted/40 border-b border-border">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">Month</th>
+                <th className="px-4 py-3 text-left font-medium">Season</th>
+                <th className="px-4 py-3 text-right font-medium">Available</th>
+                <th className="px-4 py-3 text-right font-medium">Occupied</th>
+                <th className="px-4 py-3 text-right font-medium text-amber-600 dark:text-amber-400">Occupancy %</th>
+                <th className="px-4 py-3 text-right font-medium text-amber-600 dark:text-amber-400">ADR</th>
+                <th className="px-4 py-3 text-right font-medium">Gross Revenue</th>
+                <th className="px-4 py-3 text-right font-medium text-primary">Net Income</th>
+                <th className="px-4 py-3 text-right font-medium text-muted-foreground">vs LTR</th>
+                <th className="px-4 py-2 w-20" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {monthly.map((m: any) => {
+                const key = m.month as number;
+                const isEditing = !!editing[key];
+                const isSaving  = !!saving[key];
+                const hasOccOverride = m.occupancyOverride != null;
+                const hasAdrOverride = m.adrOverride != null;
+                const hasOverride = hasOccOverride || hasAdrOverride;
+                const e = editing[key];
+
+                return (
+                  <tr key={m.month} className={`hover:bg-muted/20 transition-colors ${hasOverride ? "bg-amber-50/40 dark:bg-amber-900/5" : ""}`}>
+                    <td className="px-4 py-2.5 font-medium">{m.monthName}</td>
+                    <td className="px-4 py-2.5">
+                      <span className={`text-xs px-2 py-0.5 rounded-full capitalize font-medium ${
+                        m.seasonType === "peak"   ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20" :
+                        m.seasonType === "low"    ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20" :
+                        m.seasonType === "event"  ? "bg-red-100 text-red-700 dark:bg-red-900/20" :
+                        "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20"
+                      }`}>{m.seasonType}</span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-muted-foreground">{m.availableNights}</td>
+                    <td className="px-4 py-2.5 text-right text-muted-foreground">{Math.round((m.occupiedNights ?? 0) * 10) / 10}</td>
+
+                    {/* Occupancy — editable */}
+                    <td className="px-2 py-1.5 text-right">
+                      {isEditing ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <Input
+                            autoFocus
+                            type="number" min={0} max={100} step={1}
+                            className="w-20 h-7 text-right text-xs px-2"
+                            value={e.occupancy}
+                            onChange={ev => setEditing(prev => ({ ...prev, [key]: { ...prev[key], occupancy: ev.target.value } }))}
+                            onKeyDown={ev => { if (ev.key === "Enter") saveOverride(m); if (ev.key === "Escape") cancelEdit(key); }}
+                          />
+                          <span className="text-xs text-muted-foreground">%</span>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => startEdit(m)}
+                          title="Click to override"
+                          className={`group flex items-center justify-end gap-1.5 w-full text-right hover:text-amber-600 transition-colors ${hasOccOverride ? "text-amber-600 font-semibold" : ""}`}
+                        >
+                          {hasOccOverride && <span className="text-[9px] text-amber-500">✦</span>}
+                          <span>{Math.round((m.occupancyRate ?? 0) * 100)}%</span>
+                          <span className="opacity-0 group-hover:opacity-60 text-[10px]">✎</span>
+                        </button>
+                      )}
+                    </td>
+
+                    {/* ADR — editable */}
+                    <td className="px-2 py-1.5 text-right">
+                      {isEditing ? (
+                        <div className="flex items-center justify-end gap-1">
+                          <Input
+                            type="number" min={0} step={1}
+                            className="w-24 h-7 text-right text-xs px-2"
+                            value={e.adr}
+                            onChange={ev => setEditing(prev => ({ ...prev, [key]: { ...prev[key], adr: ev.target.value } }))}
+                            onKeyDown={ev => { if (ev.key === "Enter") saveOverride(m); if (ev.key === "Escape") cancelEdit(key); }}
+                          />
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => startEdit(m)}
+                          title="Click to override"
+                          className={`group flex items-center justify-end gap-1.5 w-full text-right hover:text-amber-600 transition-colors ${hasAdrOverride ? "text-amber-600 font-semibold" : ""}`}
+                        >
+                          {hasAdrOverride && <span className="text-[9px] text-amber-500">✦</span>}
+                          <span>AED {Math.round(m.adr ?? 0).toLocaleString()}</span>
+                          <span className="opacity-0 group-hover:opacity-60 text-[10px]">✎</span>
+                        </button>
+                      )}
+                    </td>
+
+                    <td className="px-4 py-2.5 text-right font-medium">{fmt(m.grossRevenue)}</td>
+                    <td className="px-4 py-2.5 text-right font-bold text-primary">{fmt(m.netOwnerIncome)}</td>
+                    <td className="px-4 py-2.5 text-right text-muted-foreground text-xs">{m.ltrBenchmark ? fmt(m.ltrBenchmark) : "—"}</td>
+
+                    {/* Row actions */}
+                    <td className="px-2 py-1.5">
+                      {isEditing ? (
+                        <div className="flex gap-1 justify-end">
+                          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-muted-foreground" onClick={() => cancelEdit(key)} disabled={isSaving}>✕</Button>
+                          <Button size="sm" className="h-7 px-2 text-xs bg-primary" onClick={() => saveOverride(m)} disabled={isSaving}>
+                            {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                          </Button>
+                        </div>
+                      ) : hasOverride ? (
+                        <button
+                          onClick={() => clearOverride(m)}
+                          disabled={isSaving}
+                          title="Clear override — restore calculated value"
+                          className="text-[10px] text-muted-foreground hover:text-red-500 transition-colors px-2 py-1 rounded hover:bg-red-50 dark:hover:bg-red-900/10"
+                        >
+                          {isSaving ? <Loader2 className="h-3 w-3 animate-spin inline" /> : "Reset"}
+                        </button>
+                      ) : null}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+            <tfoot className="bg-muted/30 border-t-2 border-border font-semibold">
+              <tr>
+                <td className="px-4 py-3" colSpan={6}>Annual Total</td>
+                <td className="px-4 py-3 text-right">{fmt(monthly.reduce((s: number, m: any) => s + (m.grossRevenue ?? 0), 0))}</td>
+                <td className="px-4 py-3 text-right text-primary">{fmt(monthly.reduce((s: number, m: any) => s + (m.netOwnerIncome ?? 0), 0))}</td>
+                <td className="px-4 py-3 text-right text-muted-foreground text-xs">{monthly[0]?.ltrBenchmark ? fmt(monthly.reduce((s: number, m: any) => s + (m.ltrBenchmark ?? 0), 0)) : "—"}</td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <div className="p-4 border-t border-border/50 bg-muted/10 flex items-start gap-2">
+          <span className="text-amber-500 text-xs mt-0.5">✦</span>
+          <p className="text-xs text-muted-foreground">
+            <strong>Overridden months</strong> are highlighted and marked with ✦. Changes are saved immediately and recalculate all totals, scenarios, and the proposal. Click <strong>Reset</strong> on any row to restore the calculated value.
+          </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
 }
 
 // hint: Logic changed on both sides. Requires understanding intent of each change.
@@ -969,68 +1223,7 @@ export default function ForecastDetail() {
 
           {/* ── MONTHLY ── */}
           <TabsContent value="monthly" className="p-6 max-w-[1400px] mx-auto">
-            <Card className="border-border/50 shadow-sm">
-              <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
-                <CardTitle className="font-serif text-base">Monthly Projections</CardTitle>
-              </CardHeader>
-              <CardContent className="p-0">
-                {!monthly || monthly.length === 0 ? (
-                  <div className="p-12 text-center text-muted-foreground">
-                    <Calendar className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-                    <p className="font-medium">No monthly data yet</p>
-                    <p className="text-sm mt-1">Fill in the Data Inputs tab and click <strong>Save & Calculate</strong></p>
-                  </div>
-                ) : (
-                  <div className="overflow-auto">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted/40 border-b border-border">
-                        <tr>
-                          <th className="px-4 py-3 text-left font-medium">Month</th>
-                          <th className="px-4 py-3 text-left font-medium">Season</th>
-                          <th className="px-4 py-3 text-right font-medium">Available</th>
-                          <th className="px-4 py-3 text-right font-medium">Occupied</th>
-                          <th className="px-4 py-3 text-right font-medium">Occupancy</th>
-                          <th className="px-4 py-3 text-right font-medium">ADR</th>
-                          <th className="px-4 py-3 text-right font-medium">Gross Revenue</th>
-                          <th className="px-4 py-3 text-right font-medium text-primary">Net Income</th>
-                          <th className="px-4 py-3 text-right font-medium text-muted-foreground">vs LTR</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border">
-                        {monthly.map((m) => (
-                          <tr key={m.month} className="hover:bg-muted/20">
-                            <td className="px-4 py-3 font-medium">{m.monthName}</td>
-                            <td className="px-4 py-3">
-                              <span className={`text-xs px-2 py-0.5 rounded-full capitalize font-medium ${
-                                m.seasonType === "peak" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20" :
-                                m.seasonType === "low" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20" :
-                                m.seasonType === "event" ? "bg-red-100 text-red-700 dark:bg-red-900/20" :
-                                "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20"
-                              }`}>{m.seasonType}</span>
-                            </td>
-                            <td className="px-4 py-3 text-right text-muted-foreground">{m.availableNights}</td>
-                            <td className="px-4 py-3 text-right text-muted-foreground">{Math.round((m.occupiedNights as number) * 10) / 10}</td>
-                            <td className="px-4 py-3 text-right">{Math.round((m.occupancyRate as number) * 100)}%</td>
-                            <td className="px-4 py-3 text-right">AED {m.adr?.toLocaleString()}</td>
-                            <td className="px-4 py-3 text-right font-medium">{fmt(m.grossRevenue)}</td>
-                            <td className="px-4 py-3 text-right font-bold text-primary">{fmt(m.netOwnerIncome)}</td>
-                            <td className="px-4 py-3 text-right text-muted-foreground text-xs">{m.ltrBenchmark ? fmt(m.ltrBenchmark) : "—"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                      <tfoot className="bg-muted/30 border-t-2 border-border font-semibold">
-                        <tr>
-                          <td className="px-4 py-3" colSpan={6}>Annual Total</td>
-                          <td className="px-4 py-3 text-right">{fmt(monthly.reduce((s, m) => s + (m.grossRevenue ?? 0), 0))}</td>
-                          <td className="px-4 py-3 text-right text-primary">{fmt(monthly.reduce((s, m) => s + (m.netOwnerIncome ?? 0), 0))}</td>
-                          <td className="px-4 py-3 text-right text-muted-foreground text-xs">{monthly[0]?.ltrBenchmark ? fmt(monthly.reduce((s, m) => s + (m.ltrBenchmark ?? 0), 0)) : "—"}</td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+            <MonthlyProjectionsTab forecastId={forecastId} monthly={monthly ?? []} />
           </TabsContent>
 
           {/* ── PROPOSAL ── */}

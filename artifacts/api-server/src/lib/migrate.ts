@@ -80,6 +80,13 @@ export async function runStartupMigration() {
       )
     `);
 
+    // 6. Add per-month override columns to monthly_projections if they don't exist
+    await db.execute(sql`
+      ALTER TABLE monthly_projections
+        ADD COLUMN IF NOT EXISTS occupancy_override REAL,
+        ADD COLUMN IF NOT EXISTS adr_override REAL
+    `);
+
     logger.info("Startup migration complete");
   } catch (err) {
     logger.error({ err }, "Startup migration failed");

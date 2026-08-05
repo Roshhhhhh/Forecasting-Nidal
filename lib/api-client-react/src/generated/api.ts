@@ -3711,6 +3711,45 @@ export function useGetForecastMonthly<TData = Awaited<ReturnType<typeof getForec
 
 
 
+// ── PATCH /forecasts/:id/monthly/:monthId ──────────────────────────────────
+
+/** monthNum is 1–12; this is stable across recalculations unlike the row id */
+export const updateMonthlyOverride = async (
+  forecastId: number,
+  monthNum: number,
+  data: import('./api.schemas').MonthlyProjectionOverrideBody,
+  options?: Parameters<typeof customFetch>[1],
+): Promise<import('./api.schemas').MonthlyProjection[]> => {
+  return customFetch<import('./api.schemas').MonthlyProjection[]>(
+    `/api/forecasts/${forecastId}/monthly/${monthNum}`,
+    { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), ...options },
+  );
+};
+
+export const useUpdateMonthlyOverride = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: {
+    mutation?: UseMutationOptions<
+      Awaited<ReturnType<typeof updateMonthlyOverride>>,
+      TError,
+      { forecastId: number; monthNum: number; data: import('./api.schemas').MonthlyProjectionOverrideBody },
+      TContext
+    >;
+  },
+) => {
+  const mutationKey = ['updateMonthlyOverride'];
+  const { mutation: mutationOptions } = options ?? {};
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof updateMonthlyOverride>>,
+    { forecastId: number; monthNum: number; data: import('./api.schemas').MonthlyProjectionOverrideBody }
+  > = ({ forecastId, monthNum, data }) => updateMonthlyOverride(forecastId, monthNum, data);
+  return useMutation<
+    Awaited<ReturnType<typeof updateMonthlyOverride>>,
+    TError,
+    { forecastId: number; monthNum: number; data: import('./api.schemas').MonthlyProjectionOverrideBody },
+    TContext
+  >({ mutationKey, mutationFn, ...mutationOptions });
+};
+
 export const getGenerateAiRecommendationUrl = (id: number,) => {
 
 

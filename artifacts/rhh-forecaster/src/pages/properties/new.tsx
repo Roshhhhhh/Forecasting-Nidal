@@ -70,12 +70,14 @@ const propertySchema = z.object({
   propertyType: z.enum(["apartment", "duplex", "penthouse", "townhouse", "villa", "studio", "hotel_apartment", "other"]),
   bedrooms: z.coerce.number().min(0),
   bathrooms: z.coerce.number().min(0).optional(),
-  internalArea: z.coerce.number().min(1, "Area is required"),
+  internalArea: z.coerce.number().min(1, "Size is required"),
   furnishingStatus: z.enum(["unfurnished", "partially_furnished", "fully_furnished", "premium_furnished", "hotel_grade"]).optional(),
   propertyCondition: z.enum(["new", "excellent", "good", "requires_refresh", "requires_renovation"]).optional(),
   view: z.string().optional(),
   isWaterfront: z.boolean().default(false),
   hasPrivatePool: z.boolean().default(false),
+  vacancyStatus: z.enum(["vacant", "owner_staying", "tenant_staying", "off_plan"]).optional(),
+  expectedDate: z.string().optional(),
 });
 
 type PropertyFormValues = z.infer<typeof propertySchema>;
@@ -104,18 +106,26 @@ export default function PropertyNew() {
     },
   });
 
-  const watchedEmirate = form.watch("emirate");
-  const watchedArea    = form.watch("area");
-  const isAbuDhabi     = watchedEmirate === "Abu Dhabi";
-  const isOtherArea    = watchedArea === "Other" || (!isAbuDhabi && watchedArea !== undefined);
+  const watchedEmirate    = form.watch("emirate");
+  const watchedArea       = form.watch("area");
+  const watchedVacancy    = form.watch("vacancyStatus");
+  const isAbuDhabi        = watchedEmirate === "Abu Dhabi";
   const [customArea, setCustomArea] = useState("");
+
+  const needsDate = watchedVacancy === "owner_staying" || watchedVacancy === "tenant_staying" || watchedVacancy === "off_plan";
+  const dateLabel = watchedVacancy === "off_plan" ? "Expected Handover Date" : "Expected Vacancy Date";
 
   const onSubmit = async (data: PropertyFormValues) => {
     try {
-      const submitData = { ...data };
+      const submitData: any = { ...data };
       if (!submitData.bathrooms) submitData.bathrooms = submitData.bedrooms;
+      // Map vacancy fields to API fields
+      if (data.vacancyStatus) submitData.currentTenancyStatus = data.vacancyStatus;
+      if (data.expectedDate)  submitData.availabilityDate     = data.expectedDate;
+      delete submitData.vacancyStatus;
+      delete submitData.expectedDate;
       
-      const result = await createProperty.mutateAsync({ data: submitData as any });
+      const result = await createProperty.mutateAsync({ data: submitData });
       toast({ title: "Property created", description: "The property has been added to the portfolio." });
       setLocation(`/properties/${result.id}`);
     } catch (error) {
@@ -425,6 +435,60 @@ export default function PropertyNew() {
                   )}
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Vacancy Status */}
+          <Card className="border-border/50 shadow-sm">
+            <CardHeader className="border-b border-border bg-muted/20">
+              <CardTitle className="text-lg">Vacancy Status</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="vacancyStatus"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Current Status</FormLabel>
+                    <Select onValueChange={(val) => { field.onChange(val); form.setValue("expectedDate", ""); }} value={field.value ?? ""}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select vacancy status" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="vacant">
+                          <span className="flex items-center gap-2">🟢 Vacant — Ready to Onboard</span>
+                        </SelectItem>
+                        <SelectItem value="owner_staying">
+                          <span className="flex items-center gap-2">🏠 Owner Staying In</span>
+                        </SelectItem>
+                        <SelectItem value="tenant_staying">
+                          <span className="flex items-center gap-2">🔑 Tenant Staying In</span>
+                        </SelectItem>
+                        <SelectItem value="off_plan">
+                          <span className="flex items-center gap-2">🏗️ Off-Plan / Under Construction</span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {needsDate && (
+                <FormField
+                  control={form.control}
+                  name="expectedDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{dateLabel}</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              )}
             </CardContent>
           </Card>
 

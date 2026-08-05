@@ -8,9 +8,58 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation, Link, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+
+const UAE_EMIRATES = [
+  "Abu Dhabi",
+  "Dubai",
+  "Sharjah",
+  "Ajman",
+  "Umm Al Quwain",
+  "Ras Al Khaimah",
+  "Fujairah",
+];
+
+const ABU_DHABI_AREAS = [
+  "Al Reem Island",
+  "Yas Island",
+  "Saadiyat Island",
+  "Al Marriyah Island",
+  "Al Maryah Island",
+  "Al Raha Beach",
+  "Corniche",
+  "Downtown Abu Dhabi",
+  "Al Khalidiyah",
+  "Al Manhal",
+  "Al Mushrif",
+  "Khalifa City",
+  "Al Reef",
+  "Masdar City",
+  "Rabdan",
+  "Al Hudairiyat Island",
+  "Al Jubail Island",
+  "Al Fahid Island",
+  "Bani Yas",
+  "Al Shamkha",
+  "Al Falah",
+  "Mohammed Bin Zayed City",
+  "Al Karamah",
+  "Madinat Zayed",
+  "Al Wahda",
+  "Al Danah",
+  "Al Rawdah",
+  "Al Bateen",
+  "Al Musalla",
+  "Tourist Club Area",
+  "Al Nahyan",
+  "Al Muroor",
+  "Al Zaab",
+  "Hamdan Street",
+  "Electra Street",
+  "Other",
+];
 
 const propertySchema = z.object({
   ownerId: z.coerce.number().min(1, "Owner is required"),
@@ -54,6 +103,12 @@ export default function PropertyNew() {
       hasPrivatePool: false,
     },
   });
+
+  const watchedEmirate = form.watch("emirate");
+  const watchedArea    = form.watch("area");
+  const isAbuDhabi     = watchedEmirate === "Abu Dhabi";
+  const isOtherArea    = watchedArea === "Other" || (!isAbuDhabi && watchedArea !== undefined);
+  const [customArea, setCustomArea] = useState("");
 
   const onSubmit = async (data: PropertyFormValues) => {
     try {
@@ -119,20 +174,29 @@ export default function PropertyNew() {
               <CardTitle className="text-lg">Location Details</CardTitle>
             </CardHeader>
             <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Emirate */}
               <FormField
                 control={form.control}
                 name="emirate"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Emirate <span className="text-destructive">*</span></FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        // Reset area when emirate changes
+                        form.setValue("area", "");
+                        setCustomArea("");
+                      }}
+                      value={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger><SelectValue placeholder="Select emirate" /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="Abu Dhabi">Abu Dhabi</SelectItem>
-                        <SelectItem value="Dubai">Dubai</SelectItem>
-                        <SelectItem value="Ras Al Khaimah">Ras Al Khaimah</SelectItem>
+                        {UAE_EMIRATES.map(e => (
+                          <SelectItem key={e} value={e}>{e}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -140,13 +204,56 @@ export default function PropertyNew() {
                 )}
               />
 
+              {/* Area / District */}
               <FormField
                 control={form.control}
                 name="area"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Area / District <span className="text-destructive">*</span></FormLabel>
-                    <FormControl><Input placeholder="e.g. Saadiyat Island" {...field} /></FormControl>
+                    {isAbuDhabi ? (
+                      <>
+                        <Select
+                          onValueChange={(val) => {
+                            if (val === "Other") {
+                              field.onChange("Other");
+                              setCustomArea("");
+                            } else {
+                              field.onChange(val);
+                              setCustomArea("");
+                            }
+                          }}
+                          value={field.value ?? ""}
+                        >
+                          <FormControl>
+                            <SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="max-h-72">
+                            <SelectGroup>
+                              <SelectLabel>Abu Dhabi Areas</SelectLabel>
+                              {ABU_DHABI_AREAS.map(a => (
+                                <SelectItem key={a} value={a}>{a}</SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                        {field.value === "Other" && (
+                          <Input
+                            className="mt-2"
+                            placeholder="Type area name…"
+                            value={customArea}
+                            onChange={(e) => {
+                              setCustomArea(e.target.value);
+                              field.onChange(e.target.value || "Other");
+                            }}
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <FormControl>
+                        <Input placeholder="e.g. Downtown, JBR, Palm…" {...field} />
+                      </FormControl>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

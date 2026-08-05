@@ -1,0 +1,1652 @@
+Build a production-ready, secure, responsive web application for Royal Holiday Homes called:
+
+RHH Property Revenue Forecaster
+Optional product name: Royal Forecast
+
+The platform must allow Royal Holiday Homes employees to create professional short-term rental revenue forecasts, compare them with long-term rental income, generate AI-assisted pricing recommendations, manually override all suggestions, and publish outstanding interactive proposals through secure shareable owner links.
+
+This is not only a calculator. It is an internal forecasting, proposal-generation, sales-conversion, approval, and owner-presentation platform.
+
+==================================================
+1. BUSINESS OBJECTIVE
+==================================================
+
+The platform should help Royal Holiday Homes:
+
+1. Assess a property’s short-term rental potential.
+2. Estimate achievable ADR by season.
+3. Estimate gross annual short-term rental revenue.
+4. estimate operating expenses and management fees.
+5. Calculate expected annual and monthly net owner income.
+6. Compare short-term rental performance with traditional long-term leasing.
+7. Produce multiple occupancy and performance scenarios.
+8. Generate a visually premium proposal personalized to each owner.
+9. Allow the proposal to be shared using a secure dynamic web link.
+10. Track whether the owner opened, viewed, downloaded, accepted, rejected, or requested a call regarding the proposal.
+11. Convert an accepted proposal into an onboarding opportunity or CRM lead.
+12. Maintain a reliable internal database of Abu Dhabi areas, projects, ADR benchmarks, LTR benchmarks, seasonal pricing and property characteristics.
+
+Use the uploaded spreadsheet:
+
+“AUH Areas 22-01-2026 by Fahd.xlsx”
+
+as the initial market benchmark database.
+
+The spreadsheet contains fields such as:
+
+- Area
+- Property type
+- Project status
+- Developer
+- Project/building name
+- Studio ADR
+- Studio LTR
+- 1-bedroom ADR
+- 1-bedroom LTR
+- 2-bedroom ADR
+- 2-bedroom LTR
+- 3-bedroom ADR
+- 3-bedroom LTR
+- 4-bedroom ADR
+- 4-bedroom LTR
+
+Import this data into the application database through a controlled admin import process.
+
+Do not permanently hardcode spreadsheet values into application source code.
+
+==================================================
+2. REQUIRED TECHNOLOGY
+==================================================
+
+Use a modern production-ready stack suitable for deployment on Replit.
+
+Preferred stack:
+
+Frontend:
+- Next.js
+- React
+- TypeScript
+- Tailwind CSS
+- shadcn/ui or an equivalent premium component library
+- Recharts for interactive charts
+- React Hook Form
+- Zod validation
+
+Backend:
+- Next.js server actions or API routes
+- TypeScript
+- PostgreSQL
+- Prisma ORM
+
+Authentication:
+- Secure email and password authentication
+- Session-based authentication
+- Role-based access control
+- Password reset
+- Optional Google Workspace login later
+
+File storage:
+- Replit Object Storage, S3-compatible storage, or Cloudinary
+- Store property photos, floorplans, logos and generated PDFs securely
+
+PDF generation:
+- Generate PDF proposals from the same dynamic web proposal template
+- Use Playwright, Puppeteer, React PDF, or another reliable server-side PDF generation solution
+- The web proposal and PDF proposal must use the same validated financial data
+
+AI integration:
+- OpenAI API or another configurable LLM service
+- Store prompts, responses, confidence levels, source data and timestamps
+- AI must suggest values but must never silently replace approved employee inputs
+
+Architecture:
+- Modular and maintainable
+- Strong TypeScript types
+- Environment variables for all secrets
+- No API keys in frontend code
+- Database migrations
+- Seed scripts
+- Input validation on frontend and backend
+- Audit logging for sensitive changes
+
+==================================================
+3. USER ROLES AND PERMISSIONS
+==================================================
+
+Create the following user roles.
+
+A. Super Admin
+
+Permissions:
+- Full platform access
+- Create and deactivate users
+- Assign roles and permissions
+- Manage company profile and branding
+- Manage market database
+- Import and export pricing data
+- Manage AI settings
+- Manage formulas and default assumptions
+- Manage expense rules
+- Manage proposal templates
+- Manage disclaimers
+- View all proposals
+- Edit locked proposals when necessary
+- Delete or archive forecasts
+- View audit logs
+- View proposal engagement analytics
+- Configure email notifications
+- Configure link expiry and security
+
+B. Admin
+
+Permissions:
+- Create, edit, duplicate and archive forecasts
+- Add owners and properties
+- Request AI recommendations
+- Override AI recommendations
+- Generate and publish proposals
+- Generate PDFs
+- Send or copy proposal links
+- View proposal activity
+- Manage assigned market data
+- Submit forecasts for internal approval
+- Approve forecasts if separately authorized
+
+C. Sales and Client Relations User
+
+Permissions:
+- Create owner and property records
+- Create draft forecasts
+- Request AI suggestions
+- Enter manual pricing and assumptions
+- Generate draft previews
+- Submit proposals for approval
+- Share approved proposals
+- View engagement for assigned proposals
+- Add follow-up notes
+- Convert accepted proposals into onboarding leads
+- Cannot alter global formulas or master benchmark data
+
+D. Revenue Manager
+
+Permissions:
+- Review ADR and occupancy assumptions
+- Create and approve AI pricing recommendations
+- Override seasonal ADR values
+- Manage event pricing
+- Maintain comparable-property references
+- Add pricing notes
+- Approve financial projections
+- Lock approved forecast assumptions
+
+E. Read-Only Management User
+
+Permissions:
+- View forecasts, proposals, analytics and audit history
+- Download PDF and Excel reports
+- Cannot change data
+
+F. Owner/Public Proposal Viewer
+
+No account should be required by default.
+
+The owner can:
+- Open a secure proposal link
+- View the full interactive proposal
+- Change between authorized occupancy scenarios
+- View charts and financial assumptions
+- Download the approved PDF
+- Accept the proposal
+- Decline the proposal
+- Request a call
+- Submit a question
+- Confirm owner contact information
+- Provide preferred onboarding date
+
+The owner must not:
+- Change stored assumptions
+- Access internal notes
+- Access market comparison sources that are marked confidential
+- Access other owners’ proposals
+- Access internal profit or company-only calculations
+
+==================================================
+4. CORE DATABASE ENTITIES
+==================================================
+
+Create an appropriate relational database schema including, at minimum:
+
+1. User
+2. Role
+3. Permission
+4. Owner
+5. OwnerContact
+6. Property
+7. PropertyPhoto
+8. PropertyFloorplan
+9. Forecast
+10. ForecastVersion
+11. ForecastAssumption
+12. OccupancyScenario
+13. SeasonalADR
+14. MonthlyProjection
+15. ExpenseAssumption
+16. LongTermRentalBenchmark
+17. MarketArea
+18. Development
+19. Project
+20. UnitTypeBenchmark
+21. ComparableProperty
+22. MainEvent
+23. Proposal
+24. ProposalTemplate
+25. ProposalSection
+26. ProposalShareLink
+27. ProposalViewEvent
+28. ProposalAction
+29. InternalApproval
+30. Comment
+31. ActivityLog
+32. AuditLog
+33. AIRecommendation
+34. AIRecommendationSource
+35. Notification
+36. CompanySettings
+37. FinancialModelSettings
+38. FileImport
+39. ImportValidationError
+40. LeadOrOnboardingRecord
+
+All major records should have:
+
+- ID
+- Created date
+- Updated date
+- Created by
+- Updated by
+- Status
+- Soft deletion or archival status where appropriate
+
+Forecast records must support versioning.
+
+Once a forecast is published, changes must create a new version rather than silently modifying the version already shared with an owner.
+
+==================================================
+5. OWNER DETAILS
+==================================================
+
+The forecast creation process must collect:
+
+- Owner type: individual or company
+- Owner full name
+- Company name
+- Nationality, optional
+- Preferred title: Mr., Ms., Dr., company, etc.
+- Email address
+- Primary mobile number
+- WhatsApp number
+- Preferred contact method
+- Preferred language
+- Billing address, optional
+- Lead source
+- Assigned sales representative
+- Internal owner notes
+- Existing RHH client: yes/no
+- Existing properties with RHH
+- Owner’s objectives:
+  - Maximum income
+  - Stable income
+  - Personal usage flexibility
+  - Property protection
+  - Investment performance
+  - Sale preparation
+  - Other
+
+The proposal should address the owner by their correct preferred title and name.
+
+==================================================
+6. PROPERTY DETAILS
+==================================================
+
+Collect comprehensive property information.
+
+Required fields:
+
+- Emirate
+- Area
+- Community
+- Development
+- Project/building
+- Tower
+- Property type:
+  - Apartment
+  - Duplex
+  - Penthouse
+  - Townhouse
+  - Villa
+  - Studio
+  - Hotel apartment
+  - Other
+- Unit number
+- Floor
+- Bedroom count
+- Bathroom count
+- Maid’s room
+- Study room
+- Balcony count
+- Parking spaces
+- Internal area in square feet
+- External area in square feet
+- Total area
+- Furnishing status:
+  - Unfurnished
+  - Partially furnished
+  - Fully furnished
+  - Premium furnished
+  - Hotel-grade furnished
+- Property condition:
+  - New
+  - Excellent
+  - Good
+  - Requires refresh
+  - Requires renovation
+- View:
+  - Sea
+  - Canal
+  - Marina
+  - Pool
+  - Golf
+  - Park
+  - Community
+  - City
+  - Landmark
+  - Partial sea
+  - Construction
+  - No special view
+  - Custom
+- Layout quality:
+  - Poor
+  - Average
+  - Good
+  - Excellent
+  - Premium
+- Floor category:
+  - Low
+  - Mid
+  - High
+  - Very high
+- Corner unit: yes/no
+- Waterfront: yes/no
+- Direct beach access: yes/no
+- Private pool: yes/no
+- Private garden: yes/no
+- Building amenities
+- Property amenities
+- Accessibility details
+- Completion status
+- Handover date
+- Availability date
+- Current tenancy status
+- Current annual rent
+- Existing lease expiry date
+- Owner blocked dates
+- Expected owner usage nights
+- DCT eligibility status
+- DCT permit status
+- Utilities responsibility
+- Service charge responsibility
+- Floorplan upload
+- Property photo upload
+- Video link
+- Google Maps link
+- Internal inspection notes
+
+Allow admins to add custom attributes without requiring code changes.
+
+==================================================
+7. MARKET BENCHMARK DATABASE
+==================================================
+
+Create a market intelligence module.
+
+The database should allow authorized staff to manage:
+
+- Emirate
+- Area
+- Development
+- Project/building
+- Developer
+- Project status
+- Property type
+- Bedroom category
+- Average annual LTR
+- Minimum LTR
+- Maximum LTR
+- Typical ADR
+- Low-season ADR
+- Shoulder-season ADR
+- Peak-season ADR
+- Main-event ADR
+- Expected occupancy
+- Average utilities
+- Average internet cost
+- Average maintenance cost
+- Recommended management fee
+- Data source
+- Source date
+- Last verified date
+- Confidence level
+- Internal notes
+- Active/inactive status
+
+Data can be entered through:
+
+1. Manual admin entry
+2. Spreadsheet import
+3. Bulk CSV or Excel import
+4. AI-assisted suggestion
+5. Comparable property entry
+6. Future API integration
+
+During Excel import:
+
+- Show a preview before committing
+- Allow the user to map spreadsheet columns
+- Identify duplicates
+- Identify missing values
+- Identify non-numeric ADR or LTR values such as “NA”
+- Do not convert “NA” into zero
+- Validate bedroom columns
+- Create an import report
+- Allow rollback of an import
+- Store the original source file
+- Store who imported it and when
+
+==================================================
+8. AI PRICING AND MARKET RECOMMENDATION AGENT
+==================================================
+
+Create an AI-assisted forecasting agent.
+
+The AI agent should use:
+
+- Area
+- Community
+- Project
+- Building
+- Property type
+- Bedrooms
+- Bathrooms
+- Size
+- Floor
+- View
+- Layout
+- Furnishing level
+- Property condition
+- Amenities
+- Comparable units
+- RHH market database
+- Historic internal data when connected
+- Long-term rental benchmark
+- Seasonal demand profile
+- Abu Dhabi main events
+- Employee notes
+
+The AI should recommend:
+
+- Annual long-term rental
+- Long-term rental vacancy assumption
+- Low-season ADR
+- Shoulder-season ADR
+- Peak-season ADR
+- Main-event ADR
+- Monthly ADR
+- Expected annual occupancy
+- Monthly occupancy
+- Internet cost
+- Utility expense
+- Maintenance allowance
+- Miscellaneous expenses
+- Recommended RHH management commission
+- Conservative scenario
+- Realistic scenario
+- Confident scenario
+- Optimistic scenario
+- Forecast narrative
+- Key risks
+- Key value drivers
+- Confidence rating for every major recommendation
+
+Every AI suggestion must show:
+
+- Suggested amount
+- Confidence percentage
+- Explanation
+- Data sources used
+- Date generated
+- AI model used
+- Whether the suggestion was accepted, edited or rejected
+- Name of employee who approved or overrode it
+
+Important AI controls:
+
+- AI suggestions must be visually marked as suggestions.
+- A user must approve or override each recommendation.
+- Manual override must always be available.
+- Require an override reason when a user changes a value materially.
+- Materiality threshold should be configurable, such as over 10%.
+- AI must never invent a project benchmark without marking it as an estimate.
+- If exact project data is unavailable, the AI should use nearby or comparable projects and explain the comparison.
+- Do not show AI confidence as guaranteed forecasting accuracy.
+- Use wording such as “Recommendation confidence” rather than “Accuracy.”
+- Allow revenue managers to lock approved values.
+
+==================================================
+9. SEASON AND EVENT ENGINE
+==================================================
+
+Build a configurable season calendar.
+
+Season types:
+
+- Low season
+- Shoulder season
+- Peak season
+- Main event
+- Owner blocked
+- Maintenance blocked
+- Unavailable
+- Custom season
+
+The admin should be able to define:
+
+- Season name
+- Start date
+- End date
+- Applicable area
+- Applicable building
+- Applicable unit type
+- Default occupancy
+- Default ADR multiplier
+- Priority
+- Notes
+
+Main event records should include:
+
+- Event name
+- Venue
+- Start date
+- End date
+- Buffer days before and after
+- Applicable areas
+- Event category
+- Demand rating
+- Default ADR uplift
+- Expected occupancy uplift
+- Active/inactive
+
+Examples may include major sporting events, exhibitions, concerts, holidays and Abu Dhabi peak demand periods.
+
+Main-event pricing should take priority over ordinary peak-season pricing.
+
+Avoid double-counting dates that fall within both an event and another season.
+
+==================================================
+10. FORECAST CALCULATION ENGINE
+==================================================
+
+Create a transparent financial calculation engine.
+
+Do not rely only on one simple annual average ADR calculation.
+
+The preferred calculation should be performed monthly and, when possible, daily.
+
+A. Monthly gross short-term revenue
+
+For each month:
+
+Available Nights =
+Calendar Nights
+minus Owner Blocked Nights
+minus Maintenance Blocked Nights
+minus Other Unavailable Nights
+
+Occupied Nights =
+Available Nights × Monthly Occupancy Rate
+
+Monthly Gross Revenue =
+Occupied Nights × Applicable Monthly Average ADR
+
+Annual Gross Revenue =
+Sum of Monthly Gross Revenue from January to December
+
+B. Weighted average annual ADR
+
+Weighted Average ADR =
+Total Forecast Room Revenue ÷ Total Forecast Occupied Nights
+
+Do not calculate annual ADR using an unweighted arithmetic average of seasonal ADR values.
+
+C. Seasonal ADR method
+
+Where daily calculation is enabled:
+
+Daily Revenue =
+Applicable Daily ADR × Occupancy Probability
+
+Main-event dates override peak, shoulder and low season dates.
+
+Where only seasonal inputs are provided:
+
+Annual Gross Revenue =
+Low-Season Available Nights × Low-Season Occupancy × Low-Season ADR
++
+Shoulder-Season Available Nights × Shoulder-Season Occupancy × Shoulder ADR
++
+Peak-Season Available Nights × Peak-Season Occupancy × Peak ADR
++
+Main-Event Available Nights × Main-Event Occupancy × Main-Event ADR
+
+D. Long-term rental benchmark
+
+Gross LTR Income =
+Annual Long-Term Rental
+
+Adjusted LTR Income =
+Annual Long-Term Rental × (1 - LTR Vacancy Percentage)
+
+Default LTR vacancy percentage can be 10%, but it must be editable.
+
+Allow optional LTR costs such as:
+- Leasing commission
+- Vacancy loss
+- Maintenance
+- Property management
+- Renewal fees
+- Other owner costs
+
+Net LTR Income =
+Adjusted LTR Income minus applicable LTR costs
+
+E. Short-term rental expenses
+
+Support the following expense types:
+
+Fixed annual expenses:
+- Internet and phone
+- Base utility cost
+- Maintenance allowance
+- Insurance
+- Software or smart lock subscriptions
+- Miscellaneous expenses
+- Other annual costs
+
+Variable expenses:
+- Utilities per occupied night
+- Utilities percentage of gross revenue
+- Maintenance percentage of gross revenue
+- Consumables per stay
+- Laundry per stay
+- Cleaning per stay
+- Payment processing percentage
+- OTA commission
+- Tourism or municipality charges
+- Other variable costs
+
+Management fees:
+- Percentage of gross revenue
+- Percentage of net revenue
+- Fixed monthly amount
+- Hybrid structure
+
+Default RHH model:
+Management Fee = Gross Annual Revenue × RHH PM Commission Percentage
+
+All expense inclusions must be configurable because some costs may be charged directly to guests, absorbed by RHH, or paid by the owner.
+
+F. Total expenses
+
+Total Annual Expenses =
+Internet
++ Utilities
++ Maintenance
++ Miscellaneous
++ Other Owner Expenses
++ RHH Management Fee
++ Any Additional Enabled Expense
+
+G. Net owner income
+
+Net Annual Owner Income =
+Gross Annual Revenue - Total Annual Expenses
+
+Average Monthly Net Payout =
+Net Annual Owner Income ÷ 12
+
+H. Increase versus long-term rental
+
+Increase Amount =
+Net Annual STR Income - Net Annual LTR Income
+
+Increase Percentage =
+(Net Annual STR Income ÷ Net Annual LTR Income) - 1
+
+Handle a zero or missing LTR value safely and do not show invalid percentages.
+
+I. Scenario engine
+
+Create configurable scenarios such as:
+
+- Conservative
+- Realistic
+- Confident
+- Optimistic
+
+Default occupancy examples:
+- 75%
+- 80%
+- 85%
+- 90%
+
+The admin can also enable:
+- 60%
+- 65%
+- 70%
+- 95%
+- 100%
+- Custom occupancy
+
+Each scenario may have its own:
+
+- Occupancy
+- ADR multiplier
+- Expense assumptions
+- Owner usage
+- Maintenance reserve
+- Management fee
+- Selected status
+- Internal recommendation
+
+The system should identify one scenario as:
+
+“Recommended Forecast”
+
+The owner-facing proposal should highlight the recommended scenario but allow the owner to view other approved scenarios.
+
+==================================================
+11. DATA VALIDATION AND FINANCIAL QUALITY CONTROLS
+==================================================
+
+Add strong validation rules.
+
+Examples:
+
+- Size must fall within a reasonable configurable range.
+- Bedroom and bathroom values cannot be negative.
+- ADR cannot be negative.
+- Occupancy must be between 0% and 100%.
+- Commission percentage must be within an approved range.
+- Annual utilities that appear unusually high must trigger a warning.
+- Annual internet expenses that appear unusually high must trigger a warning.
+- LTR must not be treated as zero when it is unknown.
+- “NA” must remain unavailable, not zero.
+- Gross revenue must equal the total of monthly revenue.
+- Net revenue must reconcile to gross revenue minus expenses.
+- Scenario comparison values must use the same expense methodology.
+- The proposal should not be publishable when required fields are missing.
+- A forecast cannot be approved when calculations fail reconciliation checks.
+- Show the calculation formula and source behind every important number.
+
+Add outlier detection.
+
+For example:
+- If a suggested ADR is more than a configurable percentage above the project benchmark, require a written justification.
+- If annual utilities exceed a configurable percentage of annual gross revenue, show an alert.
+- If size does not reasonably match the selected bedroom category, show a warning.
+- If LTR or ADR varies significantly from the market benchmark, show a warning.
+
+These controls are important because previous proposal examples contain potential demo-data or formatting anomalies. The new platform must prevent unrealistic cost, area or duplicated presentation values from being published without review.
+
+==================================================
+12. FORECAST CREATION WORKFLOW
+==================================================
+
+Create a guided multi-step wizard.
+
+Step 1: Owner Information
+Step 2: Property Information
+Step 3: Market Benchmark Selection
+Step 4: AI Recommendations
+Step 5: Seasonal ADR Assumptions
+Step 6: Occupancy Assumptions
+Step 7: Expenses and Commission
+Step 8: Scenario Comparison
+Step 9: Monthly Forecast
+Step 10: Proposal Content
+Step 11: Internal Review
+Step 12: Publish and Share
+
+Provide:
+
+- Save as draft
+- Autosave
+- Back and next
+- Progress indicator
+- Validation messages
+- Duplicate existing forecast
+- Create new version
+- Internal comments
+- Approval status
+- Preview owner proposal
+- Preview PDF
+- Publish only after approval
+
+Forecast statuses:
+
+- Draft
+- Awaiting market data
+- AI recommendations generated
+- Revenue review required
+- Submitted for approval
+- Changes requested
+- Approved
+- Published
+- Viewed by owner
+- Owner requested call
+- Accepted
+- Declined
+- Expired
+- Archived
+
+==================================================
+13. INTERNAL FORECAST DASHBOARD
+==================================================
+
+Create an internal dashboard with:
+
+KPI cards:
+- Total forecasts
+- Draft forecasts
+- Pending approvals
+- Published proposals
+- Viewed proposals
+- Accepted proposals
+- Conversion rate
+- Forecasted portfolio gross revenue
+- Forecasted management fee value
+- Average increase over LTR
+- Proposals expiring soon
+
+Filters:
+- Date range
+- User
+- Sales representative
+- Revenue manager
+- Area
+- Project
+- Property type
+- Bedroom
+- Status
+- Owner
+- Forecast amount
+- Proposal engagement
+
+Forecast list columns:
+- Proposal reference
+- Owner
+- Property
+- Area
+- Project
+- Bedrooms
+- Recommended occupancy
+- Average ADR
+- Gross annual revenue
+- Net owner income
+- Increase versus LTR
+- Assigned user
+- Status
+- Created date
+- Last viewed
+- Expiry date
+- Actions
+
+Actions:
+- Open
+- Edit
+- Duplicate
+- Create new version
+- Preview
+- Publish
+- Share
+- Download PDF
+- Archive
+- View activity
+- Convert to onboarding
+
+==================================================
+14. PREMIUM OWNER PROPOSAL
+==================================================
+
+Create a premium interactive proposal design inspired by the newer attached Royal Holiday Homes proposal, but improve its readability, responsiveness and accuracy.
+
+Visual direction:
+
+- Luxury hospitality and premium real-estate style
+- Royal Holiday Homes branding
+- White, warm gold, charcoal and subtle beige
+- Spacious layout
+- Elegant typography
+- Abu Dhabi skyline illustrations
+- Light animations
+- Mobile responsive
+- Suitable for desktop, tablet and phone
+- Print-friendly
+- High-quality PDF export
+- Avoid overcrowded tables
+- Use clear charts and financial explanations
+
+The proposal should be configurable by template.
+
+Recommended owner proposal structure:
+
+PAGE/SECTION 1: COVER
+
+- Royal Holiday Homes logo
+- “Turn Your Second Home Into Your Second Income”
+- Proposal title
+- Owner name
+- Property name
+- Property hero image
+- Proposal reference
+- Date
+- Confidentiality notice
+
+PAGE/SECTION 2: PROPERTY MANAGEMENT PROPOSAL
+
+- Prepared exclusively for owner
+- Property details
+- Address
+- Property type
+- Bedroom
+- Bathroom
+- Size
+- Floor
+- View
+- Furnishing
+- Property photo or floorplan
+- Personalized opening narrative
+- Forecasted annual net income
+- Recommended occupancy
+- Increase versus traditional leasing
+
+PAGE/SECTION 3: EXECUTIVE FINANCIAL SUMMARY
+
+Display premium KPI cards:
+
+- Weighted Average ADR
+- Recommended Occupancy
+- Gross Annual Revenue
+- Annual Net Owner Income
+- Average Monthly Net Payout
+- Net LTR benchmark
+- Additional income versus LTR
+- Percentage increase versus LTR
+
+PAGE/SECTION 4: INCOME CALCULATOR
+
+Show:
+
+- LTR market benchmark
+- Adjusted LTR after vacancy
+- Occupancy scenarios
+- Gross revenue
+- Internet
+- Utilities
+- Maintenance
+- Miscellaneous expenses
+- Management fees
+- Other enabled costs
+- Total expenses
+- Net annual income
+- Increase versus LTR
+
+Highlight the recommended scenario.
+
+Allow the owner to switch scenarios interactively without changing saved assumptions.
+
+PAGE/SECTION 5: MONTHLY STR VERSUS LTR COMPARISON
+
+- January to December
+- Monthly STR gross revenue
+- Monthly STR net owner income
+- Monthly LTR benchmark
+- Occupancy
+- ADR
+- Event markers
+- Tooltip explanations
+- Download chart option for internal users
+
+PAGE/SECTION 6: REVENUE VERSUS NET PROFIT
+
+Show side-by-side scenario charts:
+
+- Conservative
+- Realistic
+- Confident
+- Optimistic
+
+For each scenario:
+- Gross revenue
+- Total expenses
+- Net owner income
+- Increase versus LTR
+
+PAGE/SECTION 7: WHY THE PROPERTY CAN EARN MORE
+
+Explain:
+
+- Seasonal demand
+- Low-season ADR
+- Shoulder-season ADR
+- Peak-season ADR
+- Main-event ADR
+- Weighted annual ADR
+- Demand-based pricing
+- Market intelligence
+- Transparent reporting
+- Revenue optimization
+- Property-specific value drivers
+
+Use “Recommendation Confidence,” not “Accuracy.”
+
+PAGE/SECTION 8: WHY OPT FOR HOLIDAY HOMES
+
+Compare short-term versus long-term rental:
+
+Short-term:
+- Potentially higher returns
+- Seasonal pricing flexibility
+- Property monitoring
+- Reduced long-term tenant exposure
+- Owner usage flexibility
+- Regular cleaning and inspections
+- Active revenue management
+
+Long-term:
+- Fixed annual rent
+- Limited pricing flexibility
+- Longer commitment
+- Vacancy between tenancies
+- Restricted owner access
+- Potential tenant disputes
+- Limited upside during events
+
+Do not make unsupported guarantees.
+
+PAGE/SECTION 9: HOW IT WORKS
+
+Display the RHH onboarding journey:
+
+1. Consultation and onboarding
+2. Documentation and agreement
+3. DCT licensing and compliance
+4. Property preparation
+5. Furnishing or improvement, when required
+6. Professional photography
+7. Listing creation and distribution
+8. Dynamic pricing
+9. Guest communication and operations
+10. Housekeeping and maintenance
+11. Revenue management and reporting
+12. Monthly owner payout
+
+PAGE/SECTION 10: WHY ROYAL HOLIDAY HOMES
+
+Suggested points:
+
+- Abu Dhabi specialists
+- Licensed and compliant
+- Operators, not only agents
+- In-house operations support
+- Revenue management
+- Multi-platform distribution
+- Guest communication
+- Housekeeping
+- Maintenance coordination
+- Owner reporting
+- Transparent fees
+- Performance-aligned management model
+- Local market knowledge
+
+All statistics must come from editable company settings so they can be kept current.
+
+PAGE/SECTION 11: PORTFOLIO AND DISTRIBUTION
+
+Admin-editable statistics:
+
+- Managed properties
+- Five-star reviews
+- Monthly bookings
+- Monthly travelers
+- Managed asset value
+- Trusted owners
+
+Distribution partner logos should be manageable from admin settings.
+
+PAGE/SECTION 12: NEXT STEPS
+
+- Accept Proposal
+- Request a Call
+- Ask a Question
+- Download PDF
+- Contact assigned advisor
+- Preferred start date
+- Agreement acknowledgment
+- Contact information
+- Office address
+- Website
+- Owner email
+- Guest email
+- Toll-free number
+
+==================================================
+15. DYNAMIC PROPOSAL LINKS
+==================================================
+
+Generate secure URLs such as:
+
+https://forecast.royalholidayhomes.ae/p/RHH-XXXX-XXXX
+
+Requirements:
+
+- Unique secure token
+- Optional owner PIN
+- Optional email verification
+- Expiry date
+- Revoke link
+- Regenerate link
+- One proposal version per link
+- Prevent indexing by search engines
+- Open Graph preview with controlled information
+- Mobile-friendly
+- Track engagement without exposing confidential data
+
+Track:
+
+- First opened date
+- Last opened date
+- Total views
+- Unique views
+- Approximate device type
+- Proposal sections viewed
+- Time spent
+- PDF downloads
+- Accept clicks
+- Decline clicks
+- Request-call clicks
+- Questions submitted
+- Expired-link attempts
+
+Respect privacy requirements and do not use intrusive tracking.
+
+Send internal notifications when:
+
+- Proposal is first viewed
+- Proposal is viewed multiple times
+- PDF is downloaded
+- Owner requests a call
+- Owner asks a question
+- Owner accepts
+- Owner declines
+- Proposal is close to expiry
+
+==================================================
+16. PROPOSAL ACCEPTANCE AND LEAD CONVERSION
+==================================================
+
+Owner acceptance form:
+
+- Owner name
+- Email
+- Mobile
+- Preferred contact time
+- Preferred onboarding date
+- Confirmation checkbox
+- Optional comments
+- Digital acknowledgment
+- Timestamp
+- Accepted proposal version
+- Accepted financial scenario
+
+Acceptance is not necessarily the final property management contract unless explicitly configured.
+
+Display:
+
+“Your acceptance confirms your interest in proceeding to the onboarding and agreement stage. Forecasted income remains an estimate and is not guaranteed.”
+
+Once accepted:
+
+- Change proposal status to Accepted
+- Notify assigned team members
+- Create onboarding lead
+- Copy owner and property information
+- Attach accepted proposal version
+- Create follow-up task
+- Record acceptance in audit log
+
+==================================================
+17. PROPOSAL TEMPLATE MANAGEMENT
+==================================================
+
+Allow Super Admin to:
+
+- Create multiple templates
+- Duplicate templates
+- Activate or deactivate templates
+- Reorder proposal sections
+- Show or hide sections
+- Edit headings
+- Edit standard text
+- Edit disclaimers
+- Select colors
+- Upload logos
+- Upload skyline artwork
+- Manage footer
+- Manage company contact information
+- Choose charts
+- Configure owner buttons
+- Configure PDF page breaks
+- Set a default template
+
+Allow controlled variables such as:
+
+{{owner_name}}
+{{property_name}}
+{{property_type}}
+{{bedrooms}}
+{{bathrooms}}
+{{size}}
+{{view}}
+{{recommended_occupancy}}
+{{weighted_adr}}
+{{gross_revenue}}
+{{net_income}}
+{{monthly_payout}}
+{{ltr_income}}
+{{increase_percentage}}
+{{proposal_reference}}
+{{proposal_date}}
+{{assigned_advisor}}
+
+Do not allow template variables to expose internal notes.
+
+==================================================
+18. COMPANY SETTINGS
+==================================================
+
+Create editable settings for:
+
+- Company legal name
+- Brand name
+- Logo
+- Gold brand color
+- Address
+- Phone
+- Toll-free number
+- Website
+- Owner email
+- Guest email
+- Social media
+- Default management commission
+- Default LTR vacancy
+- Default expense assumptions
+- Default scenario occupancy rates
+- Proposal validity period
+- Currency
+- Number formatting
+- Disclaimer wording
+- Portfolio statistics
+- Distribution partners
+- Privacy policy
+- Terms of use
+- Email templates
+
+Use AED as the initial default currency.
+
+Display monetary amounts as:
+
+AED 150,000
+
+Do not display excessive decimal places in owner-facing pages.
+
+==================================================
+19. AUDIT, APPROVAL AND SECURITY
+==================================================
+
+Audit all important actions:
+
+- User login
+- Forecast creation
+- Forecast editing
+- AI recommendation generation
+- AI override
+- Market data changes
+- Expense changes
+- Approval
+- Publication
+- Link generation
+- Link revocation
+- Owner action
+- PDF generation
+- Import
+- Export
+- Archival
+
+For each audit event store:
+
+- User
+- Action
+- Record
+- Old value
+- New value
+- Timestamp
+- IP where legally appropriate
+- Reason
+- Forecast version
+
+Approval workflow:
+
+- Draft prepared by sales/admin
+- Reviewed by revenue manager
+- Approved by authorized manager
+- Published by authorized user
+
+Allow configurable approval thresholds.
+
+Example:
+- Forecast under AED 200,000 can require one approval.
+- Forecast above AED 200,000 can require revenue-manager and management approval.
+- An ADR override above 15% of benchmark may require additional approval.
+
+Security requirements:
+
+- Password hashing
+- CSRF protection
+- Secure cookies
+- Rate limiting
+- Server-side authorization
+- SQL injection protection
+- XSS protection
+- Input sanitization
+- Signed and expiring public links
+- No confidential internal information in browser source
+- Restricted file access
+- Daily backups where supported
+- Soft deletion
+- Session logout
+- Account disabling
+- Error logging without exposing secrets
+
+==================================================
+20. REPORTING AND EXPORTS
+==================================================
+
+Provide exports for:
+
+- PDF owner proposal
+- Excel financial calculation
+- CSV forecast register
+- Market benchmark data
+- Proposal activity report
+- Accepted proposal report
+- User performance report
+- Area performance report
+- Project comparison report
+- Forecast conversion report
+
+The Excel financial export should include:
+
+- Inputs
+- Seasonal assumptions
+- Monthly calculations
+- Scenarios
+- Expenses
+- LTR comparison
+- Calculation formulas
+- Proposal summary
+- Sources and notes
+
+==================================================
+21. DISCLAIMERS
+==================================================
+
+Include an editable disclaimer, initially based on:
+
+“This forecast is an estimate prepared using the property information available, internal market benchmarks, comparable property data and current market conditions. Actual occupancy, average daily rate, expenses, gross revenue and net income may differ due to changes in supply, demand, seasonality, events, property condition, platform performance and other market factors. This proposal does not represent a guarantee of future rental income.”
+
+Display the disclaimer:
+
+- In the proposal
+- In the PDF
+- Near financial projections
+- Before owner acceptance
+
+Avoid language promising guaranteed returns.
+
+==================================================
+22. DESIGN REQUIREMENTS
+==================================================
+
+Internal application:
+
+- Clean executive dashboard
+- Premium but efficient
+- White, black, charcoal, warm gold
+- Responsive navigation
+- Sidebar on desktop
+- Mobile drawer
+- Consistent forms
+- Clearly marked editable fields
+- Blue or another distinct style for manual input
+- Gold styling for selected recommendation
+- AI suggestion badges
+- Warning indicators
+- Success indicators
+- Skeleton loaders
+- Empty states
+- Confirmation dialogs
+- Accessible contrast
+- Keyboard-accessible forms
+
+Owner proposal:
+
+- More visual and luxurious
+- Minimal internal controls
+- Smooth scrolling navigation
+- Sticky financial summary on desktop where appropriate
+- Clear section navigation
+- Animations should be subtle
+- No unnecessary technical terminology
+- Charts must be understandable on mobile
+- Use print-specific CSS for PDF generation
+
+==================================================
+23. SAMPLE DATA
+==================================================
+
+Create realistic but clearly marked demonstration data.
+
+Do not reuse obviously invalid demonstration values from previous files.
+
+Create sample records such as:
+
+- Yas Island, Waters Edge, studio, 1BR and 2BR
+- Yas Island, Ansam
+- Yas Island, Mayan
+- Yas Golf Collection
+- Al Raha Beach, Al Muneera
+- Al Raha Beach, Al Zeina
+- Masdar City, Oasis Two
+- Al Reem Island sample project
+
+Include:
+
+- One draft forecast
+- One approved forecast
+- One published owner proposal
+- One accepted proposal
+- One expired proposal
+- One market import example
+
+==================================================
+24. REQUIRED TESTS
+==================================================
+
+Add automated tests for:
+
+- Authentication
+- Role permissions
+- Market data import
+- Seasonal weighting
+- Event-date override
+- Monthly gross revenue
+- Annual gross reconciliation
+- Expense calculation
+- Management fee
+- Net owner income
+- LTR vacancy adjustment
+- Increase versus LTR
+- Scenario switching
+- Proposal versioning
+- Public-link expiry
+- Public-link revocation
+- Acceptance workflow
+- PDF data consistency
+- Invalid percentage handling
+- Missing LTR handling
+- “NA” benchmark handling
+- Outlier alerts
+
+Add a visible financial reconciliation status:
+
+- Passed
+- Warning
+- Failed
+
+A proposal cannot be published when financial reconciliation has failed.
+
+==================================================
+25. INITIAL DELIVERY PHASES
+==================================================
+
+Build the system in phases.
+
+PHASE 1: FOUNDATION
+
+- Database
+- Authentication
+- Roles
+- Owners
+- Properties
+- Market data
+- Excel import
+- Basic admin dashboard
+
+PHASE 2: FORECASTING
+
+- Seasonal ADR
+- Monthly revenue
+- Expenses
+- LTR comparison
+- Scenarios
+- Financial reconciliation
+- Versioning
+
+PHASE 3: AI ASSISTANT
+
+- AI ADR suggestions
+- AI LTR suggestions
+- AI expense suggestions
+- Explanation
+- Confidence
+- Override tracking
+- Approval
+
+PHASE 4: OWNER PROPOSALS
+
+- Premium proposal template
+- Charts
+- Shareable links
+- PDF generation
+- Owner actions
+- Engagement tracking
+
+PHASE 5: APPROVAL AND CONVERSION
+
+- Internal approval workflow
+- Notifications
+- Proposal acceptance
+- Lead/onboarding conversion
+- Reports
+
+==================================================
+26. DEVELOPMENT OUTPUT REQUIRED
+==================================================
+
+Before writing the full application, produce:
+
+1. Proposed system architecture
+2. Database entity relationship summary
+3. Prisma schema
+4. User-role permission matrix
+5. Calculation methodology
+6. Page and route map
+7. Component structure
+8. API endpoint or server-action list
+9. Security plan
+10. Excel-import mapping plan
+11. AI recommendation prompt structure
+12. Proposal template structure
+13. Implementation phases
+14. Testing plan
+
+After presenting the architecture, build the functioning application.
+
+Include:
+
+- README
+- Environment variable example file
+- Database migration instructions
+- Seed command
+- Local run instructions
+- Replit deployment instructions
+- Test instructions
+- Admin demonstration login
+- Sample public proposal link
+
+==================================================
+27. ACCEPTANCE CRITERIA
+==================================================
+
+The application is considered ready only when:
+
+1. An admin can create an owner.
+2. An admin can create a detailed property.
+3. Market ADR and LTR values can be selected from the database.
+4. The uploaded Abu Dhabi market spreadsheet can be imported.
+5. AI can suggest LTR, seasonal ADR and expenses.
+6. All AI suggestions can be overridden.
+7. Overrides are recorded.
+8. Monthly revenue is calculated correctly.
+9. Multiple occupancy scenarios are generated.
+10. Net STR income is compared with net LTR income.
+11. All calculations reconcile.
+12. An approved proposal can be published.
+13. A secure owner link can be generated.
+14. The owner can view the proposal on mobile and desktop.
+15. The owner can download a matching PDF.
+16. The owner can accept, decline or request a call.
+17. Internal users receive engagement notifications.
+18. Published proposal versions remain immutable.
+19. The design reflects Royal Holiday Homes’ premium brand.
+20. No unrealistic or incomplete forecast can be published without warnings and approval.

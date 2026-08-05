@@ -1,0 +1,3 @@
+- [RHH Forecaster stack](rhh-stack.md) — React+Vite frontend at `/`, Express 5 API at `/api`, PostgreSQL+Drizzle, Orval codegen; Replit path-router handles /api routing natively, no Vite proxy needed.
+- [RHH auth setup](rhh-auth.md) — Session-based email/password auth; seeded super_admin: admin@royalholidayhomes.ae / Admin123!; sessions table in DB must exist before server starts.
+- [RHH Zod codegen fix](rhh-zod-codegen.md) — Orval generates for Zod v3; all integer OpenAPI fields must use `type: number`; no `format: email`; schema files must import from `zod` not `zod/v4`.

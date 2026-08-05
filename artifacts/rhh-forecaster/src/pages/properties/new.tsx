@@ -1,0 +1,336 @@
+import { useCreateProperty, useListOwners } from "@workspace/api-client-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useLocation, Link, useSearch } from "wouter";
+import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useEffect } from "react";
+
+const propertySchema = z.object({
+  ownerId: z.coerce.number().min(1, "Owner is required"),
+  emirate: z.string().min(1, "Emirate is required"),
+  area: z.string().min(1, "Area is required"),
+  projectBuilding: z.string().optional(),
+  unitNumber: z.string().optional(),
+  propertyType: z.enum(["apartment", "duplex", "penthouse", "townhouse", "villa", "studio", "hotel_apartment", "other"]),
+  bedrooms: z.coerce.number().min(0),
+  bathrooms: z.coerce.number().min(0).optional(),
+  internalArea: z.coerce.number().min(1, "Area is required"),
+  furnishingStatus: z.enum(["unfurnished", "partially_furnished", "fully_furnished", "premium_furnished", "hotel_grade"]).optional(),
+  propertyCondition: z.enum(["new", "excellent", "good", "requires_refresh", "requires_renovation"]).optional(),
+  view: z.string().optional(),
+  isWaterfront: z.boolean().default(false),
+  hasPrivatePool: z.boolean().default(false),
+});
+
+type PropertyFormValues = z.infer<typeof propertySchema>;
+
+export default function PropertyNew() {
+  const [, setLocation] = useLocation();
+  const searchString = useSearch();
+  const searchParams = new URLSearchParams(searchString);
+  const initialOwnerId = searchParams.get("ownerId");
+  
+  const { toast } = useToast();
+  const createProperty = useCreateProperty();
+  const { data: owners } = useListOwners();
+
+  const form = useForm<PropertyFormValues>({
+    resolver: zodResolver(propertySchema),
+    defaultValues: {
+      ownerId: initialOwnerId ? parseInt(initialOwnerId, 10) : 0,
+      emirate: "Abu Dhabi",
+      propertyType: "apartment",
+      bedrooms: 1,
+      bathrooms: 1,
+      internalArea: 0,
+      isWaterfront: false,
+      hasPrivatePool: false,
+    },
+  });
+
+  const onSubmit = async (data: PropertyFormValues) => {
+    try {
+      const submitData = { ...data };
+      if (!submitData.bathrooms) submitData.bathrooms = submitData.bedrooms;
+      
+      const result = await createProperty.mutateAsync({ data: submitData as any });
+      toast({ title: "Property created", description: "The property has been added to the portfolio." });
+      setLocation(`/properties/${result.id}`);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to add property.", variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="p-8 max-w-[1000px] mx-auto space-y-6">
+      <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
+        <Link href="/properties" className="hover:text-foreground transition-colors">Properties</Link>
+        <span>/</span>
+        <span className="text-foreground font-medium">New Property</span>
+      </div>
+
+      <div>
+        <h1 className="text-3xl font-serif font-bold text-foreground">Add Property</h1>
+        <p className="text-muted-foreground mt-1">Register a new unit to generate revenue forecasts.</p>
+      </div>
+
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+          
+          <Card className="border-border/50 shadow-sm">
+            <CardHeader className="border-b border-border bg-muted/20">
+              <CardTitle className="text-lg">Ownership</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <FormField
+                control={form.control}
+                name="ownerId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Select Owner <span className="text-destructive">*</span></FormLabel>
+                    <Select onValueChange={(val) => field.onChange(parseInt(val))} value={field.value ? field.value.toString() : ""}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Choose an owner" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {owners?.map(owner => (
+                          <SelectItem key={owner.id} value={owner.id.toString()}>
+                            {owner.ownerType === 'company' && owner.companyName ? owner.companyName : `${owner.firstName} ${owner.lastName}`}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/50 shadow-sm">
+            <CardHeader className="border-b border-border bg-muted/20">
+              <CardTitle className="text-lg">Location Details</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <FormField
+                control={form.control}
+                name="emirate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Emirate <span className="text-destructive">*</span></FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select emirate" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Abu Dhabi">Abu Dhabi</SelectItem>
+                        <SelectItem value="Dubai">Dubai</SelectItem>
+                        <SelectItem value="Ras Al Khaimah">Ras Al Khaimah</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="area"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Area / District <span className="text-destructive">*</span></FormLabel>
+                    <FormControl><Input placeholder="e.g. Saadiyat Island" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="projectBuilding"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Project / Building</FormLabel>
+                    <FormControl><Input placeholder="e.g. Mamsha Al Saadiyat" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="unitNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Unit Number</FormLabel>
+                    <FormControl><Input placeholder="e.g. 402" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </CardContent>
+          </Card>
+
+          <Card className="border-border/50 shadow-sm">
+            <CardHeader className="border-b border-border bg-muted/20">
+              <CardTitle className="text-lg">Property Specifications</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="col-span-1 md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
+                <FormField
+                  control={form.control}
+                  name="propertyType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Type <span className="text-destructive">*</span></FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <FormControl>
+                          <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="apartment">Apartment</SelectItem>
+                          <SelectItem value="villa">Villa</SelectItem>
+                          <SelectItem value="townhouse">Townhouse</SelectItem>
+                          <SelectItem value="penthouse">Penthouse</SelectItem>
+                          <SelectItem value="duplex">Duplex</SelectItem>
+                          <SelectItem value="studio">Studio</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="bedrooms"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Bedrooms <span className="text-destructive">*</span></FormLabel>
+                      <FormControl><Input type="number" min="0" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="internalArea"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Size (SqFt) <span className="text-destructive">*</span></FormLabel>
+                      <FormControl><Input type="number" min="1" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name="furnishingStatus"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Furnishing</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select furnishing" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="unfurnished">Unfurnished</SelectItem>
+                        <SelectItem value="partially_furnished">Partially Furnished</SelectItem>
+                        <SelectItem value="fully_furnished">Fully Furnished</SelectItem>
+                        <SelectItem value="premium_furnished">Premium Furnished</SelectItem>
+                        <SelectItem value="hotel_grade">Hotel Grade</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="propertyCondition"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Condition</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger><SelectValue placeholder="Select condition" /></SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="new">Brand New</SelectItem>
+                        <SelectItem value="excellent">Excellent</SelectItem>
+                        <SelectItem value="good">Good</SelectItem>
+                        <SelectItem value="requires_refresh">Requires Refresh</SelectItem>
+                        <SelectItem value="requires_renovation">Requires Renovation</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="view"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Primary View</FormLabel>
+                    <FormControl><Input placeholder="e.g. Full Sea View" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="col-span-1 md:col-span-3 flex gap-6">
+                <FormField
+                  control={form.control}
+                  name="isWaterfront"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <FormLabel className="font-normal">Waterfront Property</FormLabel>
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                  control={form.control}
+                  name="hasPrivatePool"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                      <FormControl>
+                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                      </FormControl>
+                      <FormLabel className="font-normal">Private Pool</FormLabel>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
+          <div className="flex justify-end gap-4">
+            <Link href="/properties" className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-background px-8 text-sm font-medium hover:bg-muted transition-colors">
+              Cancel
+            </Link>
+            <Button type="submit" disabled={createProperty.isPending} className="px-8">
+              {createProperty.isPending ? "Saving..." : "Save Property"}
+            </Button>
+          </div>
+        </form>
+      </Form>
+    </div>
+  );
+}

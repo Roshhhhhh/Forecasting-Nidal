@@ -1,22 +1,30 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: RHH Property Revenue Forecaster API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: auth
+  - name: users
+  - name: owners
+  - name: properties
+  - name: market
+  - name: forecasts
+  - name: proposals
+  - name: dashboard
+  - name: settings
+  - name: imports
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +32,1073 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # AUTH
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login with email and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout current session
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthUser"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  # USERS
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: Created user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      tags: [users]
+      summary: Get user by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: Updated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Deactivate a user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # OWNERS
+  /owners:
+    get:
+      operationId: listOwners
+      tags: [owners]
+      summary: List all owners
+      responses:
+        "200":
+          description: List of owners
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Owner"
+    post:
+      operationId: createOwner
+      tags: [owners]
+      summary: Create a new owner
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OwnerInput"
+      responses:
+        "201":
+          description: Created owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Owner"
+
+  /owners/{id}:
+    get:
+      operationId: getOwner
+      tags: [owners]
+      summary: Get owner by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Owner"
+    patch:
+      operationId: updateOwner
+      tags: [owners]
+      summary: Update an owner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OwnerUpdate"
+      responses:
+        "200":
+          description: Updated owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Owner"
+    delete:
+      operationId: deleteOwner
+      tags: [owners]
+      summary: Archive an owner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # PROPERTIES
+  /properties:
+    get:
+      operationId: listProperties
+      tags: [properties]
+      summary: List all properties
+      responses:
+        "200":
+          description: List of properties
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Property"
+    post:
+      operationId: createProperty
+      tags: [properties]
+      summary: Create a new property
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PropertyInput"
+      responses:
+        "201":
+          description: Created property
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Property"
+
+  /properties/{id}:
+    get:
+      operationId: getProperty
+      tags: [properties]
+      summary: Get property by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Property
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Property"
+    patch:
+      operationId: updateProperty
+      tags: [properties]
+      summary: Update a property
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PropertyUpdate"
+      responses:
+        "200":
+          description: Updated property
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Property"
+
+  # MARKET AREAS
+  /market/areas:
+    get:
+      operationId: listMarketAreas
+      tags: [market]
+      summary: List market areas
+      responses:
+        "200":
+          description: Market areas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MarketArea"
+    post:
+      operationId: createMarketArea
+      tags: [market]
+      summary: Create a market area
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketAreaInput"
+      responses:
+        "201":
+          description: Created market area
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketArea"
+
+  /market/areas/{id}:
+    patch:
+      operationId: updateMarketArea
+      tags: [market]
+      summary: Update a market area
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MarketAreaUpdate"
+      responses:
+        "200":
+          description: Updated market area
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketArea"
+    delete:
+      operationId: deleteMarketArea
+      tags: [market]
+      summary: Delete market area
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # UNIT TYPE BENCHMARKS
+  /market/benchmarks:
+    get:
+      operationId: listBenchmarks
+      tags: [market]
+      summary: List unit type benchmarks
+      responses:
+        "200":
+          description: Benchmarks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UnitBenchmark"
+    post:
+      operationId: createBenchmark
+      tags: [market]
+      summary: Create a benchmark
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnitBenchmarkInput"
+      responses:
+        "201":
+          description: Created benchmark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitBenchmark"
+
+  /market/benchmarks/{id}:
+    patch:
+      operationId: updateBenchmark
+      tags: [market]
+      summary: Update a benchmark
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnitBenchmarkUpdate"
+      responses:
+        "200":
+          description: Updated benchmark
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnitBenchmark"
+    delete:
+      operationId: deleteBenchmark
+      tags: [market]
+      summary: Delete benchmark
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # FORECASTS
+  /forecasts:
+    get:
+      operationId: listForecasts
+      tags: [forecasts]
+      summary: List all forecasts
+      responses:
+        "200":
+          description: List of forecasts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Forecast"
+    post:
+      operationId: createForecast
+      tags: [forecasts]
+      summary: Create a new forecast
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForecastInput"
+      responses:
+        "201":
+          description: Created forecast
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Forecast"
+
+  /forecasts/{id}:
+    get:
+      operationId: getForecast
+      tags: [forecasts]
+      summary: Get a forecast with full detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Forecast detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForecastDetail"
+    patch:
+      operationId: updateForecast
+      tags: [forecasts]
+      summary: Update a forecast
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForecastUpdate"
+      responses:
+        "200":
+          description: Updated forecast
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForecastDetail"
+    delete:
+      operationId: deleteForecast
+      tags: [forecasts]
+      summary: Archive a forecast
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /forecasts/{id}/calculate:
+    post:
+      operationId: calculateForecast
+      tags: [forecasts]
+      summary: Recalculate all financial projections for a forecast
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Calculation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalculationResult"
+
+  /forecasts/{id}/approve:
+    post:
+      operationId: approveForecast
+      tags: [forecasts]
+      summary: Approve a forecast for publishing
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApprovalInput"
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Forecast"
+
+  /forecasts/{id}/duplicate:
+    post:
+      operationId: duplicateForecast
+      tags: [forecasts]
+      summary: Duplicate a forecast
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "201":
+          description: Duplicated forecast
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Forecast"
+
+  /forecasts/{id}/scenarios:
+    get:
+      operationId: listForecastScenarios
+      tags: [forecasts]
+      summary: List occupancy scenarios for a forecast
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Scenarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Scenario"
+    post:
+      operationId: createScenario
+      tags: [forecasts]
+      summary: Create a scenario for a forecast
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScenarioInput"
+      responses:
+        "201":
+          description: Created scenario
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Scenario"
+
+  /forecasts/{id}/monthly:
+    get:
+      operationId: getForecastMonthly
+      tags: [forecasts]
+      summary: Get monthly projections for a forecast
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Monthly projections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MonthlyProjection"
+
+  /forecasts/{id}/ai-recommend:
+    post:
+      operationId: generateAiRecommendation
+      tags: [forecasts]
+      summary: Generate AI pricing recommendations for a forecast
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: AI recommendation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiRecommendation"
+
+  /forecasts/{id}/ai-recommend/accept:
+    post:
+      operationId: acceptAiRecommendation
+      tags: [forecasts]
+      summary: Accept or override AI recommendation fields
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiAcceptInput"
+      responses:
+        "200":
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # PROPOSALS
+  /proposals:
+    get:
+      operationId: listProposals
+      tags: [proposals]
+      summary: List all proposals
+      responses:
+        "200":
+          description: Proposals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Proposal"
+
+  /proposals/{id}:
+    get:
+      operationId: getProposal
+      tags: [proposals]
+      summary: Get a proposal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+    patch:
+      operationId: updateProposal
+      tags: [proposals]
+      summary: Update proposal content
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalUpdate"
+      responses:
+        "200":
+          description: Updated proposal
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+
+  /proposals/{id}/publish:
+    post:
+      operationId: publishProposal
+      tags: [proposals]
+      summary: Publish a proposal and generate shareable link
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PublishInput"
+      responses:
+        "200":
+          description: Published with share link
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShareLink"
+
+  /proposals/{id}/activity:
+    get:
+      operationId: getProposalActivity
+      tags: [proposals]
+      summary: Get engagement activity for a proposal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Activity events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityEvent"
+
+  /proposals/{id}/revoke:
+    post:
+      operationId: revokeProposalLink
+      tags: [proposals]
+      summary: Revoke shareable link for a proposal
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Revoked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # PUBLIC PROPOSAL VIEW (owner-facing, token-based)
+  /p/{token}:
+    get:
+      operationId: getPublicProposal
+      tags: [proposals]
+      summary: Get public proposal by share token
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Public proposal view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicProposal"
+        "404":
+          description: Not found or expired
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+
+  /p/{token}/action:
+    post:
+      operationId: submitProposalAction
+      tags: [proposals]
+      summary: Submit an owner action (accept, decline, request call, ask question)
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProposalActionInput"
+      responses:
+        "200":
+          description: Action submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # DASHBOARD
+  /dashboard/kpis:
+    get:
+      operationId: getDashboardKpis
+      tags: [dashboard]
+      summary: Get dashboard KPI summary
+      responses:
+        "200":
+          description: KPIs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardKpis"
+
+  /dashboard/recent:
+    get:
+      operationId: getRecentForecasts
+      tags: [dashboard]
+      summary: Get recently updated forecasts
+      responses:
+        "200":
+          description: Recent forecasts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Forecast"
+
+  /dashboard/area-performance:
+    get:
+      operationId: getAreaPerformance
+      tags: [dashboard]
+      summary: Revenue performance breakdown by area
+      responses:
+        "200":
+          description: Area performance data
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AreaPerformance"
+
+  /dashboard/conversion:
+    get:
+      operationId: getConversionStats
+      tags: [dashboard]
+      summary: Proposal conversion funnel stats
+      responses:
+        "200":
+          description: Conversion stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversionStats"
+
+  # SETTINGS
+  /settings:
+    get:
+      operationId: getCompanySettings
+      tags: [settings]
+      summary: Get company settings
+      responses:
+        "200":
+          description: Company settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanySettings"
+    patch:
+      operationId: updateCompanySettings
+      tags: [settings]
+      summary: Update company settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CompanySettingsUpdate"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompanySettings"
+
+  # IMPORTS
+  /imports:
+    get:
+      operationId: listImports
+      tags: [imports]
+      summary: List file imports
+      responses:
+        "200":
+          description: Imports
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FileImport"
+
+  /imports/preview:
+    post:
+      operationId: previewImport
+      tags: [imports]
+      summary: Preview and validate Excel/CSV import data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportPreviewInput"
+      responses:
+        "200":
+          description: Import preview with validation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportPreview"
+
+  /imports/commit:
+    post:
+      operationId: commitImport
+      tags: [imports]
+      summary: Commit a previewed import to the database
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ImportCommitInput"
+      responses:
+        "200":
+          description: Import committed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FileImport"
+
+  /imports/{id}/rollback:
+    post:
+      operationId: rollbackImport
+      tags: [imports]
+      summary: Rollback a committed import
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Rolled back
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
 components:
   schemas:
     HealthStatus:
@@ -31,6 +1106,1343 @@ components:
       properties:
         status:
           type: string
-      required:
-        - status
+      required: [status]
 
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required: [message]
+
+    # AUTH
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+
+    AuthUser:
+      type: object
+      required: [id, email, name, role]
+      properties:
+        id:
+          type: number
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [super_admin, admin, sales, revenue_manager, read_only]
+        avatarUrl:
+          type: ["string", "null"]
+
+    # USERS
+    User:
+      type: object
+      required: [id, email, name, role, isActive, createdAt]
+      properties:
+        id:
+          type: number
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [super_admin, admin, sales, revenue_manager, read_only]
+        isActive:
+          type: boolean
+        phone:
+          type: ["string", "null"]
+        avatarUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        lastLoginAt:
+          type: ["string", "null"]
+
+    UserInput:
+      type: object
+      required: [email, name, role, password]
+      properties:
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          type: string
+          enum: [super_admin, admin, sales, revenue_manager, read_only]
+        password:
+          type: string
+        phone:
+          type: string
+
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        role:
+          type: string
+          enum: [super_admin, admin, sales, revenue_manager, read_only]
+        isActive:
+          type: boolean
+        phone:
+          type: string
+
+    # OWNERS
+    Owner:
+      type: object
+      required: [id, ownerType, firstName, lastName, email, createdAt]
+      properties:
+        id:
+          type: number
+        ownerType:
+          type: string
+          enum: [individual, company]
+        title:
+          type: ["string", "null"]
+        firstName:
+          type: string
+        lastName:
+          type: string
+        companyName:
+          type: ["string", "null"]
+        email:
+          type: string
+        phone:
+          type: ["string", "null"]
+        whatsapp:
+          type: ["string", "null"]
+        nationality:
+          type: ["string", "null"]
+        preferredLanguage:
+          type: ["string", "null"]
+        leadSource:
+          type: ["string", "null"]
+        isExistingClient:
+          type: boolean
+        objectives:
+          type: array
+          items:
+            type: string
+        assignedToId:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    OwnerInput:
+      type: object
+      required: [ownerType, firstName, lastName, email]
+      properties:
+        ownerType:
+          type: string
+          enum: [individual, company]
+        title:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        companyName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        whatsapp:
+          type: string
+        nationality:
+          type: string
+        preferredLanguage:
+          type: string
+        leadSource:
+          type: string
+        isExistingClient:
+          type: boolean
+        objectives:
+          type: array
+          items:
+            type: string
+        assignedToId:
+          type: number
+        notes:
+          type: string
+
+    OwnerUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        companyName:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        whatsapp:
+          type: string
+        nationality:
+          type: string
+        preferredLanguage:
+          type: string
+        leadSource:
+          type: string
+        isExistingClient:
+          type: boolean
+        objectives:
+          type: array
+          items:
+            type: string
+        assignedToId:
+          type: number
+        notes:
+          type: string
+
+    # PROPERTIES
+    Property:
+      type: object
+      required: [id, ownerId, emirate, area, propertyType, bedrooms, bathrooms, internalArea, createdAt]
+      properties:
+        id:
+          type: number
+        ownerId:
+          type: number
+        ownerName:
+          type: ["string", "null"]
+        emirate:
+          type: string
+        area:
+          type: string
+        community:
+          type: ["string", "null"]
+        development:
+          type: ["string", "null"]
+        projectBuilding:
+          type: ["string", "null"]
+        tower:
+          type: ["string", "null"]
+        unitNumber:
+          type: ["string", "null"]
+        floor:
+          type: ["number", "null"]
+        propertyType:
+          type: string
+          enum: [apartment, duplex, penthouse, townhouse, villa, studio, hotel_apartment, other]
+        bedrooms:
+          type: number
+        bathrooms:
+          type: number
+        hasMaidsRoom:
+          type: boolean
+        hasStudy:
+          type: boolean
+        balconies:
+          type: ["number", "null"]
+        parkingSpaces:
+          type: ["number", "null"]
+        internalArea:
+          type: number
+        externalArea:
+          type: ["number", "null"]
+        furnishingStatus:
+          type: string
+          enum: [unfurnished, partially_furnished, fully_furnished, premium_furnished, hotel_grade]
+        propertyCondition:
+          type: string
+          enum: [new, excellent, good, requires_refresh, requires_renovation]
+        view:
+          type: ["string", "null"]
+        floorCategory:
+          type: ["string", "null"]
+        isWaterfront:
+          type: boolean
+        hasPrivatePool:
+          type: boolean
+        dctPermitStatus:
+          type: ["string", "null"]
+        currentTenancyStatus:
+          type: ["string", "null"]
+        currentAnnualRent:
+          type: ["number", "null"]
+        availabilityDate:
+          type: ["string", "null"]
+        heroImageUrl:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    PropertyInput:
+      type: object
+      required: [ownerId, emirate, area, propertyType, bedrooms, bathrooms, internalArea]
+      properties:
+        ownerId:
+          type: number
+        emirate:
+          type: string
+        area:
+          type: string
+        community:
+          type: string
+        development:
+          type: string
+        projectBuilding:
+          type: string
+        tower:
+          type: string
+        unitNumber:
+          type: string
+        floor:
+          type: number
+        propertyType:
+          type: string
+          enum: [apartment, duplex, penthouse, townhouse, villa, studio, hotel_apartment, other]
+        bedrooms:
+          type: number
+        bathrooms:
+          type: number
+        hasMaidsRoom:
+          type: boolean
+        hasStudy:
+          type: boolean
+        balconies:
+          type: number
+        parkingSpaces:
+          type: number
+        internalArea:
+          type: number
+        externalArea:
+          type: number
+        furnishingStatus:
+          type: string
+          enum: [unfurnished, partially_furnished, fully_furnished, premium_furnished, hotel_grade]
+        propertyCondition:
+          type: string
+          enum: [new, excellent, good, requires_refresh, requires_renovation]
+        view:
+          type: string
+        floorCategory:
+          type: string
+        isWaterfront:
+          type: boolean
+        hasPrivatePool:
+          type: boolean
+        dctPermitStatus:
+          type: string
+        currentTenancyStatus:
+          type: string
+        currentAnnualRent:
+          type: number
+        availabilityDate:
+          type: string
+        heroImageUrl:
+          type: string
+
+    PropertyUpdate:
+      type: object
+      properties:
+        emirate:
+          type: string
+        area:
+          type: string
+        community:
+          type: string
+        development:
+          type: string
+        projectBuilding:
+          type: string
+        unitNumber:
+          type: string
+        floor:
+          type: number
+        propertyType:
+          type: string
+        bedrooms:
+          type: number
+        bathrooms:
+          type: number
+        internalArea:
+          type: number
+        furnishingStatus:
+          type: string
+        propertyCondition:
+          type: string
+        view:
+          type: string
+        dctPermitStatus:
+          type: string
+        currentTenancyStatus:
+          type: string
+        currentAnnualRent:
+          type: number
+        availabilityDate:
+          type: string
+        heroImageUrl:
+          type: string
+
+    # MARKET
+    MarketArea:
+      type: object
+      required: [id, emirate, area]
+      properties:
+        id:
+          type: number
+        emirate:
+          type: string
+        area:
+          type: string
+        development:
+          type: ["string", "null"]
+        projectBuilding:
+          type: ["string", "null"]
+        developer:
+          type: ["string", "null"]
+        projectStatus:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    MarketAreaInput:
+      type: object
+      required: [emirate, area]
+      properties:
+        emirate:
+          type: string
+        area:
+          type: string
+        development:
+          type: string
+        projectBuilding:
+          type: string
+        developer:
+          type: string
+        projectStatus:
+          type: string
+
+    MarketAreaUpdate:
+      type: object
+      properties:
+        emirate:
+          type: string
+        area:
+          type: string
+        development:
+          type: string
+        projectBuilding:
+          type: string
+        developer:
+          type: string
+        projectStatus:
+          type: string
+        isActive:
+          type: boolean
+
+    UnitBenchmark:
+      type: object
+      required: [id, marketAreaId, propertyType, bedrooms]
+      properties:
+        id:
+          type: number
+        marketAreaId:
+          type: number
+        area:
+          type: ["string", "null"]
+        projectBuilding:
+          type: ["string", "null"]
+        propertyType:
+          type: string
+        bedrooms:
+          type: number
+        typicalAdr:
+          type: ["number", "null"]
+        lowSeasonAdr:
+          type: ["number", "null"]
+        shoulderSeasonAdr:
+          type: ["number", "null"]
+        peakSeasonAdr:
+          type: ["number", "null"]
+        eventAdr:
+          type: ["number", "null"]
+        expectedOccupancy:
+          type: ["number", "null"]
+        annualLtr:
+          type: ["number", "null"]
+        minLtr:
+          type: ["number", "null"]
+        maxLtr:
+          type: ["number", "null"]
+        confidenceLevel:
+          type: ["string", "null"]
+        sourceDate:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+
+    UnitBenchmarkInput:
+      type: object
+      required: [marketAreaId, propertyType, bedrooms]
+      properties:
+        marketAreaId:
+          type: number
+        propertyType:
+          type: string
+        bedrooms:
+          type: number
+        typicalAdr:
+          type: number
+        lowSeasonAdr:
+          type: number
+        shoulderSeasonAdr:
+          type: number
+        peakSeasonAdr:
+          type: number
+        eventAdr:
+          type: number
+        expectedOccupancy:
+          type: number
+        annualLtr:
+          type: number
+        minLtr:
+          type: number
+        maxLtr:
+          type: number
+        confidenceLevel:
+          type: string
+        sourceDate:
+          type: string
+        notes:
+          type: string
+
+    UnitBenchmarkUpdate:
+      type: object
+      properties:
+        typicalAdr:
+          type: number
+        lowSeasonAdr:
+          type: number
+        shoulderSeasonAdr:
+          type: number
+        peakSeasonAdr:
+          type: number
+        eventAdr:
+          type: number
+        expectedOccupancy:
+          type: number
+        annualLtr:
+          type: number
+        minLtr:
+          type: number
+        maxLtr:
+          type: number
+        confidenceLevel:
+          type: string
+        notes:
+          type: string
+        isActive:
+          type: boolean
+
+    # FORECASTS
+    Forecast:
+      type: object
+      required: [id, referenceNumber, status, createdAt]
+      properties:
+        id:
+          type: number
+        referenceNumber:
+          type: string
+        ownerId:
+          type: ["number", "null"]
+        ownerName:
+          type: ["string", "null"]
+        propertyId:
+          type: ["number", "null"]
+        propertyAddress:
+          type: ["string", "null"]
+        area:
+          type: ["string", "null"]
+        projectBuilding:
+          type: ["string", "null"]
+        bedrooms:
+          type: ["number", "null"]
+        status:
+          type: string
+          enum: [draft, awaiting_data, ai_generated, review_required, submitted, changes_requested, approved, published, viewed, owner_called, accepted, declined, expired, archived]
+        recommendedOccupancy:
+          type: ["number", "null"]
+        weightedAdr:
+          type: ["number", "null"]
+        grossAnnualRevenue:
+          type: ["number", "null"]
+        netOwnerIncome:
+          type: ["number", "null"]
+        netLtrIncome:
+          type: ["number", "null"]
+        increaseVsLtr:
+          type: ["number", "null"]
+        increaseVsLtrPct:
+          type: ["number", "null"]
+        assignedToId:
+          type: ["number", "null"]
+        assignedToName:
+          type: ["string", "null"]
+        reconciliationStatus:
+          type: ["string", "null"]
+        expiresAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ForecastDetail:
+      type: object
+      required: [id, referenceNumber, status, createdAt]
+      properties:
+        id:
+          type: number
+        referenceNumber:
+          type: string
+        ownerId:
+          type: ["number", "null"]
+        propertyId:
+          type: ["number", "null"]
+        status:
+          type: string
+        managementFeePercent:
+          type: ["number", "null"]
+        ltrVacancyPercent:
+          type: ["number", "null"]
+        annualLtr:
+          type: ["number", "null"]
+        internetCost:
+          type: ["number", "null"]
+        utilityCost:
+          type: ["number", "null"]
+        maintenanceCost:
+          type: ["number", "null"]
+        miscCost:
+          type: ["number", "null"]
+        lowSeasonAdr:
+          type: ["number", "null"]
+        shoulderSeasonAdr:
+          type: ["number", "null"]
+        peakSeasonAdr:
+          type: ["number", "null"]
+        eventAdr:
+          type: ["number", "null"]
+        ownerBlockedNights:
+          type: ["number", "null"]
+        narrativeText:
+          type: ["string", "null"]
+        internalNotes:
+          type: ["string", "null"]
+        reconciliationStatus:
+          type: ["string", "null"]
+        grossAnnualRevenue:
+          type: ["number", "null"]
+        totalAnnualExpenses:
+          type: ["number", "null"]
+        netOwnerIncome:
+          type: ["number", "null"]
+        netLtrIncome:
+          type: ["number", "null"]
+        increaseVsLtr:
+          type: ["number", "null"]
+        increaseVsLtrPct:
+          type: ["number", "null"]
+        weightedAdr:
+          type: ["number", "null"]
+        recommendedOccupancy:
+          type: ["number", "null"]
+        assignedToId:
+          type: ["number", "null"]
+        expiresAt:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ForecastInput:
+      type: object
+      required: [ownerId, propertyId]
+      properties:
+        ownerId:
+          type: number
+        propertyId:
+          type: number
+        assignedToId:
+          type: number
+        managementFeePercent:
+          type: number
+        ltrVacancyPercent:
+          type: number
+        internalNotes:
+          type: string
+
+    ForecastUpdate:
+      type: object
+      properties:
+        managementFeePercent:
+          type: number
+        ltrVacancyPercent:
+          type: number
+        annualLtr:
+          type: number
+        internetCost:
+          type: number
+        utilityCost:
+          type: number
+        maintenanceCost:
+          type: number
+        miscCost:
+          type: number
+        lowSeasonAdr:
+          type: number
+        shoulderSeasonAdr:
+          type: number
+        peakSeasonAdr:
+          type: number
+        eventAdr:
+          type: number
+        ownerBlockedNights:
+          type: number
+        narrativeText:
+          type: string
+        internalNotes:
+          type: string
+        assignedToId:
+          type: number
+        status:
+          type: string
+        expiresAt:
+          type: string
+
+    ApprovalInput:
+      type: object
+      required: [notes]
+      properties:
+        notes:
+          type: string
+
+    CalculationResult:
+      type: object
+      required: [status, grossAnnualRevenue, netOwnerIncome, reconciliationStatus]
+      properties:
+        status:
+          type: string
+        grossAnnualRevenue:
+          type: number
+        totalAnnualExpenses:
+          type: number
+        netOwnerIncome:
+          type: number
+        netLtrIncome:
+          type: number
+        increaseVsLtr:
+          type: number
+        increaseVsLtrPct:
+          type: number
+        weightedAdr:
+          type: number
+        managementFee:
+          type: number
+        reconciliationStatus:
+          type: string
+        reconciliationNotes:
+          type: string
+
+    Scenario:
+      type: object
+      required: [id, forecastId, name, occupancyRate]
+      properties:
+        id:
+          type: number
+        forecastId:
+          type: number
+        name:
+          type: string
+        occupancyRate:
+          type: number
+        adrMultiplier:
+          type: number
+        grossRevenue:
+          type: ["number", "null"]
+        netOwnerIncome:
+          type: ["number", "null"]
+        totalExpenses:
+          type: ["number", "null"]
+        isRecommended:
+          type: boolean
+        isActive:
+          type: boolean
+
+    ScenarioInput:
+      type: object
+      required: [name, occupancyRate]
+      properties:
+        name:
+          type: string
+        occupancyRate:
+          type: number
+        adrMultiplier:
+          type: number
+        isRecommended:
+          type: boolean
+
+    MonthlyProjection:
+      type: object
+      required: [month, year, availableNights, occupiedNights, grossRevenue]
+      properties:
+        month:
+          type: number
+        year:
+          type: number
+        monthName:
+          type: string
+        availableNights:
+          type: number
+        occupiedNights:
+          type: number
+        occupancyRate:
+          type: number
+        adr:
+          type: number
+        grossRevenue:
+          type: number
+        netOwnerIncome:
+          type: number
+        ltrBenchmark:
+          type: ["number", "null"]
+        seasonType:
+          type: string
+
+    AiRecommendation:
+      type: object
+      required: [id, forecastId, status, createdAt]
+      properties:
+        id:
+          type: number
+        forecastId:
+          type: number
+        status:
+          type: string
+        annualLtrSuggested:
+          type: ["number", "null"]
+        annualLtrConfidence:
+          type: ["number", "null"]
+        lowSeasonAdrSuggested:
+          type: ["number", "null"]
+        shoulderSeasonAdrSuggested:
+          type: ["number", "null"]
+        peakSeasonAdrSuggested:
+          type: ["number", "null"]
+        eventAdrSuggested:
+          type: ["number", "null"]
+        occupancySuggested:
+          type: ["number", "null"]
+        internetCostSuggested:
+          type: ["number", "null"]
+        utilityCostSuggested:
+          type: ["number", "null"]
+        maintenanceCostSuggested:
+          type: ["number", "null"]
+        managementFeeSuggested:
+          type: ["number", "null"]
+        narrativeSuggested:
+          type: ["string", "null"]
+        keyRisks:
+          type: ["string", "null"]
+        keyDrivers:
+          type: ["string", "null"]
+        overallConfidence:
+          type: ["number", "null"]
+        modelUsed:
+          type: ["string", "null"]
+        dataSources:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    AiAcceptInput:
+      type: object
+      required: [fields]
+      properties:
+        fields:
+          type: array
+          items:
+            type: object
+            required: [field, action]
+            properties:
+              field:
+                type: string
+              action:
+                type: string
+                enum: [accept, override]
+              overrideValue:
+                type: ["number", "null"]
+              overrideReason:
+                type: string
+
+    # PROPOSALS
+    Proposal:
+      type: object
+      required: [id, forecastId, status, createdAt]
+      properties:
+        id:
+          type: number
+        forecastId:
+          type: number
+        referenceNumber:
+          type: string
+        status:
+          type: string
+        shareToken:
+          type: ["string", "null"]
+        shareUrl:
+          type: ["string", "null"]
+        expiresAt:
+          type: ["string", "null"]
+        isLinkActive:
+          type: boolean
+        ownerPin:
+          type: ["string", "null"]
+        totalViews:
+          type: number
+        uniqueViews:
+          type: number
+        lastViewedAt:
+          type: ["string", "null"]
+        pdfDownloads:
+          type: number
+        ownerAction:
+          type: ["string", "null"]
+        ownerActionAt:
+          type: ["string", "null"]
+        coverNarrative:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    ProposalUpdate:
+      type: object
+      properties:
+        coverNarrative:
+          type: string
+        expiresAt:
+          type: string
+        ownerPin:
+          type: string
+
+    PublishInput:
+      type: object
+      properties:
+        expiresInDays:
+          type: number
+        requirePin:
+          type: boolean
+        ownerPin:
+          type: string
+
+    ShareLink:
+      type: object
+      required: [shareUrl, token, expiresAt]
+      properties:
+        shareUrl:
+          type: string
+        token:
+          type: string
+        expiresAt:
+          type: string
+
+    ActivityEvent:
+      type: object
+      required: [id, eventType, createdAt]
+      properties:
+        id:
+          type: number
+        eventType:
+          type: string
+        deviceType:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        metadata:
+          type: ["string", "null"]
+
+    PublicProposal:
+      type: object
+      required: [referenceNumber, ownerName, propertyAddress, expiresAt]
+      properties:
+        referenceNumber:
+          type: string
+        ownerName:
+          type: string
+        ownerTitle:
+          type: ["string", "null"]
+        propertyAddress:
+          type: string
+        propertyType:
+          type: string
+        bedrooms:
+          type: number
+        bathrooms:
+          type: number
+        internalArea:
+          type: number
+        floor:
+          type: ["number", "null"]
+        view:
+          type: ["string", "null"]
+        furnishingStatus:
+          type: string
+        heroImageUrl:
+          type: ["string", "null"]
+        weightedAdr:
+          type: number
+        recommendedOccupancy:
+          type: number
+        grossAnnualRevenue:
+          type: number
+        netOwnerIncome:
+          type: number
+        monthlyPayout:
+          type: number
+        netLtrIncome:
+          type: ["number", "null"]
+        increaseVsLtr:
+          type: ["number", "null"]
+        increaseVsLtrPct:
+          type: ["number", "null"]
+        narrativeText:
+          type: ["string", "null"]
+        scenarios:
+          type: array
+          items:
+            $ref: "#/components/schemas/Scenario"
+        monthlyProjections:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonthlyProjection"
+        proposalDate:
+          type: string
+        expiresAt:
+          type: string
+        advisorName:
+          type: ["string", "null"]
+        companyPhone:
+          type: ["string", "null"]
+        companyEmail:
+          type: ["string", "null"]
+        disclaimer:
+          type: string
+        ownerAction:
+          type: ["string", "null"]
+
+    ProposalActionInput:
+      type: object
+      required: [actionType]
+      properties:
+        actionType:
+          type: string
+          enum: [accept, decline, request_call, ask_question]
+        ownerName:
+          type: string
+        ownerEmail:
+          type: string
+        ownerPhone:
+          type: string
+        preferredContactTime:
+          type: string
+        preferredOnboardingDate:
+          type: string
+        question:
+          type: string
+        comments:
+          type: string
+        acceptedScenarioId:
+          type: number
+
+    # DASHBOARD
+    DashboardKpis:
+      type: object
+      required: [totalForecasts, draftForecasts, pendingApproval, publishedProposals, viewedProposals, acceptedProposals, conversionRate, forecastedGrossRevenue, forecastedManagementFee, avgIncreaseVsLtr, expiringSoon]
+      properties:
+        totalForecasts:
+          type: number
+        draftForecasts:
+          type: number
+        pendingApproval:
+          type: number
+        publishedProposals:
+          type: number
+        viewedProposals:
+          type: number
+        acceptedProposals:
+          type: number
+        conversionRate:
+          type: number
+        forecastedGrossRevenue:
+          type: number
+        forecastedManagementFee:
+          type: number
+        avgIncreaseVsLtr:
+          type: number
+        expiringSoon:
+          type: number
+
+    AreaPerformance:
+      type: object
+      required: [area, forecastCount, avgGrossRevenue, avgNetIncome]
+      properties:
+        area:
+          type: string
+        forecastCount:
+          type: number
+        avgGrossRevenue:
+          type: number
+        avgNetIncome:
+          type: number
+        avgOccupancy:
+          type: number
+        avgAdr:
+          type: number
+
+    ConversionStats:
+      type: object
+      required: [published, viewed, accepted, declined]
+      properties:
+        published:
+          type: number
+        viewed:
+          type: number
+        ownerCalled:
+          type: number
+        accepted:
+          type: number
+        declined:
+          type: number
+        pending:
+          type: number
+
+    # SETTINGS
+    CompanySettings:
+      type: object
+      required: [id, companyName, brandName, currency]
+      properties:
+        id:
+          type: number
+        companyName:
+          type: string
+        brandName:
+          type: string
+        currency:
+          type: string
+        logoUrl:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        tollFree:
+          type: ["string", "null"]
+        website:
+          type: ["string", "null"]
+        ownerEmail:
+          type: ["string", "null"]
+        guestEmail:
+          type: ["string", "null"]
+        address:
+          type: ["string", "null"]
+        defaultManagementFeePercent:
+          type: number
+        defaultLtrVacancyPercent:
+          type: number
+        proposalValidityDays:
+          type: number
+        disclaimer:
+          type: string
+        portfolioManagedProperties:
+          type: ["number", "null"]
+        portfolioFiveStarReviews:
+          type: ["number", "null"]
+        portfolioMonthlyBookings:
+          type: ["number", "null"]
+        portfolioTrustedOwners:
+          type: ["number", "null"]
+
+    CompanySettingsUpdate:
+      type: object
+      properties:
+        companyName:
+          type: string
+        brandName:
+          type: string
+        currency:
+          type: string
+        logoUrl:
+          type: string
+        phone:
+          type: string
+        tollFree:
+          type: string
+        website:
+          type: string
+        ownerEmail:
+          type: string
+        guestEmail:
+          type: string
+        address:
+          type: string
+        defaultManagementFeePercent:
+          type: number
+        defaultLtrVacancyPercent:
+          type: number
+        proposalValidityDays:
+          type: number
+        disclaimer:
+          type: string
+        portfolioManagedProperties:
+          type: number
+        portfolioFiveStarReviews:
+          type: number
+        portfolioMonthlyBookings:
+          type: number
+        portfolioTrustedOwners:
+          type: number
+
+    # IMPORTS
+    FileImport:
+      type: object
+      required: [id, filename, status, recordCount, createdAt]
+      properties:
+        id:
+          type: number
+        filename:
+          type: string
+        status:
+          type: string
+          enum: [pending, validated, committed, rolled_back, failed]
+        recordCount:
+          type: number
+        errorCount:
+          type: number
+        importedById:
+          type: number
+        importedByName:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    ImportRowData:
+      type: object
+      required: [area]
+      properties:
+        area:
+          type: string
+        project:
+          type: ["string", "null"]
+        developer:
+          type: ["string", "null"]
+        propertyType:
+          type: ["string", "null"]
+        bedrooms:
+          type: ["string", "null"]
+        annualLtr:
+          type: ["string", "null"]
+        typicalAdr:
+          type: ["string", "null"]
+        rawData:
+          type: ["string", "null"]
+
+    ImportErrorRow:
+      type: object
+      required: [rowIndex, message]
+      properties:
+        rowIndex:
+          type: number
+        message:
+          type: string
+        field:
+          type: ["string", "null"]
+        value:
+          type: ["string", "null"]
+
+    ImportPreviewInput:
+      type: object
+      required: [filename, rows]
+      properties:
+        filename:
+          type: string
+        rows:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportRowData"
+        columnMapping:
+          type: string
+
+    ImportPreview:
+      type: object
+      required: [validRows, invalidRows, duplicates, preview]
+      properties:
+        validRows:
+          type: number
+        invalidRows:
+          type: number
+        duplicates:
+          type: number
+        warnings:
+          type: number
+        preview:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportRowData"
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImportErrorRow"
+        sessionToken:
+          type: string
+
+    ImportCommitInput:
+      type: object
+      required: [sessionToken]
+      properties:
+        sessionToken:
+          type: string
+        notes:
+          type: string

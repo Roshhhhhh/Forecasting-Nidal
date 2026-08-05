@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "RHH Property Revenue Forecaster"
+description = "Royal Holiday Homes internal forecasting, proposal-generation, and owner-presentation platform. Allows staff to create short-term rental revenue forecasts, compare with long-term rental income, generate AI-assisted pricing recommendations, and publish premium interactive proposals through secure shareable owner links."
+version = "1.0.0"
+id = "artifacts/rhh-forecaster"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 24564
+
+[services.development]
+run = "pnpm --filter @workspace/rhh-forecaster run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/rhh-forecaster", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/rhh-forecaster/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "24564"
+BASE_PATH = "/"

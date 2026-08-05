@@ -5,6 +5,7 @@ import {
   boolean,
   timestamp,
   pgEnum,
+  integer,
 } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -23,6 +24,7 @@ export const usersTable = pgTable("users", {
   name: text("name").notNull(),
   passwordHash: text("password_hash").notNull(),
   role: userRoleEnum("role").notNull().default("sales"),
+  roleId: integer("role_id"),                          // FK to roles.id — set by migration
   isActive: boolean("is_active").notNull().default(true),
   phone: text("phone"),
   avatarUrl: text("avatar_url"),

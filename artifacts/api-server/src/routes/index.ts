@@ -10,11 +10,13 @@ import proposalsRouter from "./proposals";
 import dashboardRouter from "./dashboard";
 import settingsRouter from "./settings";
 import refereesRouter from "./referees";
+import rolesRouter from "./roles";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(authRouter);
+router.use(rolesRouter);
 router.use(usersRouter);
 router.use(ownersRouter);
 router.use(propertiesRouter);

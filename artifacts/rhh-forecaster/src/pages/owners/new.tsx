@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCreateOwner, useListUsers, useListReferees, useCreateReferee, useCreateUser } from "@workspace/api-client-react";
+import { useCreateOwner, useListUsers, useListReferees, useCreateReferee, useCreateUser, useListRoles } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { z } from "zod";
 import { useLocation, Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
@@ -43,7 +44,7 @@ interface RepQuickFormValues {
   name: string;
   email: string;
   password: string;
-  role: "sales" | "revenue_manager" | "admin" | "super_admin" | "read_only";
+  roleId: string;   // stored as string in form, converted to number on submit
   phone?: string;
 }
 
@@ -69,10 +70,11 @@ export default function OwnerNew() {
   const createUser = useCreateUser();
   const { data: users } = useListUsers();
   const { data: referees } = useListReferees();
+  const { data: roles } = useListRoles();
 
   const [addRepOpen, setAddRepOpen] = useState(false);
   const repForm = useForm<RepQuickFormValues>({
-    defaultValues: { name: "", email: "", password: "", role: "sales" },
+    defaultValues: { name: "", email: "", password: "", roleId: "" },
   });
 
   const [addRefereeOpen, setAddRefereeOpen] = useState(false);
@@ -147,11 +149,19 @@ export default function OwnerNew() {
 
   async function handleCreateRep(data: RepQuickFormValues) {
     try {
-      const newUser = await createUser.mutateAsync({ data: data as any });
+      const newUser = await createUser.mutateAsync({
+        data: {
+          name:     data.name,
+          email:    data.email,
+          password: data.password,
+          roleId:   parseInt(data.roleId),
+          phone:    data.phone,
+        } as any,
+      });
       queryClient.invalidateQueries({ queryKey: ["listUsers"] });
       form.setValue("assignedToId", (newUser as any).id);
       setAddRepOpen(false);
-      repForm.reset({ name: "", email: "", password: "", role: "sales" });
+      repForm.reset({ name: "", email: "", password: "", roleId: "" });
       toast({ title: "Representative added", description: `${(newUser as any).name} can now log in with the provided credentials.` });
     } catch {
       toast({ title: "Failed to create representative", variant: "destructive" });
@@ -378,23 +388,16 @@ export default function OwnerNew() {
                     <FormItem>
                       <FormLabel>Assigned Representative</FormLabel>
                       <div className="flex gap-2 items-start">
-                        <Select
-                          onValueChange={(val) => field.onChange(val ? parseInt(val) : null)}
+                        <SearchableSelect
+                          options={(users && users.length > 0)
+                            ? users.map((u: any) => ({ value: String(u.id), label: u.name }))
+                            : []}
                           value={field.value ? String(field.value) : ""}
-                        >
-                          <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select team member" /></SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {users && users.length > 0 ? (
-                              users.map((user: any) => (
-                                <SelectItem key={user.id} value={String(user.id)}>{user.name}</SelectItem>
-                              ))
-                            ) : (
-                              <SelectItem value="_none" disabled>No team members found</SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
+                          onValueChange={(val) => field.onChange(val ? parseInt(val) : null)}
+                          placeholder={users && users.length > 0 ? "Select team member" : "No team members found"}
+                          searchPlaceholder="Search team members…"
+                          disabled={!users || users.length === 0}
+                        />
                         <Button
                           type="button"
                           variant="outline"
@@ -431,31 +434,19 @@ export default function OwnerNew() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Select Referee</FormLabel>
-                            <Select
-                              onValueChange={(val) => field.onChange(val ? parseInt(val) : null)}
+                            <SearchableSelect
+                              options={referees
+                                ? referees.filter((r: any) => r.isActive).map((r: any) => ({
+                                    value: String(r.id),
+                                    label: `${r.refereeCode} — ${r.name}${r.companyName ? ` (${r.companyName})` : ""}`,
+                                  }))
+                                : []}
                               value={field.value ? String(field.value) : ""}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="bg-background">
-                                  <SelectValue placeholder="Choose existing referee..." />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {referees && referees.length > 0 ? (
-                                  referees
-                                    .filter((r: any) => r.isActive)
-                                    .map((r: any) => (
-                                      <SelectItem key={r.id} value={String(r.id)}>
-                                        <span className="font-mono text-xs text-primary mr-2">{r.refereeCode}</span>
-                                        {r.name}
-                                        {r.companyName && <span className="text-muted-foreground ml-1">({r.companyName})</span>}
-                                      </SelectItem>
-                                    ))
-                                ) : (
-                                  <SelectItem value="_none" disabled>No referees registered yet</SelectItem>
-                                )}
-                              </SelectContent>
-                            </Select>
+                              onValueChange={(val) => field.onChange(val ? parseInt(val) : null)}
+                              placeholder="Choose existing referee…"
+                              searchPlaceholder="Search referees…"
+                              disabled={!referees || referees.filter((r: any) => r.isActive).length === 0}
+                            />
                             <FormMessage />
                           </FormItem>
                         )}
@@ -683,13 +674,13 @@ export default function OwnerNew() {
             <div className="space-y-2">
               <Label>Role <span className="text-destructive">*</span></Label>
               <select
-                {...repForm.register("role", { required: true })}
+                {...repForm.register("roleId", { required: true })}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                <option value="sales">Sales</option>
-                <option value="revenue_manager">Revenue Manager</option>
-                <option value="admin">Admin</option>
-                <option value="read_only">Read Only</option>
+                <option value="">Select a role…</option>
+                {roles?.map(r => (
+                  <option key={r.id} value={r.id.toString()}>{r.label}</option>
+                ))}
               </select>
             </div>
             <div className="space-y-2">

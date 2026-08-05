@@ -7,7 +7,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
 import { Check, ChevronRight } from "lucide-react";
 
@@ -133,20 +133,18 @@ export default function ForecastWizard() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Client / Owner</FormLabel>
-                        <Select onValueChange={(val) => field.onChange(parseInt(val))} value={field.value ? field.value.toString() : ""}>
-                          <FormControl>
-                            <SelectTrigger className="h-12 text-base">
-                              <SelectValue placeholder={isOwnersLoading ? "Loading..." : "Select an owner"} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {owners?.map(owner => (
-                              <SelectItem key={owner.id} value={owner.id.toString()}>
-                                {owner.ownerType === 'company' && owner.companyName ? owner.companyName : `${owner.firstName} ${owner.lastName}`}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          options={(owners ?? []).map(o => ({
+                            value: o.id.toString(),
+                            label: o.ownerType === "company" && o.companyName
+                              ? o.companyName
+                              : `${o.firstName} ${o.lastName}`,
+                          }))}
+                          value={field.value ? field.value.toString() : ""}
+                          onValueChange={(val) => field.onChange(parseInt(val))}
+                          placeholder={isOwnersLoading ? "Loading…" : "Search owners…"}
+                          searchPlaceholder="Type name…"
+                        />
                         <FormMessage />
                       </FormItem>
                     )}
@@ -165,23 +163,17 @@ export default function ForecastWizard() {
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Property</FormLabel>
-                        <Select onValueChange={(val) => field.onChange(parseInt(val))} value={field.value ? field.value.toString() : ""}>
-                          <FormControl>
-                            <SelectTrigger className="h-12 text-base">
-                              <SelectValue placeholder={isPropsLoading ? "Loading..." : "Select a property"} />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {filteredProperties.length === 0 && (
-                              <SelectItem value="0" disabled>No properties found for this owner</SelectItem>
-                            )}
-                            {filteredProperties.map(prop => (
-                              <SelectItem key={prop.id} value={prop.id.toString()}>
-                                {prop.projectBuilding ? `${prop.unitNumber ? prop.unitNumber + ', ' : ''}${prop.projectBuilding}` : prop.area} ({prop.emirate})
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          options={filteredProperties.map(p => ({
+                            value: p.id.toString(),
+                            label: `${p.projectBuilding ? `${p.unitNumber ? p.unitNumber + ", " : ""}${p.projectBuilding}` : p.area} (${p.emirate})`,
+                          }))}
+                          value={field.value ? field.value.toString() : ""}
+                          onValueChange={(val) => field.onChange(parseInt(val))}
+                          placeholder={isPropsLoading ? "Loading…" : filteredProperties.length === 0 ? "No properties for this owner" : "Search properties…"}
+                          searchPlaceholder="Type building or area…"
+                          disabled={filteredProperties.length === 0}
+                        />
                         <FormMessage />
                       </FormItem>
                     )}

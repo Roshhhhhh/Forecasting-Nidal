@@ -1,7 +1,7 @@
 import { FC, ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarProvider } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, UserCheck } from "lucide-react";
+import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, UserCheck, ShieldCheck } from "lucide-react";
 import { useLogout, useGetMe } from "@workspace/api-client-react";
 
 const NAV_ITEMS = [
@@ -65,14 +65,24 @@ export const AppSidebar: FC = () => {
               </SidebarMenuButton>
             </SidebarMenuItem>
             {user?.role === "super_admin" || user?.role === "admin" ? (
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location === "/admin/users"}>
-                  <Link href="/admin/users" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-sidebar-accent">
-                    <ShieldAlert className="h-4 w-4" />
-                    <span>Users</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/admin/users"}>
+                    <Link href="/admin/users" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-sidebar-accent">
+                      <ShieldAlert className="h-4 w-4" />
+                      <span>Users</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location === "/admin/roles"}>
+                    <Link href="/admin/roles" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-sidebar-accent">
+                      <ShieldCheck className="h-4 w-4" />
+                      <span>Roles</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </>
             ) : null}
           </SidebarMenu>
         </div>

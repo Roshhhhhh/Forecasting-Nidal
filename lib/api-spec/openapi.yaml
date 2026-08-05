@@ -9,6 +9,7 @@ servers:
 tags:
   - name: health
   - name: auth
+  - name: roles
   - name: users
   - name: owners
   - name: referees
@@ -93,6 +94,81 @@ paths:
                 $ref: "#/components/schemas/ApiError"
 
   # USERS
+  # ROLES
+  /roles:
+    get:
+      operationId: listRoles
+      tags: [roles]
+      summary: List all roles
+      responses:
+        "200":
+          description: List of roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Role"
+    post:
+      operationId: createRole
+      tags: [roles]
+      summary: Create a custom role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleInput"
+      responses:
+        "201":
+          description: Created role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+
+  /roles/{id}:
+    patch:
+      operationId: updateRole
+      tags: [roles]
+      summary: Update a role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleUpdate"
+      responses:
+        "200":
+          description: Updated role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+    delete:
+      operationId: deleteRole
+      tags: [roles]
+      summary: Delete a custom role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
   /users:
     get:
       operationId: listUsers
@@ -1260,6 +1336,62 @@ components:
         avatarUrl:
           type: ["string", "null"]
 
+    # ROLES
+    Role:
+      type: object
+      required: [id, name, label, permissions, color, isBuiltIn, createdAt]
+      properties:
+        id:
+          type: number
+        name:
+          type: string
+        label:
+          type: string
+        description:
+          type: ["string", "null"]
+        permissions:
+          type: array
+          items:
+            type: string
+        color:
+          type: string
+        isBuiltIn:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    RoleInput:
+      type: object
+      required: [name, label, permissions]
+      properties:
+        name:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        color:
+          type: string
+
+    RoleUpdate:
+      type: object
+      properties:
+        label:
+          type: string
+        description:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        color:
+          type: string
+
     # USERS
     User:
       type: object
@@ -1273,7 +1405,10 @@ components:
           type: string
         role:
           type: string
-          enum: [super_admin, admin, sales, revenue_manager, read_only]
+        roleLabel:
+          type: ["string", "null"]
+        roleId:
+          type: ["number", "null"]
         isActive:
           type: boolean
         phone:
@@ -1288,15 +1423,14 @@ components:
 
     UserInput:
       type: object
-      required: [email, name, role, password]
+      required: [email, name, roleId, password]
       properties:
         email:
           type: string
         name:
           type: string
-        role:
-          type: string
-          enum: [super_admin, admin, sales, revenue_manager, read_only]
+        roleId:
+          type: number
         password:
           type: string
         phone:
@@ -1307,9 +1441,8 @@ components:
       properties:
         name:
           type: string
-        role:
-          type: string
-          enum: [super_admin, admin, sales, revenue_manager, read_only]
+        roleId:
+          type: number
         isActive:
           type: boolean
         phone:

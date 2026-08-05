@@ -5,12 +5,11 @@
  * RHH Property Revenue Forecaster API
  * OpenAPI spec version: 0.1.0
  */
-import type { UserInputRole } from './userInputRole';
 
 export interface UserInput {
   email: string;
   name: string;
-  role: UserInputRole;
+  roleId: number;
   password: string;
   phone?: string;
 }

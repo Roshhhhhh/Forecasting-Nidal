@@ -6,9 +6,9 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export interface UserUpdate {
-  name?: string;
-  roleId?: number;
-  isActive?: boolean;
-  phone?: string;
+export interface RoleUpdate {
+  label?: string;
+  description?: string;
+  permissions?: string[];
+  color?: string;
 }

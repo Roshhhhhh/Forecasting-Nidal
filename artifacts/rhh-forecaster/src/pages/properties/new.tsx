@@ -11,22 +11,24 @@ import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useState } from "react";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 const UAE_EMIRATES = [
-  "Abu Dhabi",
-  "Dubai",
-  "Sharjah",
-  "Ajman",
-  "Umm Al Quwain",
-  "Ras Al Khaimah",
-  "Fujairah",
+  { value: "Abu Dhabi",      group: "Abu Dhabi Emirate" },
+  { value: "Al Ain",         group: "Abu Dhabi Emirate" },
+  { value: "Dubai",          group: "Other Emirates" },
+  { value: "Sharjah",        group: "Other Emirates" },
+  { value: "Ajman",          group: "Other Emirates" },
+  { value: "Umm Al Quwain",  group: "Other Emirates" },
+  { value: "Ras Al Khaimah", group: "Other Emirates" },
+  { value: "Fujairah",       group: "Other Emirates" },
+  { value: "Other",          group: "Other Emirates" },
 ];
 
 const ABU_DHABI_AREAS = [
   "Al Reem Island",
   "Yas Island",
   "Saadiyat Island",
-  "Al Marriyah Island",
   "Al Maryah Island",
   "Al Raha Beach",
   "Corniche",
@@ -61,11 +63,159 @@ const ABU_DHABI_AREAS = [
   "Other",
 ];
 
+const AL_AIN_AREAS = [
+  "Al Ain City Centre",
+  "Al Jimi",
+  "Al Muwaiji",
+  "Al Mutawaa",
+  "Al Ain Industrial Area",
+  "Al Hili",
+  "Al Jahili",
+  "Al Khabisi",
+  "Al Markhaniya",
+  "Al Maqam",
+  "Al Sarouj",
+  "Al Yahar",
+  "Zakher",
+  "Mezyad",
+  "Al Ain Oasis",
+  "Other",
+];
+
+// All known communities / projects in Abu Dhabi (shown to users as a searchable dropdown)
+const ABU_DHABI_COMMUNITIES = [
+  "Waters Edge",
+  "ANSAM",
+  "MAYAN",
+  "Gardenia Bay",
+  "Sama Yas",
+  "Yas Golf Collection",
+  "Yas Acres",
+  "Noya",
+  "Yas Riva",
+  "Yas Park Gate",
+  "West Yas",
+  "Yas Living",
+  "Saadiyat Bay",
+  "Branded Residences by Ghana",
+  "Al Deem Townhomes",
+  "Diva",
+  "Perla 1",
+  "Perla 2",
+  "Perla 3",
+  "Selina Bay",
+  "Bab Al Qasr Residence 25",
+  "Bab Al Qasr Residence 31",
+  "The Icon",
+  "Sea La Vie",
+  "The Bay Residences 1",
+  "The Bay Residences 2",
+  "Al Zeina Island",
+  "Al Muneira Island",
+  "Al Bandar Island",
+  "Al Hadeel",
+  "Raha Gardens",
+  "Golf Gardens",
+  "Loft 1",
+  "Lofts 2",
+  "Bab Al Qasr Residence 22",
+  "Brabus Island",
+  "Leonardo",
+  "Oasis 1",
+  "Oasis 2",
+  "The Gate",
+  "Plaza 1",
+  "Plaza 2",
+  "Royal Park",
+  "Ville 11",
+  "Ville 12",
+  "Bab Al Qasr 18",
+  "Bab Al Qasr 19",
+  "Bab Al Qasr 46",
+  "Mahra",
+  "Vista 1",
+  "Vista 2",
+  "Reportage Tower",
+  "V Residence",
+  "St. Regis the Residence",
+  "Mamsha",
+  "Nuhu",
+  "The Arc",
+  "Mandarin Oriental",
+  "The Source",
+  "The Source 2",
+  "The Arthouse",
+  "Louvre",
+  "Manaret Living 1",
+  "Manaret Living 2",
+  "Nouran Living",
+  "Lagoons",
+  "Jawaher",
+  "Wadi Saadiyat",
+  "Reserve",
+  "Soho Square",
+  "Park View",
+  "Alyasa Village",
+  "Soley",
+  "Miran",
+  "Vida",
+  "Reeman Living",
+  "Fay Al Reeman 1",
+  "Fay Al Reeman 2",
+  "Bloom Living",
+  "Reef Downtown",
+  "Reef Villas",
+  "Sun & Sky Towers",
+  "Mangrove Place",
+  "Sas 1 to 14",
+  "Hydra Avenue C1 to C6",
+  "Marina Bay 1",
+  "Marina Bay 2",
+  "Sigma Tower",
+  "Raahen Residence",
+  "Reflection",
+  "Beach Tower",
+  "Ocean Scape",
+  "Silkhaus",
+  "Horizons",
+  "Tala Island",
+  "Yasmina Tower",
+  "Amaya Tower",
+  "Shams Meer",
+  "Parkside",
+  "The Kite",
+  "Azure",
+  "Ocean Terrace",
+  "Tala Tower",
+  "Rak Tower",
+  "Bay View",
+  "Bandar",
+  "Maha Towers",
+  "Marina Heights 1 & 2",
+  "Marina Blue",
+  "Khalidiya",
+  "Al Durrah",
+  "Tamouh",
+  "Townhouse Khalifa Square",
+  "Rovi",
+  "The Bridges",
+  "The Wave",
+  "Marina Bay",
+  "Alwafra",
+  "Marina Sunset Bay",
+  "Al Reem Plaza",
+  "Al Bateen Towers",
+  "Royal Villa",
+  "Hydra Village",
+  "Other…",
+];
+
 const propertySchema = z.object({
   ownerId: z.coerce.number().min(1, "Owner is required"),
   emirate: z.string().min(1, "Emirate is required"),
   area: z.string().min(1, "Area is required"),
   projectBuilding: z.string().optional(),
+  buildingNumber: z.string().optional(),
   unitNumber: z.string().optional(),
   propertyType: z.enum(["apartment", "duplex", "penthouse", "townhouse", "villa", "studio", "hotel_apartment", "other"]),
   bedrooms: z.coerce.number().min(0),
@@ -114,9 +264,18 @@ export default function PropertyNew() {
   const watchedFurnishing = form.watch("furnishingStatus");
   const watchedOperator   = form.watch("operatorType");
   const isAbuDhabi           = watchedEmirate === "Abu Dhabi";
+  const isAlAin              = watchedEmirate === "Al Ain";
+  const isOtherEmirate       = watchedEmirate === "Other";
+  const hasAreaDropdown      = isAbuDhabi || isAlAin;
+  const areaList             = isAlAin ? AL_AIN_AREAS : ABU_DHABI_AREAS;
   const isPrevHolidayHome    = watchedFurnishing === "previously_holiday_home";
   const isMgmtCompany        = watchedOperator === "management_company";
-  const [customArea, setCustomArea] = useState("");
+  const [customArea, setCustomArea]             = useState("");
+  const [customEmirate, setCustomEmirate]       = useState("");
+  const [customCommunity, setCustomCommunity]   = useState("");
+
+  const watchedCommunity = form.watch("projectBuilding");
+  const isOtherCommunity = watchedCommunity === "Other…";
 
   const needsDate = watchedVacancy === "owner_staying" || watchedVacancy === "tenant_staying" || watchedVacancy === "off_plan";
   const dateLabel = watchedVacancy === "off_plan" ? "Expected Handover Date" : "Expected Vacancy Date";
@@ -133,6 +292,19 @@ export default function PropertyNew() {
       // Operator fields — strip from payload (not in API schema)
       delete submitData.operatorType;
       delete submitData.operatorName;
+      // Resolve "Other…" community to the free-text value
+      if (submitData.projectBuilding === "Other…") {
+        submitData.projectBuilding = customCommunity || undefined;
+      }
+      // Append building number to projectBuilding if both filled
+      if (submitData.buildingNumber) {
+        if (submitData.projectBuilding) {
+          submitData.projectBuilding = `${submitData.projectBuilding}, Building ${submitData.buildingNumber}`;
+        } else {
+          submitData.projectBuilding = `Building ${submitData.buildingNumber}`;
+        }
+      }
+      delete submitData.buildingNumber;
       
       const result = await createProperty.mutateAsync({ data: submitData });
       toast({ title: "Property created", description: "The property has been added to the portfolio." });
@@ -169,18 +341,20 @@ export default function PropertyNew() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Select Owner <span className="text-destructive">*</span></FormLabel>
-                    <Select onValueChange={(val) => field.onChange(parseInt(val))} value={field.value ? field.value.toString() : ""}>
-                      <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Choose an owner" /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {owners?.map(owner => (
-                          <SelectItem key={owner.id} value={owner.id.toString()}>
-                            {owner.ownerType === 'company' && owner.companyName ? owner.companyName : `${owner.firstName} ${owner.lastName}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <SearchableSelect
+                        options={(owners ?? []).map(o => ({
+                          value: o.id.toString(),
+                          label: o.ownerType === "company" && o.companyName
+                            ? o.companyName
+                            : `${o.firstName} ${o.lastName}`,
+                        }))}
+                        value={field.value ? field.value.toString() : ""}
+                        onValueChange={(val) => field.onChange(parseInt(val))}
+                        placeholder="Choose an owner"
+                        searchPlaceholder="Search owners…"
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -203,9 +377,9 @@ export default function PropertyNew() {
                     <Select
                       onValueChange={(val) => {
                         field.onChange(val);
-                        // Reset area when emirate changes
                         form.setValue("area", "");
                         setCustomArea("");
+                        setCustomEmirate("");
                       }}
                       value={field.value}
                     >
@@ -213,11 +387,34 @@ export default function PropertyNew() {
                         <SelectTrigger><SelectValue placeholder="Select emirate" /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {UAE_EMIRATES.map(e => (
-                          <SelectItem key={e} value={e}>{e}</SelectItem>
-                        ))}
+                        <SelectGroup>
+                          <SelectLabel>Abu Dhabi Emirate</SelectLabel>
+                          <SelectItem value="Abu Dhabi">Abu Dhabi</SelectItem>
+                          <SelectItem value="Al Ain">Al Ain</SelectItem>
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Other Emirates</SelectLabel>
+                          <SelectItem value="Dubai">Dubai</SelectItem>
+                          <SelectItem value="Sharjah">Sharjah</SelectItem>
+                          <SelectItem value="Ajman">Ajman</SelectItem>
+                          <SelectItem value="Umm Al Quwain">Umm Al Quwain</SelectItem>
+                          <SelectItem value="Ras Al Khaimah">Ras Al Khaimah</SelectItem>
+                          <SelectItem value="Fujairah">Fujairah</SelectItem>
+                          <SelectItem value="Other">Other…</SelectItem>
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
+                    {isOtherEmirate && (
+                      <Input
+                        className="mt-2"
+                        placeholder="Type emirate name…"
+                        value={customEmirate}
+                        onChange={(e) => {
+                          setCustomEmirate(e.target.value);
+                          field.onChange(e.target.value || "Other");
+                        }}
+                      />
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -230,32 +427,18 @@ export default function PropertyNew() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Area / District <span className="text-destructive">*</span></FormLabel>
-                    {isAbuDhabi ? (
+                    {hasAreaDropdown ? (
                       <>
-                        <Select
+                        <SearchableSelect
+                          options={areaList.map(a => ({ value: a, label: a }))}
+                          value={field.value === "Other" ? "Other" : (field.value ?? "")}
                           onValueChange={(val) => {
-                            if (val === "Other") {
-                              field.onChange("Other");
-                              setCustomArea("");
-                            } else {
-                              field.onChange(val);
-                              setCustomArea("");
-                            }
+                            field.onChange(val);
+                            setCustomArea("");
                           }}
-                          value={field.value ?? ""}
-                        >
-                          <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Select area" /></SelectTrigger>
-                          </FormControl>
-                          <SelectContent className="max-h-72">
-                            <SelectGroup>
-                              <SelectLabel>Abu Dhabi Areas</SelectLabel>
-                              {ABU_DHABI_AREAS.map(a => (
-                                <SelectItem key={a} value={a}>{a}</SelectItem>
-                              ))}
-                            </SelectGroup>
-                          </SelectContent>
-                        </Select>
+                          placeholder="Search & select area…"
+                          searchPlaceholder="Type to filter areas…"
+                        />
                         {field.value === "Other" && (
                           <Input
                             className="mt-2"
@@ -278,13 +461,52 @@ export default function PropertyNew() {
                 )}
               />
 
+              {/* Community / Project — searchable dropdown with full Abu Dhabi list */}
               <FormField
                 control={form.control}
                 name="projectBuilding"
                 render={({ field }) => (
+                  <FormItem className="md:col-span-2">
+                    <FormLabel>Community / Project</FormLabel>
+                    {isAbuDhabi ? (
+                      <>
+                        <SearchableSelect
+                          options={ABU_DHABI_COMMUNITIES.map(c => ({ value: c, label: c }))}
+                          value={field.value ?? ""}
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            setCustomCommunity("");
+                          }}
+                          placeholder="Search community or project…"
+                          searchPlaceholder="Type to filter…"
+                        />
+                        {isOtherCommunity && (
+                          <Input
+                            className="mt-2"
+                            placeholder="Type community / project name…"
+                            value={customCommunity}
+                            onChange={(e) => setCustomCommunity(e.target.value)}
+                          />
+                        )}
+                      </>
+                    ) : (
+                      <FormControl>
+                        <Input placeholder="e.g. Mamsha Al Saadiyat" {...field} />
+                      </FormControl>
+                    )}
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Building Number */}
+              <FormField
+                control={form.control}
+                name="buildingNumber"
+                render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Project / Building</FormLabel>
-                    <FormControl><Input placeholder="e.g. Mamsha Al Saadiyat" {...field} /></FormControl>
+                    <FormLabel>Building Number</FormLabel>
+                    <FormControl><Input placeholder="e.g. 12" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -42,22 +42,42 @@ export interface AuthUser {
   avatarUrl?: string | null;
 }
 
-export type UserRole = typeof UserRole[keyof typeof UserRole];
+export interface Role {
+  id: number;
+  name: string;
+  label: string;
+  /** @nullable */
+  description?: string | null;
+  permissions: string[];
+  color: string;
+  isBuiltIn: boolean;
+  createdAt: string;
+}
 
+export interface RoleInput {
+  name: string;
+  label: string;
+  description?: string;
+  permissions: string[];
+  color?: string;
+}
 
-export const UserRole = {
-  super_admin: 'super_admin',
-  admin: 'admin',
-  sales: 'sales',
-  revenue_manager: 'revenue_manager',
-  read_only: 'read_only',
-} as const;
+export interface RoleUpdate {
+  label?: string;
+  description?: string;
+  permissions?: string[];
+  color?: string;
+}
 
 export interface User {
   id: number;
   email: string;
   name: string;
-  role: UserRole;
+  role: string;
+  /** @nullable */
+  roleLabel?: string | null;
+  /** @nullable */
+  roleId?: number | null;
   isActive: boolean;
   /** @nullable */
   phone?: string | null;
@@ -68,39 +88,17 @@ export interface User {
   lastLoginAt?: string | null;
 }
 
-export type UserInputRole = typeof UserInputRole[keyof typeof UserInputRole];
-
-
-export const UserInputRole = {
-  super_admin: 'super_admin',
-  admin: 'admin',
-  sales: 'sales',
-  revenue_manager: 'revenue_manager',
-  read_only: 'read_only',
-} as const;
-
 export interface UserInput {
   email: string;
   name: string;
-  role: UserInputRole;
+  roleId: number;
   password: string;
   phone?: string;
 }
 
-export type UserUpdateRole = typeof UserUpdateRole[keyof typeof UserUpdateRole];
-
-
-export const UserUpdateRole = {
-  super_admin: 'super_admin',
-  admin: 'admin',
-  sales: 'sales',
-  revenue_manager: 'revenue_manager',
-  read_only: 'read_only',
-} as const;
-
 export interface UserUpdate {
   name?: string;
-  role?: UserUpdateRole;
+  roleId?: number;
   isActive?: boolean;
   phone?: string;
 }

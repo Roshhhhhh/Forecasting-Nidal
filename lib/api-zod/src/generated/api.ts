@@ -54,13 +54,92 @@ export const GetMeResponse = zod.object({
 
 
 /**
+ * @summary List all roles
+ */
+export const ListRolesResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "label": zod.string(),
+  "description": zod.string().nullish(),
+  "permissions": zod.array(zod.string()),
+  "color": zod.string(),
+  "isBuiltIn": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+export const ListRolesResponse = zod.array(ListRolesResponseItem)
+
+
+/**
+ * @summary Create a custom role
+ */
+export const CreateRoleBody = zod.object({
+  "name": zod.string(),
+  "label": zod.string(),
+  "description": zod.string().optional(),
+  "permissions": zod.array(zod.string()),
+  "color": zod.string().optional()
+})
+
+export const CreateRoleResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "label": zod.string(),
+  "description": zod.string().nullish(),
+  "permissions": zod.array(zod.string()),
+  "color": zod.string(),
+  "isBuiltIn": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update a role
+ */
+export const UpdateRoleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateRoleBody = zod.object({
+  "label": zod.string().optional(),
+  "description": zod.string().optional(),
+  "permissions": zod.array(zod.string()).optional(),
+  "color": zod.string().optional()
+})
+
+export const UpdateRoleResponse = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "label": zod.string(),
+  "description": zod.string().nullish(),
+  "permissions": zod.array(zod.string()),
+  "color": zod.string(),
+  "isBuiltIn": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete a custom role
+ */
+export const DeleteRoleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteRoleResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
  * @summary List all users
  */
 export const ListUsersResponseItem = zod.object({
   "id": zod.number(),
   "email": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['super_admin', 'admin', 'sales', 'revenue_manager', 'read_only']),
+  "role": zod.string(),
+  "roleLabel": zod.string().nullish(),
+  "roleId": zod.number().nullish(),
   "isActive": zod.boolean(),
   "phone": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),
@@ -76,7 +155,7 @@ export const ListUsersResponse = zod.array(ListUsersResponseItem)
 export const CreateUserBody = zod.object({
   "email": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['super_admin', 'admin', 'sales', 'revenue_manager', 'read_only']),
+  "roleId": zod.number(),
   "password": zod.string(),
   "phone": zod.string().optional()
 })
@@ -85,7 +164,9 @@ export const CreateUserResponse = zod.object({
   "id": zod.number(),
   "email": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['super_admin', 'admin', 'sales', 'revenue_manager', 'read_only']),
+  "role": zod.string(),
+  "roleLabel": zod.string().nullish(),
+  "roleId": zod.number().nullish(),
   "isActive": zod.boolean(),
   "phone": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),
@@ -105,7 +186,9 @@ export const GetUserResponse = zod.object({
   "id": zod.number(),
   "email": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['super_admin', 'admin', 'sales', 'revenue_manager', 'read_only']),
+  "role": zod.string(),
+  "roleLabel": zod.string().nullish(),
+  "roleId": zod.number().nullish(),
   "isActive": zod.boolean(),
   "phone": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),
@@ -123,7 +206,7 @@ export const UpdateUserParams = zod.object({
 
 export const UpdateUserBody = zod.object({
   "name": zod.string().optional(),
-  "role": zod.enum(['super_admin', 'admin', 'sales', 'revenue_manager', 'read_only']).optional(),
+  "roleId": zod.number().optional(),
   "isActive": zod.boolean().optional(),
   "phone": zod.string().optional()
 })
@@ -132,7 +215,9 @@ export const UpdateUserResponse = zod.object({
   "id": zod.number(),
   "email": zod.string(),
   "name": zod.string(),
-  "role": zod.enum(['super_admin', 'admin', 'sales', 'revenue_manager', 'read_only']),
+  "role": zod.string(),
+  "roleLabel": zod.string().nullish(),
+  "roleId": zod.number().nullish(),
   "isActive": zod.boolean(),
   "phone": zod.string().nullish(),
   "avatarUrl": zod.string().nullish(),

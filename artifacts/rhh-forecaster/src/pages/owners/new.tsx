@@ -24,9 +24,9 @@ const ownerSchema = z.object({
   ownerType: z.enum(["individual", "company"]),
   title: z.string().optional(),
   firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
+  lastName: z.string().optional(),
   companyName: z.string().optional(),
-  email: z.string().email("Valid email required"),
+  email: z.string().email("Valid email required").optional().or(z.literal("")),
   phone: z.string().optional(),
   whatsapp: z.string().optional(),
   nationality: z.string().optional(),
@@ -272,7 +272,7 @@ export default function OwnerNew() {
                 name="lastName"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Last Name <span className="text-destructive">*</span></FormLabel>
+                    <FormLabel>Last Name</FormLabel>
                     <FormControl><Input placeholder="Doe" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
@@ -284,7 +284,7 @@ export default function OwnerNew() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email Address <span className="text-destructive">*</span></FormLabel>
+                    <FormLabel>Email Address</FormLabel>
                     <FormControl><Input type="email" placeholder="john@example.com" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>

@@ -1,15 +1,52 @@
 import { useGetDashboardKpis, useGetRecentForecasts, useGetAreaPerformance, useGetConversionStats } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { FileText, TrendingUp, Users, CheckCircle, Clock, AlertTriangle } from "lucide-react";
+import { FileText, TrendingUp, CheckCircle, GripVertical } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
+import { useRef, useState, useCallback, useEffect } from "react";
+
+// ── Resizable split pane hook ─────────────────────────────────────────────────
+function useResizableSplit(defaultPct = 65, minPct = 30, maxPct = 80) {
+  const [pct, setPct] = useState(defaultPct);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const dragging = useRef(false);
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    dragging.current = true;
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    const onMove = (ev: MouseEvent) => {
+      if (!dragging.current || !containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const raw = ((ev.clientX - rect.left) / rect.width) * 100;
+      setPct(Math.min(maxPct, Math.max(minPct, raw)));
+    };
+
+    const onUp = () => {
+      dragging.current = false;
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+    };
+
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  }, [minPct, maxPct]);
+
+  return { pct, containerRef, onMouseDown };
+}
 
 export default function Dashboard() {
   const { data: kpis, isLoading: isKpisLoading } = useGetDashboardKpis();
   const { data: recentForecasts, isLoading: isRecentLoading } = useGetRecentForecasts();
   const { data: areaPerformance, isLoading: isAreaLoading } = useGetAreaPerformance();
   const { data: conversionStats, isLoading: isConversionLoading } = useGetConversionStats();
+
+  const { pct, containerRef, onMouseDown } = useResizableSplit(65);
 
   const formatCurrency = (val?: number | null) => {
     if (!val) return "AED 0";
@@ -28,9 +65,9 @@ export default function Dashboard() {
 
   const conversionData = conversionStats ? [
     { name: "Published", value: conversionStats.published },
-    { name: "Viewed", value: conversionStats.viewed },
-    { name: "Called", value: conversionStats.ownerCalled || 0 },
-    { name: "Accepted", value: conversionStats.accepted }
+    { name: "Viewed",    value: conversionStats.viewed },
+    { name: "Called",    value: conversionStats.ownerCalled || 0 },
+    { name: "Accepted",  value: conversionStats.accepted },
   ] : [];
 
   return (
@@ -45,7 +82,7 @@ export default function Dashboard() {
         </Link>
       </div>
 
-      {/* KPIs Grid */}
+      {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="shadow-sm border-border/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -59,7 +96,7 @@ export default function Dashboard() {
             </p>
           </CardContent>
         </Card>
-        
+
         <Card className="shadow-sm border-border/50">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Conversion Rate</CardTitle>
@@ -95,63 +132,96 @@ export default function Dashboard() {
             <div className="text-2xl font-bold text-green-700 dark:text-green-500">
               +{isKpisLoading ? "-" : kpis?.avgIncreaseVsLtr}%
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              vs long-term rental benchmarks
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">vs long-term rental benchmarks</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Charts */}
-        <Card className="col-span-1 lg:col-span-2 shadow-sm border-border/50">
-          <CardHeader>
-            <CardTitle className="font-serif">Area Performance</CardTitle>
-            <CardDescription>Average net owner income by area</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            {isAreaLoading ? (
-              <div className="w-full h-full flex items-center justify-center text-muted-foreground">Loading chart...</div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={areaPerformance} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                  <XAxis dataKey="area" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-                  <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => `AED ${val/1000}k`} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
-                  <RechartsTooltip 
-                    formatter={(value: number) => formatCurrency(value)}
-                    cursor={{fill: 'hsl(var(--muted)/0.5)'}}
-                    contentStyle={{borderRadius: '8px', border: '1px solid hsl(var(--border))', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}
-                  />
-                  <Bar dataKey="avgNetIncome" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={50} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
+      {/* ── Resizable chart row ── */}
+      <div ref={containerRef} className="flex items-stretch gap-0 min-h-[370px]">
+        {/* Area Performance */}
+        <div style={{ width: `${pct}%`, minWidth: 0 }} className="flex flex-col">
+          <Card className="shadow-sm border-border/50 flex-1 flex flex-col">
+            <CardHeader>
+              <CardTitle className="font-serif">Area Performance</CardTitle>
+              <CardDescription>Average net owner income by area</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 min-h-0 h-[280px]">
+              {isAreaLoading ? (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">Loading chart…</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={areaPerformance} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="area" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+                    <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `AED ${v / 1000}k`} tick={{ fontSize: 12, fill: 'hsl(var(--muted-foreground))' }} />
+                    <RechartsTooltip
+                      formatter={(value: number) => formatCurrency(value)}
+                      cursor={{ fill: 'hsl(var(--muted)/0.5)' }}
+                      contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                    />
+                    <Bar dataKey="avgNetIncome" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={50} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Funnel */}
-        <Card className="shadow-sm border-border/50">
-          <CardHeader>
-            <CardTitle className="font-serif">Conversion Funnel</CardTitle>
-            <CardDescription>Proposal engagement stages</CardDescription>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            {isConversionLoading ? (
-               <div className="w-full h-full flex items-center justify-center text-muted-foreground">Loading funnel...</div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={conversionData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
-                  <XAxis type="number" hide />
-                  <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'hsl(var(--foreground))', fontWeight: 500 }} />
-                  <RechartsTooltip />
-                  <Area type="monotone" dataKey="value" stroke="hsl(var(--primary))" fill="hsl(var(--primary)/0.2)" strokeWidth={2} />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
+        {/* ── Drag handle ── */}
+        <div
+          className="flex items-center justify-center w-3 cursor-col-resize flex-shrink-0 group select-none"
+          onMouseDown={onMouseDown}
+          title="Drag to resize"
+        >
+          <div className="flex flex-col items-center gap-0.5 opacity-30 group-hover:opacity-80 transition-opacity">
+            <GripVertical className="h-5 w-5 text-muted-foreground" />
+          </div>
+        </div>
+
+        {/* Conversion Funnel */}
+        <div style={{ width: `${100 - pct}%`, minWidth: 0 }} className="flex flex-col">
+          <Card className="shadow-sm border-border/50 flex-1 flex flex-col">
+            <CardHeader>
+              <CardTitle className="font-serif">Conversion Funnel</CardTitle>
+              <CardDescription>Proposal engagement stages</CardDescription>
+            </CardHeader>
+            <CardContent className="flex-1 min-h-0 h-[280px]">
+              {isConversionLoading ? (
+                <div className="w-full h-full flex items-center justify-center text-muted-foreground">Loading funnel…</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart
+                    data={conversionData}
+                    margin={{ top: 10, right: 20, left: 10, bottom: 10 }}
+                    layout="vertical"
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+                    <XAxis type="number" hide />
+                    <YAxis
+                      dataKey="name"
+                      type="category"
+                      axisLine={false}
+                      tickLine={false}
+                      width={72}
+                      tick={{ fontSize: 12, fill: 'hsl(var(--foreground))', fontWeight: 500 }}
+                    />
+                    <RechartsTooltip
+                      contentStyle={{ borderRadius: '8px', border: '1px solid hsl(var(--border))' }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="value"
+                      stroke="hsl(var(--primary))"
+                      fill="hsl(var(--primary)/0.2)"
+                      strokeWidth={2}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Recent Forecasts */}

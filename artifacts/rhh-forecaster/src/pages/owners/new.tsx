@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCreateOwner, useListUsers, useListReferees, useCreateReferee } from "@workspace/api-client-react";
+import { useCreateOwner, useListUsers, useListReferees, useCreateReferee, useCreateUser } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { UserCheck, Plus, Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { UserCheck, Plus, Loader2, RefreshCw, Home, UserPlus } from "lucide-react";
 
 const ownerSchema = z.object({
   ownerType: z.enum(["individual", "company"]),
@@ -38,12 +39,25 @@ const ownerSchema = z.object({
 
 type OwnerFormValues = z.infer<typeof ownerSchema>;
 
+interface RepQuickFormValues {
+  name: string;
+  email: string;
+  password: string;
+  role: "sales" | "revenue_manager" | "admin" | "super_admin" | "read_only";
+  phone?: string;
+}
+
 interface RefereeQuickFormValues {
   name: string;
   phone?: string;
   email?: string;
   companyName?: string;
-  commissionPercent?: number;
+  referralFeeStudio: number;
+  referralFee1br: number;
+  referralFee2br: number;
+  referralFee3br: number;
+  referralFee4brPlus: number;
+  isRecurringEnabled: boolean;
 }
 
 export default function OwnerNew() {
@@ -52,13 +66,28 @@ export default function OwnerNew() {
   const queryClient = useQueryClient();
   const createOwner = useCreateOwner();
   const createReferee = useCreateReferee();
+  const createUser = useCreateUser();
   const { data: users } = useListUsers();
   const { data: referees } = useListReferees();
 
+  const [addRepOpen, setAddRepOpen] = useState(false);
+  const repForm = useForm<RepQuickFormValues>({
+    defaultValues: { name: "", email: "", password: "", role: "sales" },
+  });
+
   const [addRefereeOpen, setAddRefereeOpen] = useState(false);
   const refereeForm = useForm<RefereeQuickFormValues>({
-    defaultValues: { name: "", commissionPercent: 5 },
+    defaultValues: {
+      name: "",
+      referralFeeStudio: 1500,
+      referralFee1br: 2000,
+      referralFee2br: 2500,
+      referralFee3br: 3000,
+      referralFee4brPlus: 3500,
+      isRecurringEnabled: false,
+    },
   });
+  const isRefereeRecurring = refereeForm.watch("isRecurringEnabled");
 
   const form = useForm<OwnerFormValues>({
     resolver: zodResolver(ownerSchema),
@@ -98,13 +127,34 @@ export default function OwnerNew() {
       queryClient.invalidateQueries({ queryKey: ["listReferees"] });
       form.setValue("refereeId", (newReferee as any).id);
       setAddRefereeOpen(false);
-      refereeForm.reset({ name: "", commissionPercent: 5 });
+      refereeForm.reset({
+        name: "",
+        referralFeeStudio: 1500,
+        referralFee1br: 2000,
+        referralFee2br: 2500,
+        referralFee3br: 3000,
+        referralFee4brPlus: 3500,
+        isRecurringEnabled: false,
+      });
       toast({
         title: "Referee created",
         description: `${(newReferee as any).refereeCode} — ${(newReferee as any).name}`,
       });
     } catch {
       toast({ title: "Failed to create referee", variant: "destructive" });
+    }
+  }
+
+  async function handleCreateRep(data: RepQuickFormValues) {
+    try {
+      const newUser = await createUser.mutateAsync({ data: data as any });
+      queryClient.invalidateQueries({ queryKey: ["listUsers"] });
+      form.setValue("assignedToId", (newUser as any).id);
+      setAddRepOpen(false);
+      repForm.reset({ name: "", email: "", password: "", role: "sales" });
+      toast({ title: "Representative added", description: `${(newUser as any).name} can now log in with the provided credentials.` });
+    } catch {
+      toast({ title: "Failed to create representative", variant: "destructive" });
     }
   }
 
@@ -296,33 +346,47 @@ export default function OwnerNew() {
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="assignedToId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Assigned Representative</FormLabel>
-                    <Select
-                      onValueChange={(val) => field.onChange(val ? parseInt(val) : null)}
-                      value={field.value ? String(field.value) : ""}
-                    >
-                      <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Select team member" /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {users && users.length > 0 ? (
-                          users.map((user: any) => (
-                            <SelectItem key={user.id} value={String(user.id)}>{user.name}</SelectItem>
-                          ))
-                        ) : (
-                          <SelectItem value="_none" disabled>No team members found</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FormField
+                  control={form.control}
+                  name="assignedToId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Assigned Representative</FormLabel>
+                      <div className="flex gap-2 items-start">
+                        <Select
+                          onValueChange={(val) => field.onChange(val ? parseInt(val) : null)}
+                          value={field.value ? String(field.value) : ""}
+                        >
+                          <FormControl>
+                            <SelectTrigger><SelectValue placeholder="Select team member" /></SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {users && users.length > 0 ? (
+                              users.map((user: any) => (
+                                <SelectItem key={user.id} value={String(user.id)}>{user.name}</SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="_none" disabled>No team members found</SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="shrink-0"
+                          title="Add new representative"
+                          onClick={() => setAddRepOpen(true)}
+                        >
+                          <UserPlus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               {/* Referee section — shown when leadSource === "referral" */}
               {leadSource === "referral" && (
@@ -384,19 +448,36 @@ export default function OwnerNew() {
 
                     {/* Show selected referee details */}
                     {selectedReferee && (
-                      <div className="flex items-center gap-3 p-3 bg-background rounded-md border border-border/50">
-                        <Badge variant="outline" className="font-mono text-xs bg-primary/5 border-primary/30 text-primary shrink-0">
-                          {(selectedReferee as any).refereeCode}
-                        </Badge>
-                        <div className="min-w-0">
-                          <p className="font-medium text-sm">{selectedReferee.name}</p>
-                          {(selectedReferee as any).companyName && (
-                            <p className="text-xs text-muted-foreground">{(selectedReferee as any).companyName}</p>
+                      <div className="p-3 bg-background rounded-md border border-border/50 space-y-2">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="font-mono text-xs bg-primary/5 border-primary/30 text-primary shrink-0">
+                            {(selectedReferee as any).refereeCode}
+                          </Badge>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm">{selectedReferee.name}</p>
+                            {(selectedReferee as any).companyName && (
+                              <p className="text-xs text-muted-foreground">{(selectedReferee as any).companyName}</p>
+                            )}
+                          </div>
+                          {(selectedReferee as any).isRecurringEnabled && (
+                            <Badge variant="outline" className="text-xs gap-1 text-emerald-700 border-emerald-300 bg-emerald-50 shrink-0">
+                              <RefreshCw className="h-2.5 w-2.5" /> Recurring
+                            </Badge>
                           )}
                         </div>
-                        <div className="ml-auto text-sm shrink-0">
-                          <span className="text-muted-foreground">Commission: </span>
-                          <span className="font-semibold text-primary">{(selectedReferee as any).commissionPercent}%</span>
+                        <div className="grid grid-cols-5 gap-1 text-center text-xs pt-1">
+                          {[
+                            { label: "Studio", value: (selectedReferee as any).referralFeeStudio },
+                            { label: "1 BR", value: (selectedReferee as any).referralFee1br },
+                            { label: "2 BR", value: (selectedReferee as any).referralFee2br },
+                            { label: "3 BR", value: (selectedReferee as any).referralFee3br },
+                            { label: "4+ BR", value: (selectedReferee as any).referralFee4brPlus },
+                          ].map(({ label, value }) => (
+                            <div key={label} className="bg-muted/40 rounded p-1">
+                              <p className="text-[10px] text-muted-foreground">{label}</p>
+                              <p className="font-semibold">{Number(value ?? 0).toLocaleString()} AED</p>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     )}
@@ -485,24 +566,116 @@ export default function OwnerNew() {
               <Label>Company / Agency</Label>
               <Input placeholder="Al Mansoori Real Estate" {...refereeForm.register("companyName")} />
             </div>
+
+            {/* One-time referral fees by layout */}
             <div className="space-y-2">
-              <Label>Commission (%)</Label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  max="100"
-                  {...refereeForm.register("commissionPercent", { valueAsNumber: true })}
-                  className="pr-8"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+              <div className="flex items-center gap-1.5">
+                <Home className="h-3.5 w-3.5 text-primary" />
+                <Label className="text-sm">One-Time Referral Fees (AED)</Label>
+              </div>
+              <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/60 bg-muted/20 p-3">
+                {([
+                  { label: "Studio", field: "referralFeeStudio" },
+                  { label: "1 Bedroom", field: "referralFee1br" },
+                  { label: "2 Bedrooms", field: "referralFee2br" },
+                  { label: "3 Bedrooms", field: "referralFee3br" },
+                  { label: "4+ Bedrooms", field: "referralFee4brPlus" },
+                ] as const).map(({ label, field }) => (
+                  <div key={field} className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">{label}</Label>
+                    <div className="relative">
+                      <Input
+                        type="number" min="0" step="100"
+                        {...refereeForm.register(field, { valueAsNumber: true })}
+                        className="pr-10 text-sm h-8"
+                      />
+                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">AED</span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
+
+            {/* Recurring commission toggle */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3">
+                <div className="flex items-center gap-2">
+                  <RefreshCw className="h-3.5 w-3.5 text-emerald-600" />
+                  <div>
+                    <Label className="text-sm font-medium">Recurring Commission</Label>
+                    <p className="text-xs text-muted-foreground">Agent earns PM%−16% per year</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={isRefereeRecurring}
+                  onCheckedChange={(val) => refereeForm.setValue("isRecurringEnabled", val)}
+                />
+              </div>
+              {isRefereeRecurring && (
+                <p className="text-xs text-emerald-700 bg-emerald-50 rounded px-2 py-1.5">
+                  e.g. 20% PM → agent gets 4%, RHH keeps 16%. Min RHH floor: 15%.
+                </p>
+              )}
+            </div>
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setAddRefereeOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={createReferee.isPending} className="gap-2">
                 {createReferee.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                Create & Select
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick-create Representative Dialog */}
+      <Dialog open={addRepOpen} onOpenChange={setAddRepOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Add New Representative</DialogTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Create a team member account. They'll be able to log in immediately with these credentials.
+            </p>
+          </DialogHeader>
+          <form onSubmit={repForm.handleSubmit(handleCreateRep)} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Full Name <span className="text-destructive">*</span></Label>
+              <Input placeholder="e.g. Sarah Mitchell" {...repForm.register("name", { required: true })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Email <span className="text-destructive">*</span></Label>
+              <Input type="email" placeholder="sarah@royalholiday.ae" {...repForm.register("email", { required: true })} />
+            </div>
+            <div className="space-y-2">
+              <Label>Temporary Password <span className="text-destructive">*</span></Label>
+              <Input
+                type="password"
+                placeholder="Min. 8 characters"
+                {...repForm.register("password", { required: true, minLength: 8 })}
+              />
+              <p className="text-xs text-muted-foreground">Share this with them — they can change it after first login.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Role <span className="text-destructive">*</span></Label>
+              <select
+                {...repForm.register("role", { required: true })}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="sales">Sales</option>
+                <option value="revenue_manager">Revenue Manager</option>
+                <option value="admin">Admin</option>
+                <option value="read_only">Read Only</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Phone</Label>
+              <Input placeholder="+971 50 123 4567" {...repForm.register("phone")} />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setAddRepOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={createUser.isPending} className="gap-2">
+                {createUser.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                 Create & Select
               </Button>
             </DialogFooter>

@@ -11,6 +11,11 @@ export interface RefereeInput {
   phone?: string;
   email?: string;
   companyName?: string;
-  commissionPercent?: number;
+  referralFeeStudio?: number;
+  referralFee1br?: number;
+  referralFee2br?: number;
+  referralFee3br?: number;
+  referralFee4brPlus?: number;
+  isRecurringEnabled?: boolean;
   notes?: string;
 }

@@ -91,8 +91,8 @@ router.post("/forecasts", requireAuth, async (req, res): Promise<void> => {
   // Create default scenarios
   const scenarioDefs = [
     { name: "Conservative", occupancyRate: 0.75, adrMultiplier: 1.0, isRecommended: false },
-    { name: "Realistic", occupancyRate: 0.80, adrMultiplier: 1.0, isRecommended: true },
-    { name: "Confident", occupancyRate: 0.85, adrMultiplier: 1.0, isRecommended: false },
+    { name: "Realistic", occupancyRate: 0.80, adrMultiplier: 1.0, isRecommended: false },
+    { name: "Confident", occupancyRate: 0.85, adrMultiplier: 1.0, isRecommended: true },
     { name: "Optimistic", occupancyRate: 0.90, adrMultiplier: 1.0, isRecommended: false },
   ];
   await db.insert(forecastScenariosTable).values(scenarioDefs.map(s => ({ ...s, forecastId: forecast.id })));

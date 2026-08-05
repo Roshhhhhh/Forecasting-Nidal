@@ -3,7 +3,7 @@ import { useParams, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, UserCheck, Phone, Mail, Building, Users, Calendar } from "lucide-react";
+import { ArrowLeft, UserCheck, Phone, Mail, Users, RefreshCw, Home } from "lucide-react";
 
 export default function RefereeDetail() {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +15,14 @@ export default function RefereeDetail() {
 
   const owners = (referee as any).referredOwners ?? [];
 
+  const layoutFees = [
+    { label: "Studio", value: referee.referralFeeStudio },
+    { label: "1 Bedroom", value: referee.referralFee1br },
+    { label: "2 Bedrooms", value: referee.referralFee2br },
+    { label: "3 Bedrooms", value: referee.referralFee3br },
+    { label: "4+ Bedrooms", value: referee.referralFee4brPlus },
+  ];
+
   return (
     <div className="p-8 max-w-[900px] mx-auto space-y-6">
       <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
@@ -25,11 +33,16 @@ export default function RefereeDetail() {
 
       <div className="flex items-start justify-between">
         <div>
-          <div className="flex items-center gap-3 mb-1">
+          <div className="flex items-center gap-3 mb-1 flex-wrap">
             <h1 className="text-3xl font-serif font-bold text-foreground">{referee.name}</h1>
             <Badge variant="outline" className="font-mono bg-primary/5 border-primary/30 text-primary">
               {referee.refereeCode}
             </Badge>
+            {referee.isRecurringEnabled && (
+              <Badge variant="outline" className="gap-1 text-emerald-700 border-emerald-300 bg-emerald-50">
+                <RefreshCw className="h-3 w-3" /> Recurring
+              </Badge>
+            )}
             {!referee.isActive && <Badge variant="outline" className="text-muted-foreground">Inactive</Badge>}
           </div>
           {referee.companyName && <p className="text-muted-foreground">{referee.companyName}</p>}
@@ -41,13 +54,8 @@ export default function RefereeDetail() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card className="border-border/50 shadow-sm">
-          <CardContent className="p-4 text-center">
-            <div className="text-2xl font-bold text-primary">{referee.commissionPercent}%</div>
-            <p className="text-xs text-muted-foreground mt-1">Commission Rate</p>
-          </CardContent>
-        </Card>
+      {/* Contact + stats */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <Card className="border-border/50 shadow-sm">
           <CardContent className="p-4 text-center">
             <div className="text-2xl font-bold">{owners.length}</div>
@@ -78,6 +86,59 @@ export default function RefereeDetail() {
         )}
       </div>
 
+      {/* One-time referral fees */}
+      <Card className="border-border/50 shadow-sm">
+        <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+          <CardTitle className="font-serif text-base flex items-center gap-2">
+            <Home className="h-4 w-4 text-primary" />
+            One-Time Referral Fees
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4">
+          <div className="grid grid-cols-5 gap-3 text-center">
+            {layoutFees.map(({ label, value }) => (
+              <div key={label} className="rounded-lg bg-muted/40 p-3">
+                <p className="text-xs text-muted-foreground mb-1">{label}</p>
+                <p className="text-lg font-bold text-foreground">{Number(value).toLocaleString()}</p>
+                <p className="text-[10px] text-muted-foreground">AED</p>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recurring commission */}
+      {referee.isRecurringEnabled && (
+        <Card className="border-emerald-200 bg-emerald-50/50 shadow-sm">
+          <CardHeader className="bg-emerald-50 border-b border-emerald-200 py-3 px-5">
+            <CardTitle className="font-serif text-base flex items-center gap-2 text-emerald-800">
+              <RefreshCw className="h-4 w-4" />
+              Recurring Commission Programme — Active
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            <div className="grid grid-cols-5 gap-2 text-center text-xs">
+              {[
+                { pm: "20%", agent: "4%", rhh: "16%" },
+                { pm: "19%", agent: "3%", rhh: "16%" },
+                { pm: "18%", agent: "2%", rhh: "16%" },
+                { pm: "17%", agent: "1%", rhh: "16%" },
+                { pm: "≤16%", agent: "0%", rhh: "≥15%*" },
+              ].map(row => (
+                <div key={row.pm} className="bg-white rounded-lg p-2.5 border border-emerald-100">
+                  <p className="font-semibold text-emerald-900">PM: {row.pm}</p>
+                  <p className="text-emerald-700 mt-1">Agent: <span className="font-bold">{row.agent}</span></p>
+                  <p className="text-slate-500">RHH: {row.rhh}</p>
+                </div>
+              ))}
+            </div>
+            <p className="text-[11px] text-emerald-700 mt-3">
+              * Company minimum is 15% PM — the programme never reduces RHH below this floor.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       {referee.notes && (
         <Card className="border-border/50 shadow-sm">
           <CardContent className="p-4">
@@ -87,6 +148,7 @@ export default function RefereeDetail() {
         </Card>
       )}
 
+      {/* Referred owners table */}
       <Card className="border-border/50 shadow-sm">
         <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
           <CardTitle className="font-serif text-base flex items-center gap-2">

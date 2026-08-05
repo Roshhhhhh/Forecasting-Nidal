@@ -16,7 +16,18 @@ export interface Referee {
   email?: string | null;
   /** @nullable */
   companyName?: string | null;
-  commissionPercent?: number;
+  /** One-time referral fee for a studio apartment (AED) */
+  referralFeeStudio: number;
+  /** One-time referral fee for a 1-bedroom apartment (AED) */
+  referralFee1br: number;
+  /** One-time referral fee for a 2-bedroom apartment (AED) */
+  referralFee2br: number;
+  /** One-time referral fee for a 3-bedroom apartment (AED) */
+  referralFee3br: number;
+  /** One-time referral fee for 4+ bedroom apartments (AED) */
+  referralFee4brPlus: number;
+  /** Whether this referee is enrolled in the recurring commission programme. Agent earns max(0, PM% - 16%) recurring; company always retains minimum 15%. */
+  isRecurringEnabled: boolean;
   /** @nullable */
   notes?: string | null;
   isActive: boolean;

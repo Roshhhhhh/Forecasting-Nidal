@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   useGetForecast, useUpdateForecast, useCalculateForecast,
   useListForecastScenarios, useGetForecastMonthly,
-  useGenerateAiRecommendation,
+  useGenerateAiRecommendation, useListProposals, usePublishProposal,
 } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -16,7 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Save, Share, Copy, TrendingUp, DollarSign, Target,
   Building, Calendar, Sparkles, Calculator, Loader2, CheckCircle2,
-  Send, FileText,
+  Send, FileText, Globe, Eye, Printer,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useToast } from "@/hooks/use-toast";
@@ -80,9 +80,15 @@ export default function ForecastDetail() {
   const updateForecast = useUpdateForecast();
   const calculateForecast = useCalculateForecast();
   const aiRecommend = useGenerateAiRecommendation();
+  const publishProposal = usePublishProposal();
+  const { data: proposals } = useListProposals();
+
+  const proposal = proposals?.find((p: any) => p.forecastId === forecastId);
+  const hasShareLink = !!(proposal?.shareUrl && proposal?.isLinkActive);
 
   const [isDirty, setIsDirty] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [proposalTab, setProposalTab] = useState<"share" | null>(null);
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -184,11 +190,24 @@ export default function ForecastDetail() {
       // Refresh all forecast data
       queryClient.invalidateQueries({ queryKey: ["getForecast", forecastId] });
       queryClient.invalidateQueries({ queryKey: ["listForecastScenarios", forecastId] });
-      queryClient.invalidateQueries({ queryKey: ["getForecastMonthly", forecastId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/forecasts/${forecastId}/monthly`] });
       toast({ title: "Calculation complete", description: "Revenue projections and scenarios have been updated." });
     } catch (e: any) {
       const msg = e?.data?.error ?? "Calculation failed. Ensure all ADR values are filled in.";
       toast({ title: "Calculation failed", description: msg, variant: "destructive" });
+    }
+  }
+
+  async function handlePublishProposal() {
+    if (!proposal) { toast({ title: "No proposal record found", variant: "destructive" }); return; }
+    try {
+      const result = await publishProposal.mutateAsync({ id: proposal.id, data: { expiresInDays: 30 } });
+      queryClient.invalidateQueries({ queryKey: ["/api/proposals"] });
+      toast({ title: "Proposal published!", description: "Share link is now active." });
+      const shareUrl = window.location.origin + result.shareUrl;
+      await navigator.clipboard.writeText(shareUrl).catch(() => {});
+    } catch {
+      toast({ title: "Failed to publish proposal", variant: "destructive" });
     }
   }
 
@@ -278,8 +297,14 @@ export default function ForecastDetail() {
             {isCalculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
             Save & Calculate
           </Button>
-          <Button variant="default" size="sm" className="gap-2 bg-primary/90 hover:bg-primary">
-            <Share className="h-4 w-4" /> Generate Proposal
+          <Button
+            variant="default" size="sm" className="gap-2 bg-primary/90 hover:bg-primary"
+            onClick={handlePublishProposal}
+            disabled={publishProposal.isPending || !forecast?.grossAnnualRevenue}
+            title={!forecast?.grossAnnualRevenue ? "Run Save & Calculate first" : ""}
+          >
+            {publishProposal.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share className="h-4 w-4" />}
+            {hasShareLink ? "Reshare Proposal" : "Generate Proposal"}
           </Button>
         </div>
       </header>
@@ -755,10 +780,10 @@ export default function ForecastDetail() {
                     <tr className="bg-muted/40 border-b border-border">
                       <th className="px-5 py-3 text-left font-semibold text-muted-foreground">Metric</th>
                       {OCCUPANCY_LEVELS.map(occ => (
-                        <th key={occ} className={`px-5 py-3 text-right font-semibold ${occ === 0.80 ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}>
+                        <th key={occ} className={`px-5 py-3 text-right font-semibold ${occ === 0.85 ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}>
                           {Math.round(occ * 100)}%
-                          {occ === 0.80 && <div className="text-[10px] font-normal mt-0.5">Realistic</div>}
                           {occ === 0.85 && <div className="text-[10px] font-normal mt-0.5">Confident</div>}
+                          {occ === 0.80 && <div className="text-[10px] font-normal mt-0.5">Realistic</div>}
                           {occ === 0.75 && <div className="text-[10px] font-normal mt-0.5">Conservative</div>}
                           {occ === 0.90 && <div className="text-[10px] font-normal mt-0.5">Optimistic</div>}
                         </th>
@@ -774,7 +799,7 @@ export default function ForecastDetail() {
                       {OCCUPANCY_LEVELS.map(occ => {
                         const s = computeScenario(occ);
                         return (
-                          <td key={occ} className={`px-5 py-3 text-right font-semibold tabular-nums ${occ === 0.80 ? "bg-primary/5 text-primary" : ""}`}>
+                          <td key={occ} className={`px-5 py-3 text-right font-semibold tabular-nums ${occ === 0.85 ? "bg-primary/5 text-primary" : ""}`}>
                             {weightedAdr > 0 ? Math.round(s.gross).toLocaleString() : "—"}
                           </td>
                         );
@@ -793,7 +818,7 @@ export default function ForecastDetail() {
                       <tr key={label} className="hover:bg-muted/20 transition-colors text-muted-foreground">
                         <td className="px-5 py-3">{label}</td>
                         {OCCUPANCY_LEVELS.map(occ => (
-                          <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
+                          <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.85 ? "bg-primary/5" : ""}`}>
                             {val > 0 ? val.toLocaleString() : "—"}
                           </td>
                         ))}
@@ -808,7 +833,7 @@ export default function ForecastDetail() {
                       {OCCUPANCY_LEVELS.map(occ => {
                         const s = computeScenario(occ);
                         return (
-                          <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
+                          <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.85 ? "bg-primary/5" : ""}`}>
                             {weightedAdr > 0 ? Math.round(s.mgmtFee).toLocaleString() : "—"}
                           </td>
                         );
@@ -823,7 +848,7 @@ export default function ForecastDetail() {
                       {OCCUPANCY_LEVELS.map(occ => {
                         const s = computeScenario(occ);
                         return (
-                          <td key={occ} className={`px-5 py-3 text-right tabular-nums font-bold ${occ === 0.80 ? "bg-primary/10 text-primary" : "text-foreground"}`}>
+                          <td key={occ} className={`px-5 py-3 text-right tabular-nums font-bold ${occ === 0.85 ? "bg-primary/10 text-primary" : "text-foreground"}`}>
                             {weightedAdr > 0 ? Math.round(s.net).toLocaleString() : "—"}
                           </td>
                         );
@@ -834,7 +859,7 @@ export default function ForecastDetail() {
                       {OCCUPANCY_LEVELS.map(occ => {
                         const s = computeScenario(occ);
                         return (
-                          <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
+                          <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.85 ? "bg-primary/5" : ""}`}>
                             {weightedAdr > 0 ? Math.round(s.monthly).toLocaleString() : "—"}
                           </td>
                         );
@@ -852,7 +877,7 @@ export default function ForecastDetail() {
                             const s = computeScenario(occ);
                             const positive = s.vsLtr != null && s.vsLtr > 0;
                             return (
-                              <td key={occ} className={`px-5 py-3 text-right tabular-nums font-bold ${occ === 0.80 ? "bg-primary/5" : ""} ${positive ? "text-green-600" : "text-red-500"}`}>
+                              <td key={occ} className={`px-5 py-3 text-right tabular-nums font-bold ${occ === 0.85 ? "bg-primary/5" : ""} ${positive ? "text-green-600" : "text-red-500"}`}>
                                 {s.vsLtr != null ? `${positive ? "+" : ""}${Math.round(s.vsLtr)}%` : "—"}
                               </td>
                             );
@@ -938,14 +963,128 @@ export default function ForecastDetail() {
           </TabsContent>
 
           {/* ── PROPOSAL ── */}
-          <TabsContent value="proposal" className="p-6 max-w-[1400px] mx-auto">
-            <Card className="border-border/50 shadow-sm">
-              <CardContent className="p-8 text-center text-muted-foreground">
-                <Share className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-                <p className="font-medium">Proposal generation coming soon</p>
-                <p className="text-sm mt-1">Run a calculation first, then use "Generate Proposal" to create the owner-facing PDF.</p>
-              </CardContent>
-            </Card>
+          <TabsContent value="proposal" className="p-6 max-w-[900px] mx-auto space-y-6">
+
+            {/* Status card */}
+            {!forecast?.grossAnnualRevenue ? (
+              <Card className="border-border/50 shadow-sm">
+                <CardContent className="p-10 text-center text-muted-foreground">
+                  <FileText className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+                  <p className="font-semibold text-foreground mb-1">No calculation yet</p>
+                  <p className="text-sm">Switch to the <strong>Data Inputs</strong> tab, fill in your ADR values, then click <strong>Save & Calculate</strong> to generate the financial projections before publishing a proposal.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* Share card */}
+                <Card className="border-border/50 shadow-sm overflow-hidden">
+                  <div className="h-1 bg-primary" />
+                  <CardHeader className="bg-muted/20 border-b border-border pb-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <CardTitle className="font-serif text-lg">Owner Proposal</CardTitle>
+                        <p className="text-sm text-muted-foreground mt-1">A branded, owner-facing sales presentation generated from this forecast.</p>
+                      </div>
+                      <div className={`flex items-center gap-2 text-sm font-medium px-3 py-1.5 rounded-full border ${hasShareLink ? "bg-green-50 text-green-700 border-green-200" : "bg-muted text-muted-foreground border-border"}`}>
+                        <div className={`w-2 h-2 rounded-full ${hasShareLink ? "bg-green-500" : "bg-muted-foreground/40"}`} />
+                        {hasShareLink ? "Live & Shareable" : "Not Yet Published"}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-6">
+
+                    {hasShareLink ? (
+                      <div className="space-y-4">
+                        {/* Link row */}
+                        <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border border-border">
+                          <Globe className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="text-sm text-foreground font-mono truncate flex-1 select-all">
+                            {window.location.origin}{proposal?.shareUrl}
+                          </span>
+                          <Button size="sm" variant="outline" className="shrink-0 gap-1.5"
+                            onClick={() => { navigator.clipboard.writeText(window.location.origin + proposal!.shareUrl!); toast({ title: "Link copied!" }); }}>
+                            <Copy className="h-3.5 w-3.5" /> Copy
+                          </Button>
+                        </div>
+                        {/* Action buttons */}
+                        <div className="flex flex-wrap gap-3">
+                          <Button asChild className="gap-2">
+                            <a href={proposal?.shareUrl ?? "#"} target="_blank" rel="noreferrer">
+                              <Eye className="h-4 w-4" /> View Live Proposal
+                            </a>
+                          </Button>
+                          <Button variant="outline" className="gap-2" onClick={handlePublishProposal} disabled={publishProposal.isPending}>
+                            {publishProposal.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share className="h-4 w-4" />}
+                            Regenerate Link
+                          </Button>
+                          <Button variant="outline" className="gap-2" asChild>
+                            <a href={proposal?.shareUrl ?? "#"} target="_blank" rel="noreferrer" onClick={() => setTimeout(() => window.print(), 500)}>
+                              <Printer className="h-4 w-4" /> Print / Save as PDF
+                            </a>
+                          </Button>
+                        </div>
+                        {/* Engagement stats */}
+                        <div className="grid grid-cols-3 gap-4 pt-2">
+                          {[
+                            { label: "Total Views", val: proposal?.totalViews ?? 0 },
+                            { label: "PDF Downloads", val: proposal?.pdfDownloads ?? 0 },
+                            { label: "Status", val: proposal?.ownerAction ? `Owner: ${proposal.ownerAction.replace(/_/g, " ")}` : "Awaiting response" },
+                          ].map(({ label, val }) => (
+                            <div key={label} className="text-center p-4 bg-muted/20 rounded-lg border border-border/50">
+                              <div className="text-xs text-muted-foreground mb-1">{label}</div>
+                              <div className="text-lg font-bold text-foreground">{val}</div>
+                            </div>
+                          ))}
+                        </div>
+                        {/* Expiry notice */}
+                        {proposal?.expiresAt && (
+                          <p className="text-xs text-muted-foreground">
+                            Link expires on {new Date(proposal.expiresAt).toLocaleDateString("en-AE", { day: "2-digit", month: "long", year: "numeric" })}. Click "Regenerate Link" to extend by 30 days.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8 space-y-4">
+                        <Share className="h-10 w-10 mx-auto text-muted-foreground/30" />
+                        <div>
+                          <p className="font-semibold text-foreground mb-1">Ready to share</p>
+                          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+                            Publish a shareable link to send to the owner. They'll see a branded proposal with all financials, scenario comparisons, and the ability to accept or request a callback.
+                          </p>
+                        </div>
+                        <Button className="gap-2 mt-2" onClick={handlePublishProposal} disabled={publishProposal.isPending}>
+                          {publishProposal.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Globe className="h-4 w-4" />}
+                          Publish & Generate Link
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* What the owner sees */}
+                <Card className="border-border/50 shadow-sm">
+                  <CardHeader className="bg-muted/20 border-b border-border pb-4">
+                    <CardTitle className="font-serif text-base">What the owner receives</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {[
+                        { icon: FileText, label: "Executive Summary", desc: "Gross revenue, net income & monthly payout" },
+                        { icon: TrendingUp, label: "Scenario Table", desc: "Conservative → Optimistic comparisons" },
+                        { icon: CheckCircle2, label: "Revenue Charts", desc: "Monthly STR vs LTR visualisation" },
+                        { icon: Send, label: "One-Click Actions", desc: "Accept, request call or ask a question" },
+                      ].map(({ icon: Icon, label, desc }) => (
+                        <div key={label} className="p-4 bg-muted/10 rounded-lg border border-border/50 text-center">
+                          <Icon className="h-6 w-6 text-primary mx-auto mb-2" />
+                          <p className="text-xs font-semibold text-foreground">{label}</p>
+                          <p className="text-[11px] text-muted-foreground mt-1">{desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </TabsContent>
         </Tabs>
       </div>

@@ -17,7 +17,12 @@ export interface RefereeDetail {
   email?: string | null;
   /** @nullable */
   companyName?: string | null;
-  commissionPercent?: number;
+  referralFeeStudio: number;
+  referralFee1br: number;
+  referralFee2br: number;
+  referralFee3br: number;
+  referralFee4brPlus: number;
+  isRecurringEnabled: boolean;
   /** @nullable */
   notes?: string | null;
   isActive: boolean;

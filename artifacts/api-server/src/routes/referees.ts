@@ -23,7 +23,12 @@ function formatReferee(r: any, referredOwners?: any[]) {
     phone: r.phone ?? null,
     email: r.email ?? null,
     companyName: r.companyName ?? null,
-    commissionPercent: r.commissionPercent ? Number(r.commissionPercent) : 5,
+    referralFeeStudio: r.referralFeeStudio ?? 1500,
+    referralFee1br: r.referralFee1br ?? 2000,
+    referralFee2br: r.referralFee2br ?? 2500,
+    referralFee3br: r.referralFee3br ?? 3000,
+    referralFee4brPlus: r.referralFee4brPlus ?? 3500,
+    isRecurringEnabled: r.isRecurringEnabled ?? false,
     notes: r.notes ?? null,
     isActive: r.isActive,
     createdAt: r.createdAt,
@@ -31,12 +36,25 @@ function formatReferee(r: any, referredOwners?: any[]) {
   };
 }
 
+const ReferralFeesSchema = z.object({
+  referralFeeStudio: z.number().int().min(0).default(1500),
+  referralFee1br: z.number().int().min(0).default(2000),
+  referralFee2br: z.number().int().min(0).default(2500),
+  referralFee3br: z.number().int().min(0).default(3000),
+  referralFee4brPlus: z.number().int().min(0).default(3500),
+});
+
 const CreateRefereeBody = z.object({
   name: z.string().min(1),
   phone: z.string().optional(),
   email: z.string().optional(),
   companyName: z.string().optional(),
-  commissionPercent: z.number().min(0).max(100).default(5),
+  referralFeeStudio: z.number().int().min(0).default(1500),
+  referralFee1br: z.number().int().min(0).default(2000),
+  referralFee2br: z.number().int().min(0).default(2500),
+  referralFee3br: z.number().int().min(0).default(3000),
+  referralFee4brPlus: z.number().int().min(0).default(3500),
+  isRecurringEnabled: z.boolean().default(false),
   notes: z.string().optional(),
 });
 
@@ -45,7 +63,12 @@ const UpdateRefereeBody = z.object({
   phone: z.string().optional().nullable(),
   email: z.string().optional().nullable(),
   companyName: z.string().optional().nullable(),
-  commissionPercent: z.number().min(0).max(100).optional(),
+  referralFeeStudio: z.number().int().min(0).optional(),
+  referralFee1br: z.number().int().min(0).optional(),
+  referralFee2br: z.number().int().min(0).optional(),
+  referralFee3br: z.number().int().min(0).optional(),
+  referralFee4brPlus: z.number().int().min(0).optional(),
+  isRecurringEnabled: z.boolean().optional(),
   notes: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
 });
@@ -53,7 +76,6 @@ const UpdateRefereeBody = z.object({
 // List all referees
 router.get("/referees", requireAuth, async (_req, res): Promise<void> => {
   const rows = await db.select().from(refereesTable).orderBy(desc(refereesTable.createdAt));
-  // For each referee, get referred owner count
   const withCounts = await Promise.all(
     rows.map(async (r) => {
       const [cnt] = await db
@@ -73,7 +95,6 @@ router.post("/referees", requireAuth, async (req, res): Promise<void> => {
   const refereeCode = await generateRefereeCode();
   const [referee] = await db.insert(refereesTable).values({
     ...parsed.data,
-    commissionPercent: String(parsed.data.commissionPercent ?? 5),
     refereeCode,
     createdById: req.session.userId,
   }).returning();
@@ -107,11 +128,7 @@ router.patch("/referees/:id", requireAuth, async (req, res): Promise<void> => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const parsed = UpdateRefereeBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
-  const updateData: any = { ...parsed.data };
-  if (updateData.commissionPercent !== undefined) {
-    updateData.commissionPercent = String(updateData.commissionPercent);
-  }
-  const [referee] = await db.update(refereesTable).set(updateData).where(eq(refereesTable.id, id)).returning();
+  const [referee] = await db.update(refereesTable).set(parsed.data).where(eq(refereesTable.id, id)).returning();
   if (!referee) { res.status(404).json({ error: "Referee not found" }); return; }
   res.json(formatReferee(referee));
 });

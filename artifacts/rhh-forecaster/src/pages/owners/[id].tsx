@@ -37,6 +37,13 @@ const LEAD_SOURCE_LABELS: Record<string, string> = {
   social_media_linkedin: "Social Media — LinkedIn",
   social_media_snapchat: "Social Media — Snapchat",
   social_media_tiktok: "Social Media — TikTok",
+  social_media_whatsapp: "Social Media — WhatsApp",
+  social_media_youtube: "Social Media — YouTube",
+  social_media_telegram: "Social Media — Telegram",
+  social_media_threads: "Social Media — Threads",
+  social_media_pinterest: "Social Media — Pinterest",
+  social_media_reddit: "Social Media — Reddit",
+  social_media_bereal: "Social Media — BeReal",
   referral: "Referred by a Referee",
   existing_owner: "Existing RHH Owner",
   agent: "Real Estate Agent",
@@ -495,6 +502,13 @@ export default function OwnerDetail() {
                             <SelectItem value="social_media_linkedin">LinkedIn</SelectItem>
                             <SelectItem value="social_media_snapchat">Snapchat</SelectItem>
                             <SelectItem value="social_media_tiktok">TikTok</SelectItem>
+                            <SelectItem value="social_media_whatsapp">WhatsApp</SelectItem>
+                            <SelectItem value="social_media_youtube">YouTube</SelectItem>
+                            <SelectItem value="social_media_telegram">Telegram</SelectItem>
+                            <SelectItem value="social_media_threads">Threads</SelectItem>
+                            <SelectItem value="social_media_pinterest">Pinterest</SelectItem>
+                            <SelectItem value="social_media_reddit">Reddit</SelectItem>
+                            <SelectItem value="social_media_bereal">BeReal</SelectItem>
                           </SelectGroup>
                           <SelectGroup>
                             <SelectLabel>Referrals</SelectLabel>

@@ -359,6 +359,13 @@ export default function OwnerNew() {
                           <SelectItem value="social_media_linkedin">LinkedIn</SelectItem>
                           <SelectItem value="social_media_snapchat">Snapchat</SelectItem>
                           <SelectItem value="social_media_tiktok">TikTok</SelectItem>
+                          <SelectItem value="social_media_whatsapp">WhatsApp</SelectItem>
+                          <SelectItem value="social_media_youtube">YouTube</SelectItem>
+                          <SelectItem value="social_media_telegram">Telegram</SelectItem>
+                          <SelectItem value="social_media_threads">Threads</SelectItem>
+                          <SelectItem value="social_media_pinterest">Pinterest</SelectItem>
+                          <SelectItem value="social_media_reddit">Reddit</SelectItem>
+                          <SelectItem value="social_media_bereal">BeReal</SelectItem>
                         </SelectGroup>
                         <SelectGroup>
                           <SelectLabel>Referrals</SelectLabel>

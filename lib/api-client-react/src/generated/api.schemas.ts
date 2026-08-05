@@ -692,6 +692,7 @@ export interface ForecastUpdate {
   peakSeasonAdr?: number;
   eventAdr?: number;
   ownerBlockedNights?: number;
+  recommendedOccupancy?: number;
   narrativeText?: string;
   internalNotes?: string;
   assignedToId?: number;
@@ -1097,4 +1098,3 @@ export interface ImportCommitInput {
   sessionToken: string;
   notes?: string;
 }
-

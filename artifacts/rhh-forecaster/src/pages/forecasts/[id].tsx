@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import {
   useGetForecast, useUpdateForecast, useCalculateForecast,
   useListForecastScenarios, useGetForecastMonthly,
+  useGenerateAiRecommendation,
 } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -15,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Save, Share, Copy, TrendingUp, DollarSign, Target,
   Building, Calendar, Sparkles, Calculator, Loader2, CheckCircle2,
+  Send, FileText,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +44,7 @@ interface FormValues {
   miscCost: number;
   managementFeePercent: number;
   ownerBlockedNights: number;
+  recommendedOccupancy: number;
 }
 
 function fmt(val?: number | null, opts?: { digits?: number }) {
@@ -52,21 +55,18 @@ function fmt(val?: number | null, opts?: { digits?: number }) {
   }).format(val);
 }
 
-function pct(val?: number | null) {
-  if (val == null || isNaN(val)) return "—";
-  return `${val > 0 ? "+" : ""}${Math.round(val * 10) / 10}%`;
-}
-
 function getStatusColor(status: string) {
   switch (status) {
     case "published": return "bg-primary/20 text-primary border-primary/30";
     case "accepted": return "bg-green-500/20 text-green-700 border-green-500/30";
     case "declined": return "bg-red-500/20 text-red-700 border-red-500/30";
+    case "submitted": return "bg-amber-500/20 text-amber-700 border-amber-500/30";
     case "draft": return "bg-gray-400/20 text-gray-600 border-gray-400/30";
     default: return "bg-secondary/20 text-secondary-foreground border-secondary/30";
   }
 }
 
+// hint: Logic changed on both sides. Requires understanding intent of each change.
 export default function ForecastDetail() {
   const { id } = useParams<{ id: string }>();
   const forecastId = parseInt(id || "0", 10);
@@ -79,6 +79,7 @@ export default function ForecastDetail() {
 
   const updateForecast = useUpdateForecast();
   const calculateForecast = useCalculateForecast();
+  const aiRecommend = useGenerateAiRecommendation();
 
   const [isDirty, setIsDirty] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -88,7 +89,7 @@ export default function ForecastDetail() {
       annualLtr: 0, ltrVacancyPercent: 10,
       lowSeasonAdr: 0, shoulderSeasonAdr: 0, peakSeasonAdr: 0, eventAdr: 0,
       utilityCost: 0, internetCost: 0, maintenanceCost: 0, miscCost: 0,
-      managementFeePercent: 17, ownerBlockedNights: 0,
+      managementFeePercent: 17, ownerBlockedNights: 0, recommendedOccupancy: 80,
     },
   });
 
@@ -110,6 +111,9 @@ export default function ForecastDetail() {
         miscCost: forecast.miscCost ?? 0,
         managementFeePercent: forecast.managementFeePercent ?? 17,
         ownerBlockedNights: forecast.ownerBlockedNights ?? 0,
+        recommendedOccupancy: forecast.recommendedOccupancy != null
+          ? Math.round((forecast.recommendedOccupancy as number) * 100)
+          : 80,
       });
       setIsDirty(false);
     }
@@ -139,25 +143,27 @@ export default function ForecastDetail() {
     return { gross, mgmtFee, net, monthly, vsLtr };
   }
 
+  function buildUpdatePayload() {
+    return {
+      annualLtr: values.annualLtr || undefined,
+      ltrVacancyPercent: values.ltrVacancyPercent,
+      lowSeasonAdr: values.lowSeasonAdr || undefined,
+      shoulderSeasonAdr: values.shoulderSeasonAdr || undefined,
+      peakSeasonAdr: values.peakSeasonAdr || undefined,
+      eventAdr: values.eventAdr || undefined,
+      utilityCost: values.utilityCost || undefined,
+      internetCost: values.internetCost || undefined,
+      maintenanceCost: values.maintenanceCost || undefined,
+      miscCost: values.miscCost || undefined,
+      managementFeePercent: values.managementFeePercent,
+      ownerBlockedNights: values.ownerBlockedNights,
+      recommendedOccupancy: (values.recommendedOccupancy ?? 80) / 100,
+    };
+  }
+
   async function handleSave() {
     try {
-      await updateForecast.mutateAsync({
-        id: forecastId,
-        data: {
-          annualLtr: values.annualLtr || null,
-          ltrVacancyPercent: values.ltrVacancyPercent,
-          lowSeasonAdr: values.lowSeasonAdr || null,
-          shoulderSeasonAdr: values.shoulderSeasonAdr || null,
-          peakSeasonAdr: values.peakSeasonAdr || null,
-          eventAdr: values.eventAdr || null,
-          utilityCost: values.utilityCost || null,
-          internetCost: values.internetCost || null,
-          maintenanceCost: values.maintenanceCost || null,
-          miscCost: values.miscCost || null,
-          managementFeePercent: values.managementFeePercent,
-          ownerBlockedNights: values.ownerBlockedNights,
-        } as any,
-      });
+      await updateForecast.mutateAsync({ id: forecastId, data: buildUpdatePayload() });
       setIsDirty(false);
       setLastSaved(new Date());
       queryClient.invalidateQueries({ queryKey: ["getForecast", forecastId] });
@@ -170,23 +176,7 @@ export default function ForecastDetail() {
   async function handleCalculate() {
     try {
       // First save inputs
-      await updateForecast.mutateAsync({
-        id: forecastId,
-        data: {
-          annualLtr: values.annualLtr || null,
-          ltrVacancyPercent: values.ltrVacancyPercent,
-          lowSeasonAdr: values.lowSeasonAdr || null,
-          shoulderSeasonAdr: values.shoulderSeasonAdr || null,
-          peakSeasonAdr: values.peakSeasonAdr || null,
-          eventAdr: values.eventAdr || null,
-          utilityCost: values.utilityCost || null,
-          internetCost: values.internetCost || null,
-          maintenanceCost: values.maintenanceCost || null,
-          miscCost: values.miscCost || null,
-          managementFeePercent: values.managementFeePercent,
-          ownerBlockedNights: values.ownerBlockedNights,
-        } as any,
-      });
+      await updateForecast.mutateAsync({ id: forecastId, data: buildUpdatePayload() });
       // Then calculate
       await calculateForecast.mutateAsync({ id: forecastId });
       setIsDirty(false);
@@ -202,8 +192,40 @@ export default function ForecastDetail() {
     }
   }
 
+  async function handleRequestApproval() {
+    try {
+      await updateForecast.mutateAsync({ id: forecastId, data: { status: "submitted" } });
+      queryClient.invalidateQueries({ queryKey: ["getForecast", forecastId] });
+      toast({ title: "Approval requested", description: "The forecast has been submitted for approval." });
+    } catch {
+      toast({ title: "Failed to submit", variant: "destructive" });
+    }
+  }
+
+  async function handleAiOptimizer() {
+    try {
+      const rec = await aiRecommend.mutateAsync({ id: forecastId });
+      // Pre-fill form with AI suggested values
+      if (rec.lowSeasonAdrSuggested != null)      form.setValue("lowSeasonAdr", rec.lowSeasonAdrSuggested);
+      if (rec.shoulderSeasonAdrSuggested != null)  form.setValue("shoulderSeasonAdr", rec.shoulderSeasonAdrSuggested);
+      if (rec.peakSeasonAdrSuggested != null)      form.setValue("peakSeasonAdr", rec.peakSeasonAdrSuggested);
+      if (rec.eventAdrSuggested != null)           form.setValue("eventAdr", rec.eventAdrSuggested);
+      if (rec.occupancySuggested != null)          form.setValue("recommendedOccupancy", Math.round(rec.occupancySuggested * 100));
+      if (rec.internetCostSuggested != null)       form.setValue("internetCost", rec.internetCostSuggested);
+      if (rec.utilityCostSuggested != null)        form.setValue("utilityCost", rec.utilityCostSuggested);
+      if (rec.maintenanceCostSuggested != null)    form.setValue("maintenanceCost", rec.maintenanceCostSuggested);
+      if (rec.managementFeeSuggested != null)      form.setValue("managementFeePercent", rec.managementFeeSuggested);
+      if (rec.annualLtrSuggested != null)          form.setValue("annualLtr", rec.annualLtrSuggested);
+      setIsDirty(true);
+      toast({ title: "AI suggestions applied", description: "Fields pre-filled from comparable properties. Review and calculate." });
+    } catch {
+      toast({ title: "AI optimizer failed", variant: "destructive" });
+    }
+  }
+
   const isSaving = updateForecast.isPending;
   const isCalculating = calculateForecast.isPending || isSaving;
+  const isAi = aiRecommend.isPending;
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading forecast...</div>;
   if (!forecast) return <div className="p-8 text-center text-red-500">Forecast not found.</div>;
@@ -337,47 +359,91 @@ export default function ForecastDetail() {
               </Card>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <Card className="border-border/50 shadow-sm">
-                <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
-                  <CardTitle className="font-serif text-base">Scenario Comparison</CardTitle>
-                </CardHeader>
-                <CardContent className="p-4 h-[280px]">
-                  {!scenarios || scenarios.length === 0 || !scenarios[0].netOwnerIncome ? (
-                    <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">Run a calculation to see results.</div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={scenarios} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
-                        <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `${v / 1000}k`} tick={{ fontSize: 11 }} />
-                        <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", fontSize: "12px" }} />
-                        <Bar dataKey="netOwnerIncome" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={60} name="Net Owner Income" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  )}
-                </CardContent>
-              </Card>
-
-              {monthly && monthly.length > 0 && (
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 space-y-6">
                 <Card className="border-border/50 shadow-sm">
                   <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
-                    <CardTitle className="font-serif text-base">Monthly Revenue Overview</CardTitle>
+                    <CardTitle className="font-serif text-base">Scenario Comparison</CardTitle>
                   </CardHeader>
                   <CardContent className="p-4 h-[280px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={monthly} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                        <XAxis dataKey="monthName" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
-                        <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `${v / 1000}k`} tick={{ fontSize: 11 }} />
-                        <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", fontSize: "12px" }} />
-                        <Bar dataKey="grossRevenue" fill="hsl(var(--primary)/0.8)" radius={[3, 3, 0, 0]} name="Gross Revenue" />
-                        <Bar dataKey="netOwnerIncome" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} name="Net Income" />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    {!scenarios || scenarios.length === 0 || !scenarios[0].netOwnerIncome ? (
+                      <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">Run a calculation to see results.</div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={scenarios} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
+                          <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `${v / 1000}k`} tick={{ fontSize: 11 }} />
+                          <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", fontSize: "12px" }} />
+                          <Bar dataKey="netOwnerIncome" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={60} name="Net Owner Income" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
                   </CardContent>
                 </Card>
-              )}
+
+                {monthly && monthly.length > 0 && (
+                  <Card className="border-border/50 shadow-sm">
+                    <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+                      <CardTitle className="font-serif text-base">Monthly Revenue Overview</CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4 h-[280px]">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={monthly} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                          <XAxis dataKey="monthName" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+                          <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `${v / 1000}k`} tick={{ fontSize: 11 }} />
+                          <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", fontSize: "12px" }} />
+                          <Bar dataKey="grossRevenue" fill="hsl(var(--primary)/0.8)" radius={[3, 3, 0, 0]} name="Gross Revenue" />
+                          <Bar dataKey="netOwnerIncome" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} name="Net Income" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+
+              {/* Forecast Actions sidebar */}
+              <div className="lg:col-span-1">
+                <Card className="border-border/50 shadow-sm">
+                  <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+                    <CardTitle className="font-serif text-base">Forecast Actions</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-5 space-y-4">
+                    <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
+                      <h4 className="font-medium flex items-center gap-2 mb-2 text-sm">
+                        <Sparkles className="h-4 w-4 text-primary" /> AI Optimizer
+                      </h4>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Generate optimized ADRs from market comps. Pre-fills the Data Inputs form.
+                      </p>
+                      <Button
+                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                        onClick={handleAiOptimizer}
+                        disabled={isAi}
+                        size="sm"
+                      >
+                        {isAi ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating…</> : "Run Optimizer"}
+                      </Button>
+                    </div>
+                    <div className="space-y-2 pt-2 border-t border-border/50">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full justify-start text-left gap-2"
+                        onClick={handleRequestApproval}
+                        disabled={isSaving || forecast.status === "submitted" || forecast.status === "approved"}
+                      >
+                        <Send className="h-4 w-4" />
+                        {forecast.status === "submitted" ? "Approval Requested" : "Request Approval"}
+                      </Button>
+                      <Button variant="outline" size="sm" className="w-full justify-start text-left gap-2">
+                        <FileText className="h-4 w-4" /> Download PDF Internal
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </div>
           </TabsContent>
 
@@ -586,15 +652,49 @@ export default function ForecastDetail() {
                       />
                       <p className="text-xs text-muted-foreground">Nights reserved for owner use (reduces available inventory)</p>
                     </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Target Occupancy Rate (%)</Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="100"
+                          placeholder="80"
+                          {...form.register("recommendedOccupancy", { valueAsNumber: true })}
+                          className="h-11 pr-8"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Used as the base occupancy rate for calculations</p>
+                    </div>
                   </CardContent>
                 </Card>
               </div>
 
               {/* Action bar */}
               <div className="flex items-center justify-between p-4 bg-muted/20 rounded-lg border border-border/50">
-                <p className="text-sm text-muted-foreground">
-                  {isDirty ? "You have unsaved changes." : lastSaved ? `Last saved ${lastSaved.toLocaleTimeString()}` : "Fill in all fields above, then calculate."}
-                </p>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={handleAiOptimizer}
+                    disabled={isAi}
+                    className="gap-2 border-primary/30 text-primary hover:bg-primary/5"
+                  >
+                    {isAi ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</> : <><Sparkles className="h-4 w-4" /> AI Optimizer</>}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleRequestApproval}
+                    disabled={isSaving || forecast.status === "submitted" || forecast.status === "approved"}
+                    className="gap-2"
+                  >
+                    <Send className="h-4 w-4" />
+                    {forecast.status === "submitted" ? "Approval Requested" : "Request Approval"}
+                  </Button>
+                  <p className="text-sm text-muted-foreground">
+                    {isDirty ? "You have unsaved changes." : lastSaved ? `Last saved ${lastSaved.toLocaleTimeString()}` : "Fill in all fields above, then calculate."}
+                  </p>
+                </div>
                 <div className="flex gap-3">
                   <Button variant="outline" onClick={handleSave} disabled={isSaving || !isDirty} className="gap-2">
                     {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
@@ -644,7 +744,7 @@ export default function ForecastDetail() {
               </Card>
             </div>
 
-            {/* Income Calculator table — matching the PDF layout */}
+            {/* Income Calculator table */}
             <Card className="border-border/50 shadow-sm overflow-hidden">
               <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
                 <CardTitle className="font-serif text-base">Income Calculator — Occupancy Scenarios</CardTitle>
@@ -666,7 +766,6 @@ export default function ForecastDetail() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {/* INCOME */}
                     <tr className="bg-muted/20">
                       <td colSpan={OCCUPANCY_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">INCOME</td>
                     </tr>
@@ -682,46 +781,25 @@ export default function ForecastDetail() {
                       })}
                     </tr>
 
-                    {/* COSTS */}
                     <tr className="bg-muted/20">
                       <td colSpan={OCCUPANCY_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">COSTS</td>
                     </tr>
-                    <tr className="hover:bg-muted/20 transition-colors text-muted-foreground">
-                      <td className="px-5 py-3">Utility Bills</td>
-                      {OCCUPANCY_LEVELS.map(occ => (
-                        <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
-                          {values.utilityCost > 0 ? values.utilityCost.toLocaleString() : "—"}
-                        </td>
-                      ))}
-                    </tr>
-                    <tr className="hover:bg-muted/20 transition-colors text-muted-foreground">
-                      <td className="px-5 py-3">Internet / Phone</td>
-                      {OCCUPANCY_LEVELS.map(occ => (
-                        <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
-                          {values.internetCost > 0 ? values.internetCost.toLocaleString() : "—"}
-                        </td>
-                      ))}
-                    </tr>
-                    <tr className="hover:bg-muted/20 transition-colors text-muted-foreground">
-                      <td className="px-5 py-3">Maintenance</td>
-                      {OCCUPANCY_LEVELS.map(occ => (
-                        <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
-                          {values.maintenanceCost > 0 ? values.maintenanceCost.toLocaleString() : "—"}
-                        </td>
-                      ))}
-                    </tr>
-                    {values.miscCost > 0 && (
-                      <tr className="hover:bg-muted/20 transition-colors text-muted-foreground">
-                        <td className="px-5 py-3">Miscellaneous</td>
+                    {[
+                      { label: "Utility Bills", val: values.utilityCost },
+                      { label: "Internet / Phone", val: values.internetCost },
+                      { label: "Maintenance", val: values.maintenanceCost },
+                      ...(values.miscCost > 0 ? [{ label: "Miscellaneous", val: values.miscCost }] : []),
+                    ].map(({ label, val }) => (
+                      <tr key={label} className="hover:bg-muted/20 transition-colors text-muted-foreground">
+                        <td className="px-5 py-3">{label}</td>
                         {OCCUPANCY_LEVELS.map(occ => (
                           <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
-                            {values.miscCost.toLocaleString()}
+                            {val > 0 ? val.toLocaleString() : "—"}
                           </td>
                         ))}
                       </tr>
-                    )}
+                    ))}
 
-                    {/* FEES */}
                     <tr className="bg-muted/20">
                       <td colSpan={OCCUPANCY_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">FEES</td>
                     </tr>
@@ -737,7 +815,6 @@ export default function ForecastDetail() {
                       })}
                     </tr>
 
-                    {/* NET OUTCOME */}
                     <tr className="bg-muted/20">
                       <td colSpan={OCCUPANCY_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">NET OUTCOME</td>
                     </tr>
@@ -764,7 +841,6 @@ export default function ForecastDetail() {
                       })}
                     </tr>
 
-                    {/* VS LTR */}
                     {values.annualLtr > 0 && (
                       <>
                         <tr className="bg-muted/20">

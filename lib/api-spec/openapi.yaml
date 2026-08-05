@@ -2052,6 +2052,8 @@ components:
           type: number
         ownerBlockedNights:
           type: number
+        recommendedOccupancy:
+          type: number
         narrativeText:
           type: string
         internalNotes:

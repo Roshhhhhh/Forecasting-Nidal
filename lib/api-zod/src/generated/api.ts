@@ -1007,6 +1007,7 @@ export const UpdateForecastBody = zod.object({
   "peakSeasonAdr": zod.number().optional(),
   "eventAdr": zod.number().optional(),
   "ownerBlockedNights": zod.number().optional(),
+  "recommendedOccupancy": zod.number().optional(),
   "narrativeText": zod.string().optional(),
   "internalNotes": zod.string().optional(),
   "assignedToId": zod.number().optional(),
@@ -1746,5 +1747,4 @@ export const RollbackImportParams = zod.object({
 export const RollbackImportResponse = zod.object({
   "message": zod.string()
 })
-
 

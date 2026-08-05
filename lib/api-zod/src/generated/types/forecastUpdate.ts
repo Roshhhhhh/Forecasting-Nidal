@@ -19,6 +19,7 @@ export interface ForecastUpdate {
   peakSeasonAdr?: number;
   eventAdr?: number;
   ownerBlockedNights?: number;
+  recommendedOccupancy?: number;
   narrativeText?: string;
   internalNotes?: string;
   assignedToId?: number;

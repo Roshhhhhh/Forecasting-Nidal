@@ -11,6 +11,14 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
 import { calculateMonthlyProjections, calculateScenario } from "../lib/calculate";
+import { bustCommissionCache } from "./referees";
+
+/** Bust the server-side commission cache for whichever referee is linked to this forecast's owner. */
+async function bustCacheForForecast(ownerId: number | null | undefined): Promise<void> {
+  if (!ownerId) return;
+  const [owner] = await db.select({ refereeId: ownersTable.refereeId }).from(ownersTable).where(eq(ownersTable.id, ownerId));
+  if (owner?.refereeId) bustCommissionCache(owner.refereeId);
+}
 
 const router: IRouter = Router();
 
@@ -137,6 +145,7 @@ router.patch("/forecasts/:id", requireAuth, async (req, res): Promise<void> => {
   if (parsed.data.expiresAt) updateData.expiresAt = new Date(parsed.data.expiresAt);
   const [f] = await db.update(forecastsTable).set(updateData).where(eq(forecastsTable.id, params.data.id)).returning();
   if (!f) { res.status(404).json({ error: "Forecast not found" }); return; }
+  await bustCacheForForecast(f.ownerId);
   res.json({ id: f.id, referenceNumber: f.referenceNumber, status: f.status, grossAnnualRevenue: f.grossAnnualRevenue, netOwnerIncome: f.netOwnerIncome, createdAt: f.createdAt, updatedAt: f.updatedAt });
 });
 
@@ -195,6 +204,9 @@ router.post("/forecasts/:id/calculate", requireAuth, async (req, res): Promise<v
     recommendedOccupancy,
     monthlyProjections: undefined,
   } as any).where(eq(forecastsTable.id, id));
+
+  // Bust commission cache for the owner's referee so the next fetch reflects updated revenue
+  await bustCacheForForecast(f.ownerId);
 
   res.json({ status: "calculated", ...result });
 });

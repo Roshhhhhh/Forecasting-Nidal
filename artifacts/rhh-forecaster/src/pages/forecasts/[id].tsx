@@ -199,12 +199,23 @@ export default function ForecastDetail() {
     };
   }
 
+  /** Invalidate all referee-commission queries so the referees list/detail stays fresh. */
+  function invalidateCommissionQueries() {
+    queryClient.invalidateQueries({
+      predicate: (query) =>
+        typeof query.queryKey[0] === "string" &&
+        (query.queryKey[0] as string).startsWith("/api/referees"),
+    });
+  }
+
   async function handleSave() {
     try {
       await updateForecast.mutateAsync({ id: forecastId, data: buildUpdatePayload() });
       setIsDirty(false);
       setLastSaved(new Date());
       queryClient.invalidateQueries({ queryKey: ["getForecast", forecastId] });
+      // managementFeePercent affects commission figures — bust referee caches
+      invalidateCommissionQueries();
       toast({ title: "Inputs saved", description: "Your inputs have been saved as a draft." });
     } catch {
       toast({ title: "Save failed", variant: "destructive" });
@@ -223,6 +234,8 @@ export default function ForecastDetail() {
       queryClient.invalidateQueries({ queryKey: ["getForecast", forecastId] });
       queryClient.invalidateQueries({ queryKey: ["listForecastScenarios", forecastId] });
       queryClient.invalidateQueries({ queryKey: [`/api/forecasts/${forecastId}/monthly`] });
+      // grossAnnualRevenue changed — commission figures for referees are now stale
+      invalidateCommissionQueries();
       toast({ title: "Calculation complete", description: "Revenue projections and scenarios have been updated." });
     } catch (e: any) {
       const msg = e?.data?.error ?? "Calculation failed. Ensure all ADR values are filled in.";

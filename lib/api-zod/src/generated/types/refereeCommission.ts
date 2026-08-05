@@ -16,5 +16,9 @@ export interface RefereeCommission {
   totalGrossRevenue: number;
   /** Total recurring commission owed to this referee (AED) */
   totalCommissionOwed: number;
+  /** Total amount already paid to this referee (AED) */
+  totalPaid: number;
+  /** Remaining unpaid balance (totalCommissionOwed - totalPaid, AED) */
+  outstandingBalance: number;
   ownerBreakdowns: RefereeCommissionOwnerBreakdownsItem[];
 }

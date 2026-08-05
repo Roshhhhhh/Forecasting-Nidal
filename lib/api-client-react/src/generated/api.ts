@@ -60,6 +60,8 @@ import type {
   PublishInput,
   Referee,
   RefereeCommission,
+  RefereeCommissionPayment,
+  RefereeCommissionPaymentInput,
   RefereeDetail,
   RefereeInput,
   RefereeUpdate,
@@ -1871,6 +1873,155 @@ export function useGetRefereeCommission<TData = Awaited<ReturnType<typeof getRef
 
 
 
+
+export const getListRefereeCommissionPaymentsUrl = (id: number,) => {
+
+
+
+
+  return `/api/referees/${id}/commission/payments`
+}
+
+/**
+ * @summary List all recorded commission payments for a referee
+ */
+export const listRefereeCommissionPayments = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<RefereeCommissionPayment[]> => {
+
+  return customFetch<RefereeCommissionPayment[]>(getListRefereeCommissionPaymentsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRefereeCommissionPaymentsQueryKey = (id: number,) => {
+    return [
+    `/api/referees/${id}/commission/payments`
+    ] as const;
+    }
+
+
+export const getListRefereeCommissionPaymentsQueryOptions = <TData = Awaited<ReturnType<typeof listRefereeCommissionPayments>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRefereeCommissionPayments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRefereeCommissionPaymentsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRefereeCommissionPayments>>> = ({ signal }) => listRefereeCommissionPayments(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRefereeCommissionPayments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRefereeCommissionPaymentsQueryResult = NonNullable<Awaited<ReturnType<typeof listRefereeCommissionPayments>>>
+export type ListRefereeCommissionPaymentsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all recorded commission payments for a referee
+ */
+
+export function useListRefereeCommissionPayments<TData = Awaited<ReturnType<typeof listRefereeCommissionPayments>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRefereeCommissionPayments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRefereeCommissionPaymentsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRecordRefereeCommissionPaymentUrl = (id: number,) => {
+
+
+
+
+  return `/api/referees/${id}/commission/payments`
+}
+
+/**
+ * @summary Record a commission payment for a referee
+ */
+export const recordRefereeCommissionPayment = async (id: number,
+    refereeCommissionPaymentInput: RefereeCommissionPaymentInput, options?: Parameters<typeof customFetch>[1]): Promise<RefereeCommissionPayment> => {
+
+  return customFetch<RefereeCommissionPayment>(getRecordRefereeCommissionPaymentUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(refereeCommissionPaymentInput)
+  }
+);}
+
+
+
+
+
+export const getRecordRefereeCommissionPaymentMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordRefereeCommissionPayment>>, TError,{id: number;data: BodyType<RefereeCommissionPaymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordRefereeCommissionPayment>>, TError,{id: number;data: BodyType<RefereeCommissionPaymentInput>}, TContext> => {
+
+const mutationKey = ['recordRefereeCommissionPayment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordRefereeCommissionPayment>>, {id: number;data: BodyType<RefereeCommissionPaymentInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  recordRefereeCommissionPayment(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordRefereeCommissionPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof recordRefereeCommissionPayment>>>
+    export type RecordRefereeCommissionPaymentMutationBody = BodyType<RefereeCommissionPaymentInput>
+    export type RecordRefereeCommissionPaymentMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Record a commission payment for a referee
+ */
+export const useRecordRefereeCommissionPayment = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordRefereeCommissionPayment>>, TError,{id: number;data: BodyType<RefereeCommissionPaymentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordRefereeCommissionPayment>>,
+        TError,
+        {id: number;data: BodyType<RefereeCommissionPaymentInput>},
+        TContext
+      > => {
+      return useMutation(getRecordRefereeCommissionPaymentMutationOptions(options));
+    }
 
 export const getListPropertiesUrl = () => {
 

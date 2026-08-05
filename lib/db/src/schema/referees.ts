@@ -39,3 +39,15 @@ export const insertRefereeSchema = createInsertSchema(refereesTable).omit({
 });
 export type InsertReferee = z.infer<typeof insertRefereeSchema>;
 export type Referee = typeof refereesTable.$inferSelect;
+
+export const refereeCommissionPaymentsTable = pgTable("referee_commission_payments", {
+  id: serial("id").primaryKey(),
+  refereeId: integer("referee_id").notNull().references(() => refereesTable.id),
+  amountPaid: integer("amount_paid").notNull(), // AED
+  paidAt: timestamp("paid_at", { withTimezone: true }).notNull(),
+  notes: text("notes"),
+  createdById: integer("created_by_id"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type RefereeCommissionPayment = typeof refereeCommissionPaymentsTable.$inferSelect;

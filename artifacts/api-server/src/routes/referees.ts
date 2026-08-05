@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, sql, and, isNotNull } from "drizzle-orm";
-import { db, refereesTable, ownersTable, forecastsTable } from "@workspace/db";
+import { eq, desc, sql, and, isNotNull, sum } from "drizzle-orm";
+import { db, refereesTable, ownersTable, forecastsTable, refereeCommissionPaymentsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 import { z } from "zod";
 
@@ -222,6 +222,14 @@ router.get("/referees/:id/commission", requireAuth, async (req, res): Promise<vo
   const totalGrossRevenue = ownerBreakdowns.reduce((s, o) => s + o.grossAnnualRevenue, 0);
   const totalCommissionOwed = ownerBreakdowns.reduce((s, o) => s + o.commissionAmount, 0);
 
+  // Sum all recorded payments for this referee
+  const [paymentSum] = await db
+    .select({ total: sum(refereeCommissionPaymentsTable.amountPaid) })
+    .from(refereeCommissionPaymentsTable)
+    .where(eq(refereeCommissionPaymentsTable.refereeId, id));
+  const totalPaid = Number(paymentSum?.total ?? 0);
+  const outstandingBalance = Math.max(0, totalCommissionOwed - totalPaid);
+
   res.json({
     refereeId: referee.id,
     refereeName: referee.name,
@@ -229,8 +237,48 @@ router.get("/referees/:id/commission", requireAuth, async (req, res): Promise<vo
     isRecurringEnabled: referee.isRecurringEnabled,
     totalGrossRevenue,
     totalCommissionOwed,
+    totalPaid,
+    outstandingBalance,
     ownerBreakdowns,
   });
+});
+
+// List commission payments for a referee
+router.get("/referees/:id/commission/payments", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const [referee] = await db.select({ id: refereesTable.id }).from(refereesTable).where(eq(refereesTable.id, id));
+  if (!referee) { res.status(404).json({ error: "Referee not found" }); return; }
+  const payments = await db
+    .select()
+    .from(refereeCommissionPaymentsTable)
+    .where(eq(refereeCommissionPaymentsTable.refereeId, id))
+    .orderBy(desc(refereeCommissionPaymentsTable.paidAt));
+  res.json(payments);
+});
+
+const RecordPaymentBody = z.object({
+  amountPaid: z.number().int().min(1),
+  paidAt: z.string().datetime(),
+  notes: z.string().optional(),
+});
+
+// Record a commission payment for a referee
+router.post("/referees/:id/commission/payments", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const [referee] = await db.select({ id: refereesTable.id }).from(refereesTable).where(eq(refereesTable.id, id));
+  if (!referee) { res.status(404).json({ error: "Referee not found" }); return; }
+  const parsed = RecordPaymentBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+  const [payment] = await db.insert(refereeCommissionPaymentsTable).values({
+    refereeId: id,
+    amountPaid: parsed.data.amountPaid,
+    paidAt: new Date(parsed.data.paidAt),
+    notes: parsed.data.notes ?? null,
+    createdById: req.session.userId,
+  }).returning();
+  res.status(201).json(payment);
 });
 
 // Update referee

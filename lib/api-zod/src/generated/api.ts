@@ -575,6 +575,8 @@ export const GetRefereeCommissionResponse = zod.object({
   "isRecurringEnabled": zod.boolean(),
   "totalGrossRevenue": zod.number().describe('Sum of grossAnnualRevenue across all referred owners\' latest forecasts (AED)'),
   "totalCommissionOwed": zod.number().describe('Total recurring commission owed to this referee (AED)'),
+  "totalPaid": zod.number().describe('Total amount already paid to this referee (AED)'),
+  "outstandingBalance": zod.number().describe('Remaining unpaid balance (totalCommissionOwed - totalPaid, AED)'),
   "ownerBreakdowns": zod.array(zod.object({
   "ownerId": zod.number(),
   "ownerName": zod.string(),
@@ -587,6 +589,49 @@ export const GetRefereeCommissionResponse = zod.object({
   "commissionPercent": zod.number().describe('Effective commission percentage for this owner (max(0, PM% - 16))'),
   "commissionAmount": zod.number().describe('Commission amount owed for this owner\'s forecast (AED)')
 }))
+})
+
+
+/**
+ * @summary List all recorded commission payments for a referee
+ */
+export const ListRefereeCommissionPaymentsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListRefereeCommissionPaymentsResponseItem = zod.object({
+  "id": zod.number(),
+  "refereeId": zod.number(),
+  "amountPaid": zod.number().describe('Amount paid in AED'),
+  "paidAt": zod.coerce.date(),
+  "notes": zod.string().nullish(),
+  "createdById": zod.number().nullish(),
+  "createdAt": zod.coerce.date()
+})
+export const ListRefereeCommissionPaymentsResponse = zod.array(ListRefereeCommissionPaymentsResponseItem)
+
+
+/**
+ * @summary Record a commission payment for a referee
+ */
+export const RecordRefereeCommissionPaymentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RecordRefereeCommissionPaymentBody = zod.object({
+  "amountPaid": zod.number().describe('Amount paid in AED'),
+  "paidAt": zod.coerce.date(),
+  "notes": zod.string().optional()
+})
+
+export const RecordRefereeCommissionPaymentResponse = zod.object({
+  "id": zod.number(),
+  "refereeId": zod.number(),
+  "amountPaid": zod.number().describe('Amount paid in AED'),
+  "paidAt": zod.coerce.date(),
+  "notes": zod.string().nullish(),
+  "createdById": zod.number().nullish(),
+  "createdAt": zod.coerce.date()
 })
 
 

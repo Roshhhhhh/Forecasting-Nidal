@@ -463,6 +463,50 @@ paths:
               schema:
                 $ref: "#/components/schemas/RefereeCommission"
 
+  /referees/{id}/commission/payments:
+    get:
+      operationId: listRefereeCommissionPayments
+      tags: [referees]
+      summary: List all recorded commission payments for a referee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: List of payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RefereeCommissionPayment"
+    post:
+      operationId: recordRefereeCommissionPayment
+      tags: [referees]
+      summary: Record a commission payment for a referee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefereeCommissionPaymentInput"
+      responses:
+        "201":
+          description: Created payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefereeCommissionPayment"
+
   # PROPERTIES
   /properties:
     get:
@@ -1626,7 +1670,7 @@ components:
 
     RefereeCommission:
       type: object
-      required: [refereeId, refereeName, refereeCode, isRecurringEnabled, totalGrossRevenue, totalCommissionOwed, ownerBreakdowns]
+      required: [refereeId, refereeName, refereeCode, isRecurringEnabled, totalGrossRevenue, totalCommissionOwed, totalPaid, outstandingBalance, ownerBreakdowns]
       properties:
         refereeId:
           type: number
@@ -1642,6 +1686,12 @@ components:
         totalCommissionOwed:
           type: number
           description: Total recurring commission owed to this referee (AED)
+        totalPaid:
+          type: number
+          description: Total amount already paid to this referee (AED)
+        outstandingBalance:
+          type: number
+          description: Remaining unpaid balance (totalCommissionOwed - totalPaid, AED)
         ownerBreakdowns:
           type: array
           items:
@@ -1670,6 +1720,41 @@ components:
               commissionAmount:
                 type: number
                 description: Commission amount owed for this owner's forecast (AED)
+
+    RefereeCommissionPayment:
+      type: object
+      required: [id, refereeId, amountPaid, paidAt, createdAt]
+      properties:
+        id:
+          type: number
+        refereeId:
+          type: number
+        amountPaid:
+          type: number
+          description: Amount paid in AED
+        paidAt:
+          type: string
+          format: date-time
+        notes:
+          type: ["string", "null"]
+        createdById:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    RefereeCommissionPaymentInput:
+      type: object
+      required: [amountPaid, paidAt]
+      properties:
+        amountPaid:
+          type: number
+          description: Amount paid in AED
+        paidAt:
+          type: string
+          format: date-time
+        notes:
+          type: string
 
     RefereeDetail:
       type: object

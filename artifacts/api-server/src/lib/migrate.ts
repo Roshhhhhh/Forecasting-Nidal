@@ -67,6 +67,19 @@ export async function runStartupMigration() {
         AND u.role_id IS NULL
     `);
 
+    // 5. Create referee_commission_payments table if it doesn't exist
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS referee_commission_payments (
+        id             SERIAL PRIMARY KEY,
+        referee_id     INTEGER NOT NULL REFERENCES referees(id),
+        amount_paid    INTEGER NOT NULL,
+        paid_at        TIMESTAMPTZ NOT NULL,
+        notes          TEXT,
+        created_by_id  INTEGER,
+        created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
     logger.info("Startup migration complete");
   } catch (err) {
     logger.error({ err }, "Startup migration failed");

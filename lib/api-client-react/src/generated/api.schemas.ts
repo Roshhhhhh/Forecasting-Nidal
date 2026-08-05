@@ -250,7 +250,31 @@ export interface RefereeCommission {
   totalGrossRevenue: number;
   /** Total recurring commission owed to this referee (AED) */
   totalCommissionOwed: number;
+  /** Total amount already paid to this referee (AED) */
+  totalPaid: number;
+  /** Remaining unpaid balance (totalCommissionOwed - totalPaid, AED) */
+  outstandingBalance: number;
   ownerBreakdowns: RefereeCommissionOwnerBreakdownsItem[];
+}
+
+export interface RefereeCommissionPayment {
+  id: number;
+  refereeId: number;
+  /** Amount paid in AED */
+  amountPaid: number;
+  paidAt: string;
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  createdById?: number | null;
+  createdAt: string;
+}
+
+export interface RefereeCommissionPaymentInput {
+  /** Amount paid in AED */
+  amountPaid: number;
+  paidAt: string;
+  notes?: string;
 }
 
 export type RefereeDetailReferredOwnersItem = {

@@ -15,7 +15,10 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Link } from "wouter";
-import { Plus, UserCheck, Phone, Mail, Building, Users, Loader2, Pencil, RefreshCw, Home } from "lucide-react";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
+import { Plus, UserCheck, Phone, Mail, Building, Users, Loader2, Pencil, RefreshCw, Home, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface RefereeFormValues {
@@ -50,6 +53,7 @@ export default function RefereesList() {
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [sortBy, setSortBy] = useState<"default" | "owed_desc">("default");
 
   const form = useForm<RefereeFormValues>({
     defaultValues: { name: "", ...DEFAULT_FEES },
@@ -99,6 +103,18 @@ export default function RefereesList() {
 
   const isPending = createReferee.isPending || updateReferee.isPending;
 
+  const totalCommissionLiability = referees?.reduce(
+    (sum, r) => sum + ((r as any).totalCommissionOwed ?? 0), 0
+  ) ?? 0;
+
+  const sortedReferees = referees
+    ? sortBy === "owed_desc"
+      ? [...referees].sort(
+          (a, b) => ((b as any).totalCommissionOwed ?? 0) - ((a as any).totalCommissionOwed ?? 0)
+        )
+      : referees
+    : [];
+
   return (
     <div className="p-8 max-w-[1200px] mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -115,7 +131,7 @@ export default function RefereesList() {
       </div>
 
       {/* Stats bar */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-border/50 shadow-sm">
           <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 bg-primary/10 rounded-md"><UserCheck className="h-5 w-5 text-primary" /></div>
@@ -145,7 +161,36 @@ export default function RefereesList() {
             </div>
           </CardContent>
         </Card>
+        <Card className="border-border/50 shadow-sm border-amber-200 bg-amber-50/40">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 bg-amber-100 rounded-md"><TrendingUp className="h-5 w-5 text-amber-600" /></div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Commission Liability</p>
+              <p className="text-xl font-bold text-amber-700">
+                {totalCommissionLiability > 0
+                  ? `${totalCommissionLiability.toLocaleString("en-AE")} AED`
+                  : "—"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Sort control */}
+      {referees && referees.length > 1 && (
+        <div className="flex items-center justify-end gap-2">
+          <span className="text-sm text-muted-foreground">Sort by:</span>
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+            <SelectTrigger className="w-44 h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="default">Date Added</SelectItem>
+              <SelectItem value="owed_desc">Total Owed (highest first)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
       {/* List */}
       {isLoading ? (
@@ -163,7 +208,7 @@ export default function RefereesList() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {referees.map((referee: any) => (
+          {sortedReferees.map((referee: any) => (
             <Card key={referee.id} className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
               <CardHeader className="pb-3 border-b border-border/50">
                 <div className="flex items-start justify-between">

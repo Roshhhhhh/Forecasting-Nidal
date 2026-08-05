@@ -71,13 +71,15 @@ const propertySchema = z.object({
   bedrooms: z.coerce.number().min(0),
   bathrooms: z.coerce.number().min(0).optional(),
   internalArea: z.coerce.number().min(1, "Size is required"),
-  furnishingStatus: z.enum(["unfurnished", "partially_furnished", "fully_furnished", "premium_furnished", "hotel_grade"]).optional(),
+  furnishingStatus: z.enum(["unfurnished", "partially_furnished", "fully_furnished", "premium_furnished", "hotel_grade", "previously_holiday_home"]).optional(),
   propertyCondition: z.enum(["new", "excellent", "good", "requires_refresh", "requires_renovation"]).optional(),
   view: z.string().optional(),
   isWaterfront: z.boolean().default(false),
   hasPrivatePool: z.boolean().default(false),
   vacancyStatus: z.enum(["vacant", "owner_staying", "tenant_staying", "off_plan"]).optional(),
   expectedDate: z.string().optional(),
+  operatorType: z.enum(["self_operated", "management_company"]).optional(),
+  operatorName: z.string().optional(),
 });
 
 type PropertyFormValues = z.infer<typeof propertySchema>;
@@ -109,7 +111,11 @@ export default function PropertyNew() {
   const watchedEmirate    = form.watch("emirate");
   const watchedArea       = form.watch("area");
   const watchedVacancy    = form.watch("vacancyStatus");
-  const isAbuDhabi        = watchedEmirate === "Abu Dhabi";
+  const watchedFurnishing = form.watch("furnishingStatus");
+  const watchedOperator   = form.watch("operatorType");
+  const isAbuDhabi           = watchedEmirate === "Abu Dhabi";
+  const isPrevHolidayHome    = watchedFurnishing === "previously_holiday_home";
+  const isMgmtCompany        = watchedOperator === "management_company";
   const [customArea, setCustomArea] = useState("");
 
   const needsDate = watchedVacancy === "owner_staying" || watchedVacancy === "tenant_staying" || watchedVacancy === "off_plan";
@@ -124,6 +130,9 @@ export default function PropertyNew() {
       if (data.expectedDate)  submitData.availabilityDate     = data.expectedDate;
       delete submitData.vacancyStatus;
       delete submitData.expectedDate;
+      // Operator fields — strip from payload (not in API schema)
+      delete submitData.operatorType;
+      delete submitData.operatorName;
       
       const result = await createProperty.mutateAsync({ data: submitData });
       toast({ title: "Property created", description: "The property has been added to the portfolio." });
@@ -366,12 +375,60 @@ export default function PropertyNew() {
                         <SelectItem value="fully_furnished">Fully Furnished</SelectItem>
                         <SelectItem value="premium_furnished">Premium Furnished</SelectItem>
                         <SelectItem value="hotel_grade">Hotel Grade</SelectItem>
+                        <SelectItem value="previously_holiday_home">🏨 Previously Managed as Holiday Home</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
                   </FormItem>
                 )}
               />
+
+              {/* Operator sub-fields — shown when Previously Holiday Home */}
+              {isPrevHolidayHome && (
+                <>
+                  <FormField
+                    control={form.control}
+                    name="operatorType"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Previous Operator</FormLabel>
+                        <Select
+                          onValueChange={(val) => {
+                            field.onChange(val);
+                            if (val !== "management_company") form.setValue("operatorName", "");
+                          }}
+                          value={field.value ?? ""}
+                        >
+                          <FormControl>
+                            <SelectTrigger><SelectValue placeholder="How was it operated?" /></SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="self_operated">Self Operated by Owner</SelectItem>
+                            <SelectItem value="management_company">Managed by a Company</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {isMgmtCompany && (
+                    <FormField
+                      control={form.control}
+                      name="operatorName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Management Company Name</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g. Airbnb Superhost, Property Finder Homes…" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                </>
+              )}
 
               <FormField
                 control={form.control}

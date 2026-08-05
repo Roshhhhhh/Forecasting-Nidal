@@ -17,6 +17,10 @@ export interface MessageResponse {
   message: string;
 }
 
+export interface NarrativeDraftResponse {
+  draft: string;
+}
+
 export interface LoginInput {
   email: string;
   password: string;

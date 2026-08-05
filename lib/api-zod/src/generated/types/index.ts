@@ -40,6 +40,7 @@ export * from './marketAreaInput';
 export * from './marketAreaUpdate';
 export * from './messageResponse';
 export * from './monthlyProjection';
+export * from './narrativeDraftResponse';
 export * from './owner';
 export * from './ownerInput';
 export * from './ownerInputOwnerType';

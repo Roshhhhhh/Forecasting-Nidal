@@ -47,6 +47,7 @@ import type {
   MarketAreaUpdate,
   MessageResponse,
   MonthlyProjection,
+  NarrativeDraftResponse,
   Owner,
   OwnerInput,
   OwnerUpdate,
@@ -3779,6 +3780,77 @@ export const useGenerateAiRecommendation = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getGenerateAiRecommendationMutationOptions(options));
+    }
+
+export const getGenerateNarrativeDraftUrl = (id: number,) => {
+
+
+
+
+  return `/api/forecasts/${id}/narrative-draft`
+}
+
+/**
+ * @summary Generate an AI-drafted cover narrative for a forecast
+ */
+export const generateNarrativeDraft = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<NarrativeDraftResponse> => {
+
+  return customFetch<NarrativeDraftResponse>(getGenerateNarrativeDraftUrl(id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getGenerateNarrativeDraftMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateNarrativeDraft>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof generateNarrativeDraft>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['generateNarrativeDraft'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof generateNarrativeDraft>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  generateNarrativeDraft(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GenerateNarrativeDraftMutationResult = NonNullable<Awaited<ReturnType<typeof generateNarrativeDraft>>>
+
+    export type GenerateNarrativeDraftMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Generate an AI-drafted cover narrative for a forecast
+ */
+export const useGenerateNarrativeDraft = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof generateNarrativeDraft>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof generateNarrativeDraft>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getGenerateNarrativeDraftMutationOptions(options));
     }
 
 export const getAcceptAiRecommendationUrl = (id: number,) => {

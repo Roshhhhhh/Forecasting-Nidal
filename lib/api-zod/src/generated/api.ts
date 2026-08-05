@@ -1455,6 +1455,18 @@ export const GenerateAiRecommendationResponse = zod.object({
 
 
 /**
+ * @summary Generate an AI-drafted cover narrative for a forecast
+ */
+export const GenerateNarrativeDraftParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GenerateNarrativeDraftResponse = zod.object({
+  "draft": zod.string()
+})
+
+
+/**
  * @summary Accept or override AI recommendation fields
  */
 export const AcceptAiRecommendationParams = zod.object({
@@ -1712,6 +1724,7 @@ export const GetDashboardKpisResponse = zod.object({
   "conversionRate": zod.number(),
   "forecastedGrossRevenue": zod.number(),
   "forecastedManagementFee": zod.number(),
+  "avgManagementFeePct": zod.number(),
   "avgIncreaseVsLtr": zod.number(),
   "expiringSoon": zod.number()
 })

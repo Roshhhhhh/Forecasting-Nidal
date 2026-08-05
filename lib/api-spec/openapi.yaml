@@ -971,6 +971,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/AiRecommendation"
 
+  /forecasts/{id}/narrative-draft:
+    post:
+      operationId: generateNarrativeDraft
+      tags: [forecasts]
+      summary: Generate an AI-drafted cover narrative for a forecast
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Generated draft narrative
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NarrativeDraftResponse"
+
   /forecasts/{id}/ai-recommend/accept:
     post:
       operationId: acceptAiRecommendation
@@ -1353,6 +1372,13 @@ components:
         message:
           type: string
       required: [message]
+
+    NarrativeDraftResponse:
+      type: object
+      properties:
+        draft:
+          type: string
+      required: [draft]
 
     # AUTH
     LoginInput:

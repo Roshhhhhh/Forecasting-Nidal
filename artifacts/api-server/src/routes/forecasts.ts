@@ -313,4 +313,59 @@ router.post("/forecasts/:id/ai-recommend/accept", requireAuth, async (req, res):
   res.json({ message: "AI recommendation fields processed" });
 });
 
+router.post("/forecasts/:id/narrative-draft", requireAuth, async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  const [f] = await db.select().from(forecastsTable).where(eq(forecastsTable.id, id));
+  if (!f) { res.status(404).json({ error: "Forecast not found" }); return; }
+
+  if (!f.grossAnnualRevenue) {
+    res.status(400).json({ error: "Run Save & Calculate before generating a narrative draft." });
+    return;
+  }
+
+  let propertyInfo: any = null;
+  let ownerInfo: any = null;
+  if (f.propertyId) {
+    const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, f.propertyId));
+    propertyInfo = p;
+  }
+  if (f.ownerId) {
+    const [o] = await db.select().from(ownersTable).where(eq(ownersTable.id, f.ownerId));
+    ownerInfo = o;
+  }
+
+  const area = propertyInfo?.area ?? f.area ?? "your area";
+  const building = propertyInfo?.projectBuilding ?? f.projectBuilding ?? null;
+  const bedrooms = propertyInfo?.bedrooms ?? f.bedrooms ?? 1;
+  const bedroomLabel = bedrooms === 0 ? "studio" : `${bedrooms}-bedroom`;
+  const weightedAdr = f.weightedAdr ? `AED ${Math.round(f.weightedAdr).toLocaleString()}` : null;
+  const occupancyPct = f.recommendedOccupancy ? `${Math.round((f.recommendedOccupancy as number) * 100)}%` : null;
+  const netIncome = f.netOwnerIncome ? `AED ${Math.round(f.netOwnerIncome).toLocaleString()}` : null;
+  const ltrUplift = f.increaseVsLtrPct ? `${Math.round(f.increaseVsLtrPct)}%` : null;
+  const ownerFirstName = ownerInfo?.firstName ?? null;
+
+  const locationStr = building ? `${building}, ${area}` : area;
+  const greeting = ownerFirstName ? `Dear ${ownerFirstName}, ` : "";
+
+  let sentence1 = `${greeting}Based on our detailed analysis of comparable short-term rental units in ${locationStr}, your ${bedroomLabel} property is well-positioned to outperform traditional long-term rental benchmarks in the Abu Dhabi market.`;
+
+  let sentence2 = "";
+  if (weightedAdr && occupancyPct) {
+    sentence2 = ` At a weighted average daily rate of ${weightedAdr} and a projected occupancy of ${occupancyPct}, the figures in this report reflect achievable, data-backed market rates drawn from active comparable listings.`;
+  } else if (weightedAdr) {
+    sentence2 = ` At a weighted average daily rate of ${weightedAdr}, the projections in this report reflect achievable, data-backed market rates drawn from active comparable listings.`;
+  }
+
+  let sentence3 = "";
+  if (netIncome && ltrUplift) {
+    sentence3 = ` This translates to an estimated net owner income of ${netIncome} per year — representing a ${ltrUplift} uplift over the long-term rental benchmark — giving you a significantly stronger return while maintaining full flexibility over your asset.`;
+  } else if (netIncome) {
+    sentence3 = ` This translates to an estimated net owner income of ${netIncome} per year, giving you a meaningfully stronger return while maintaining full flexibility over your asset.`;
+  }
+
+  const draft = (sentence1 + sentence2 + sentence3).trim();
+  res.json({ draft });
+});
+
 export default router;

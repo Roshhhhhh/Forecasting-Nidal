@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   useGetForecast, useUpdateForecast, useCalculateForecast,
   useListForecastScenarios, useGetForecastMonthly,
-  useGenerateAiRecommendation, useListProposals, usePublishProposal,
+  useGenerateAiRecommendation, useGenerateNarrativeDraft, useListProposals, usePublishProposal,
   useUpdateProposal,
 } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
@@ -97,6 +97,7 @@ export default function ForecastDetail() {
   const hasShareLink = !!(proposal?.shareUrl && proposal?.isLinkActive);
 
   const updateProposal = useUpdateProposal();
+  const generateNarrativeDraft = useGenerateNarrativeDraft();
   const [narrativeText, setNarrativeText] = useState("");
   const [narrativeSaved, setNarrativeSaved] = useState(false);
 
@@ -284,6 +285,17 @@ export default function ForecastDetail() {
       toast({ title: "AI suggestions applied", description: "Fields pre-filled from comparable properties. Review and calculate." });
     } catch {
       toast({ title: "AI optimizer failed", variant: "destructive" });
+    }
+  }
+
+  async function handleGenerateDraft() {
+    try {
+      const result = await generateNarrativeDraft.mutateAsync({ id: forecastId });
+      setNarrativeText(result.draft);
+      setNarrativeSaved(false);
+      toast({ title: "Draft generated", description: "AI draft applied — review and edit before saving." });
+    } catch {
+      toast({ title: "Draft generation failed", description: "Ensure the forecast has been calculated first.", variant: "destructive" });
     }
   }
 
@@ -1079,7 +1091,19 @@ export default function ForecastDetail() {
                   </ul>
                 </div>
 
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 border-primary/30 text-primary hover:bg-primary/5"
+                    onClick={handleGenerateDraft}
+                    disabled={generateNarrativeDraft.isPending || !forecast?.grossAnnualRevenue}
+                    title={!forecast?.grossAnnualRevenue ? "Run Save & Calculate first to enable AI draft" : "Generate a personalised draft from this property's data"}
+                  >
+                    {generateNarrativeDraft.isPending
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
+                      : <><Sparkles className="h-4 w-4" /> Generate Draft</>}
+                  </Button>
                   <Button
                     size="sm"
                     className="gap-2"

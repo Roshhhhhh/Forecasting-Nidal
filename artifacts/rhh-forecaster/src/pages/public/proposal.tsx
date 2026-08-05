@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 // ── Brand tokens ──────────────────────────────────────────────────────────────
@@ -56,13 +56,8 @@ const PORTFOLIO = [
   { v: "100+",       l: "Trusted Home Owners in Abu Dhabi" },
 ];
 
-// ── Shared layout primitives ──────────────────────────────────────────────────
-const page: React.CSSProperties = {
-  background: WHITE,
-  padding: "56px 64px",
-  maxWidth: 860,
-  margin: "0 auto",
-};
+// ── Shared layout primitives (static) ────────────────────────────────────────
+// `page` is now built inside the component where `isMobile` is available.
 
 const confidential: React.CSSProperties = {
   fontSize: 11,
@@ -101,6 +96,14 @@ export default function PublicProposal() {
   const [comment, setComment] = useState("");
   const [phone, setPhone] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== "undefined" && window.innerWidth < 640
+  );
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 640);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
 
   if (isLoading) return (
     <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: CREAM }}>
@@ -149,6 +152,14 @@ export default function PublicProposal() {
     .toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
     .replace(/\//g, "/");
 
+  // ── Responsive page layout ───────────────────────────────────────────────────
+  const page: React.CSSProperties = {
+    background: WHITE,
+    padding: isMobile ? "28px 16px" : "56px 64px",
+    maxWidth: 860,
+    margin: "0 auto",
+  };
+
   // ── td helpers ───────────────────────────────────────────────────────────────
   const tdLabel = (text: string, sub?: string): React.CSSProperties => ({
     padding: "12px 16px",
@@ -188,7 +199,7 @@ export default function PublicProposal() {
       <div style={{ ...page, pageBreakAfter: "always", minHeight: "90vh", display: "flex", flexDirection: "column" }}>
 
         {/* Header row */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 48, paddingBottom: 24, borderBottom: `1px solid ${BORDER}` }}>
+        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", justifyContent: "space-between", alignItems: isMobile ? "flex-start" : "flex-start", gap: isMobile ? 12 : 0, marginBottom: 48, paddingBottom: 24, borderBottom: `1px solid ${BORDER}` }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <img src="/rhh-logo.png" alt="Royal Holiday Homes" style={{ height: 36, width: "auto" }}
               onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
@@ -213,7 +224,7 @@ export default function PublicProposal() {
           <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 4, textTransform: "uppercase", color: GOLD, marginBottom: 20 }}>
             Turn Your Second Home Into Your Second Income
           </div>
-          <h1 style={{ fontFamily: "serif", fontSize: 38, fontWeight: 800, color: DARK, lineHeight: 1.2, marginBottom: 40 }}>
+          <h1 style={{ fontFamily: "serif", fontSize: isMobile ? 26 : 38, fontWeight: 800, color: DARK, lineHeight: 1.2, marginBottom: 40 }}>
             Property Management Proposal
           </h1>
 
@@ -238,7 +249,7 @@ export default function PublicProposal() {
               <div style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Address</div>
               <div style={{ fontWeight: 600, fontSize: 14 }}>{proposal.propertyAddress}</div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginTop: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(3, 1fr)", gap: 16, marginTop: 16 }}>
               {[
                 { label: "Property Type", value: proposal.propertyType },
                 { label: "Bedroom",       value: `${proposal.bedrooms} Bedroom${(proposal.bedrooms ?? 1) !== 1 ? "s" : ""}` },
@@ -272,14 +283,14 @@ export default function PublicProposal() {
         <div style={{ height: 1, background: BORDER, margin: "12px 0 48px" }} />
 
         {/* Top KPIs */}
-        <div style={{ display: "flex", justifyContent: "space-around", marginBottom: 48 }}>
+        <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: "center", justifyContent: "space-around", gap: isMobile ? 24 : 0, marginBottom: 48 }}>
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 40, fontWeight: 900, fontFamily: "serif", color: DARK }}>AED {fmt(proposal.weightedAdr)}</div>
+            <div style={{ fontSize: isMobile ? 30 : 40, fontWeight: 900, fontFamily: "serif", color: DARK }}>AED {fmt(proposal.weightedAdr)}</div>
             <div style={{ fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 1, marginTop: 6 }}>Average Daily Rate</div>
           </div>
-          <div style={{ width: 1, background: BORDER }} />
+          {!isMobile && <div style={{ width: 1, background: BORDER, alignSelf: "stretch" }} />}
           <div style={{ textAlign: "center" }}>
-            <div style={{ fontSize: 40, fontWeight: 900, fontFamily: "serif", color: DARK }}>{recOcc}%</div>
+            <div style={{ fontSize: isMobile ? 30 : 40, fontWeight: 900, fontFamily: "serif", color: DARK }}>{recOcc}%</div>
             <div style={{ fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 1, marginTop: 6 }}>Assumed occupancy %</div>
           </div>
         </div>
@@ -313,7 +324,7 @@ export default function PublicProposal() {
 
           {/* LTR reference boxes */}
           {hasLtr && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 28 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 28 }}>
               <div style={{ border: `1px solid ${BORDER}`, borderRadius: 6, padding: "16px 20px" }}>
                 <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Long-term Rental (Average Market Rate)</div>
                 <div style={{ fontSize: 22, fontWeight: 800, color: DARK }}>AED {fmt(proposal.netLtrIncome)}</div>
@@ -325,111 +336,140 @@ export default function PublicProposal() {
             </div>
           )}
 
-          {/* Scenarios table */}
-          <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: CREAM }}>
-                  <th style={{ padding: "14px 16px", textAlign: "left", fontWeight: 600, color: MUTED, borderBottom: `2px solid ${BORDER}`, width: "36%" }}></th>
-                  {scenarios.map((s: any) => {
-                    const isConfident = s.name === "Confident";
-                    const occ = Math.round(s.occupancyRate * 100);
-                    return (
-                      <th key={s.id} style={{ padding: "14px 16px", textAlign: "right", fontWeight: 700, borderBottom: `2px solid ${BORDER}`, borderLeft: isConfident ? `2px solid ${GOLD}` : `1px solid ${BORDER}`, background: isConfident ? `${GOLD}12` : "transparent", color: isConfident ? GOLD : DARK, width: "16%" }}>
-                        <div style={{ fontSize: 18 }}>{occ}%</div>
-                        {isConfident && <div style={{ fontSize: 10, fontWeight: 500, color: GOLD, marginTop: 2 }}>Confident</div>}
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody>
-                {/* Occupancy row label */}
-                <tr>
-                  <td style={{ ...tdLabel("Occupancy"), color: MUTED, fontStyle: "italic" }}>Occupancy</td>
-                  {scenarios.map((s: any) => (
-                    <td key={s.id} style={tdVal(s.name === "Confident")}>{Math.round(s.occupancyRate * 100)}%</td>
-                  ))}
-                </tr>
-
-                {/* INCOME group header */}
-                <tr style={{ background: "#F7F5F0" }}>
-                  <td colSpan={scenarios.length + 1} style={{ padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, borderBottom: `1px solid ${BORDER}` }}>Income</td>
-                </tr>
-                <tr>
-                  <td style={tdLabel("")}>Gross Annual Revenue (AED)</td>
-                  {scenarios.map((s: any) => (
-                    <td key={s.id} style={tdVal(s.name === "Confident")}>{fmt(s.grossRevenue)}</td>
-                  ))}
-                </tr>
-
-                {/* COSTS group header */}
-                <tr style={{ background: "#F7F5F0" }}>
-                  <td colSpan={scenarios.length + 1} style={{ padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, borderBottom: `1px solid ${BORDER}` }}>Costs</td>
-                </tr>
-                <tr>
-                  <td style={tdLabel("")}>Total Operating Costs (AED)</td>
-                  {scenarios.map((s: any) => {
-                    const costs = s.totalExpenses != null
-                      ? s.totalExpenses - (s.grossRevenue ?? 0) * 0.17
-                      : (s.grossRevenue ?? 0) - (s.netOwnerIncome ?? 0) - (s.grossRevenue ?? 0) * 0.17;
-                    return <td key={s.id} style={tdVal(s.name === "Confident")}>{fmt(Math.max(0, costs))}</td>;
-                  })}
-                </tr>
-
-                {/* FEES group header */}
-                <tr style={{ background: "#F7F5F0" }}>
-                  <td colSpan={scenarios.length + 1} style={{ padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, borderBottom: `1px solid ${BORDER}` }}>Fees</td>
-                </tr>
-                <tr>
-                  <td style={tdLabel("")}>Management Fees (17%)</td>
-                  {scenarios.map((s: any) => {
-                    const fee = (s.grossRevenue ?? 0) * 0.17;
-                    return <td key={s.id} style={tdVal(s.name === "Confident")}>{fmt(fee)}</td>;
-                  })}
-                </tr>
-
-                {/* NET OUTCOME group header */}
-                <tr style={{ background: "#F7F5F0" }}>
-                  <td colSpan={scenarios.length + 1} style={{ padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, borderBottom: `1px solid ${BORDER}` }}>Net Outcome</td>
-                </tr>
-                <tr style={{ fontWeight: 800 }}>
-                  <td style={{ ...tdLabel(""), fontWeight: 700, color: DARK }}>Net Annual Income (AED)</td>
-                  {scenarios.map((s: any) => (
-                    <td key={s.id} style={{ ...tdVal(s.name === "Confident"), fontSize: 14 }}>{fmt(s.netOwnerIncome)}</td>
-                  ))}
-                </tr>
-
-                {/* INCREASE VS LTR */}
-                {hasLtr && (
-                  <>
-                    <tr style={{ background: "#F7F5F0" }}>
-                      <td colSpan={scenarios.length + 1} style={{ padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, borderBottom: `1px solid ${BORDER}` }}>Increase vs Long Term Rental</td>
-                    </tr>
-                    <tr>
-                      <td style={tdLabel("")}>Increase vs Long-term Rental</td>
-                      {scenarios.map((s: any) => {
-                        const ltr = proposal.netLtrIncome ?? 0;
-                        const pct = ltr > 0 ? Math.round(((s.netOwnerIncome ?? 0) - ltr) / ltr * 100) : null;
-                        return (
-                          <td key={s.id} style={{ ...tdVal(s.name === "Confident"), color: s.name === "Confident" ? GOLD : (pct ?? 0) >= 0 ? "#16a34a" : "#dc2626" }}>
-                            {pct != null ? `${pct >= 0 ? "+" : ""}${pct}%` : "—"}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  </>
-                )}
-              </tbody>
-            </table>
-
-            {/* Note */}
-            <div style={{ padding: "12px 16px", background: CREAM, borderTop: `1px solid ${BORDER}` }}>
-              <p style={{ fontSize: 11, color: MUTED, lineHeight: 1.6 }}>
-                Note: Please note this is a projection based on the information we have and the current market. Figures may vary over time depending on the market supply and demand.
+          {/* Scenarios — desktop: table, mobile: stacked cards */}
+          {isMobile ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {scenarios.map((s: any) => {
+                const isConfident = s.name === "Confident";
+                const occ = Math.round(s.occupancyRate * 100);
+                const costs = s.totalExpenses != null
+                  ? s.totalExpenses - (s.grossRevenue ?? 0) * 0.17
+                  : (s.grossRevenue ?? 0) - (s.netOwnerIncome ?? 0) - (s.grossRevenue ?? 0) * 0.17;
+                const fee = (s.grossRevenue ?? 0) * 0.17;
+                const ltr = proposal.netLtrIncome ?? 0;
+                const pct = hasLtr && ltr > 0 ? Math.round(((s.netOwnerIncome ?? 0) - ltr) / ltr * 100) : null;
+                return (
+                  <div key={s.id} style={{ border: isConfident ? `2px solid ${GOLD}` : `1px solid ${BORDER}`, borderRadius: 10, overflow: "hidden", background: isConfident ? `${GOLD}08` : WHITE }}>
+                    {/* Card header */}
+                    <div style={{ padding: "12px 16px", background: isConfident ? `${GOLD}18` : CREAM, borderBottom: `1px solid ${BORDER}`, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div style={{ fontSize: 22, fontWeight: 900, fontFamily: "serif", color: isConfident ? GOLD : DARK }}>{occ}%</div>
+                      {isConfident
+                        ? <span style={{ fontSize: 11, fontWeight: 700, color: GOLD, letterSpacing: 1, textTransform: "uppercase" }}>Confident</span>
+                        : <span style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 1 }}>Scenario</span>}
+                    </div>
+                    {/* Key/value rows */}
+                    {[
+                      { label: "Gross Revenue", value: `AED ${fmt(s.grossRevenue)}` },
+                      { label: "Operating Costs", value: `AED ${fmt(Math.max(0, costs))}` },
+                      { label: "Management Fees (17%)", value: `AED ${fmt(fee)}` },
+                      { label: "Net Annual Income", value: `AED ${fmt(s.netOwnerIncome)}`, bold: true },
+                      ...(pct != null ? [{ label: "vs Long-term Rental", value: `${pct >= 0 ? "+" : ""}${pct}%`, accent: true, pct }] : []),
+                    ].map(({ label, value, bold, accent, pct: p }: any) => (
+                      <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 16px", borderBottom: `1px solid ${BORDER}` }}>
+                        <span style={{ fontSize: 12, color: "#555" }}>{label}</span>
+                        <span style={{ fontSize: 13, fontWeight: bold ? 800 : 600, color: accent ? ((p ?? 0) >= 0 ? "#16a34a" : "#dc2626") : (isConfident && bold ? GOLD : DARK) }}>{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+              <p style={{ fontSize: 11, color: MUTED, lineHeight: 1.6, marginTop: 4 }}>
+                Note: This is a projection based on current market data. Figures may vary.
               </p>
             </div>
-          </div>
+          ) : (
+            <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, overflow: "hidden" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: CREAM }}>
+                    <th style={{ padding: "14px 16px", textAlign: "left", fontWeight: 600, color: MUTED, borderBottom: `2px solid ${BORDER}`, width: "36%" }}></th>
+                    {scenarios.map((s: any) => {
+                      const isConfident = s.name === "Confident";
+                      const occ = Math.round(s.occupancyRate * 100);
+                      return (
+                        <th key={s.id} style={{ padding: "14px 16px", textAlign: "right", fontWeight: 700, borderBottom: `2px solid ${BORDER}`, borderLeft: isConfident ? `2px solid ${GOLD}` : `1px solid ${BORDER}`, background: isConfident ? `${GOLD}12` : "transparent", color: isConfident ? GOLD : DARK, width: "16%" }}>
+                          <div style={{ fontSize: 18 }}>{occ}%</div>
+                          {isConfident && <div style={{ fontSize: 10, fontWeight: 500, color: GOLD, marginTop: 2 }}>Confident</div>}
+                        </th>
+                      );
+                    })}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ ...tdLabel("Occupancy"), color: MUTED, fontStyle: "italic" }}>Occupancy</td>
+                    {scenarios.map((s: any) => (
+                      <td key={s.id} style={tdVal(s.name === "Confident")}>{Math.round(s.occupancyRate * 100)}%</td>
+                    ))}
+                  </tr>
+                  <tr style={{ background: "#F7F5F0" }}>
+                    <td colSpan={scenarios.length + 1} style={{ padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, borderBottom: `1px solid ${BORDER}` }}>Income</td>
+                  </tr>
+                  <tr>
+                    <td style={tdLabel("")}>Gross Annual Revenue (AED)</td>
+                    {scenarios.map((s: any) => (
+                      <td key={s.id} style={tdVal(s.name === "Confident")}>{fmt(s.grossRevenue)}</td>
+                    ))}
+                  </tr>
+                  <tr style={{ background: "#F7F5F0" }}>
+                    <td colSpan={scenarios.length + 1} style={{ padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, borderBottom: `1px solid ${BORDER}` }}>Costs</td>
+                  </tr>
+                  <tr>
+                    <td style={tdLabel("")}>Total Operating Costs (AED)</td>
+                    {scenarios.map((s: any) => {
+                      const costs = s.totalExpenses != null
+                        ? s.totalExpenses - (s.grossRevenue ?? 0) * 0.17
+                        : (s.grossRevenue ?? 0) - (s.netOwnerIncome ?? 0) - (s.grossRevenue ?? 0) * 0.17;
+                      return <td key={s.id} style={tdVal(s.name === "Confident")}>{fmt(Math.max(0, costs))}</td>;
+                    })}
+                  </tr>
+                  <tr style={{ background: "#F7F5F0" }}>
+                    <td colSpan={scenarios.length + 1} style={{ padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, borderBottom: `1px solid ${BORDER}` }}>Fees</td>
+                  </tr>
+                  <tr>
+                    <td style={tdLabel("")}>Management Fees (17%)</td>
+                    {scenarios.map((s: any) => {
+                      const fee = (s.grossRevenue ?? 0) * 0.17;
+                      return <td key={s.id} style={tdVal(s.name === "Confident")}>{fmt(fee)}</td>;
+                    })}
+                  </tr>
+                  <tr style={{ background: "#F7F5F0" }}>
+                    <td colSpan={scenarios.length + 1} style={{ padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, borderBottom: `1px solid ${BORDER}` }}>Net Outcome</td>
+                  </tr>
+                  <tr style={{ fontWeight: 800 }}>
+                    <td style={{ ...tdLabel(""), fontWeight: 700, color: DARK }}>Net Annual Income (AED)</td>
+                    {scenarios.map((s: any) => (
+                      <td key={s.id} style={{ ...tdVal(s.name === "Confident"), fontSize: 14 }}>{fmt(s.netOwnerIncome)}</td>
+                    ))}
+                  </tr>
+                  {hasLtr && (
+                    <>
+                      <tr style={{ background: "#F7F5F0" }}>
+                        <td colSpan={scenarios.length + 1} style={{ padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, borderBottom: `1px solid ${BORDER}` }}>Increase vs Long Term Rental</td>
+                      </tr>
+                      <tr>
+                        <td style={tdLabel("")}>Increase vs Long-term Rental</td>
+                        {scenarios.map((s: any) => {
+                          const ltr = proposal.netLtrIncome ?? 0;
+                          const pct = ltr > 0 ? Math.round(((s.netOwnerIncome ?? 0) - ltr) / ltr * 100) : null;
+                          return (
+                            <td key={s.id} style={{ ...tdVal(s.name === "Confident"), color: s.name === "Confident" ? GOLD : (pct ?? 0) >= 0 ? "#16a34a" : "#dc2626" }}>
+                              {pct != null ? `${pct >= 0 ? "+" : ""}${pct}%` : "—"}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    </>
+                  )}
+                </tbody>
+              </table>
+              <div style={{ padding: "12px 16px", background: CREAM, borderTop: `1px solid ${BORDER}` }}>
+                <p style={{ fontSize: 11, color: MUTED, lineHeight: 1.6 }}>
+                  Note: Please note this is a projection based on the information we have and the current market. Figures may vary over time depending on the market supply and demand.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div style={confidential}>Confidential © Royal Holiday Homes</div>
         </div>
@@ -513,7 +553,7 @@ export default function PublicProposal() {
         <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, marginBottom: 16 }}>
           Average Daily Rate (ADR) by Season
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 40 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(3, 1fr)", gap: 16, marginBottom: 40 }}>
           {[
             { label: "Low Season",          value: (proposal as any).lowSeasonAdr,    note: "75% Accuracy" },
             { label: "Peak Season",         value: (proposal as any).peakSeasonAdr,   note: "92% Accuracy" },
@@ -531,7 +571,7 @@ export default function PublicProposal() {
         <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, marginBottom: 16 }}>
           Owner Benefits &amp; Value Proposition
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
           {[
             { title: "Dynamic Revenue Capture",   desc: "Leverage premium pricing during high-demand periods to maximize returns." },
             { title: "Market Intelligence",        desc: "Real-time adjustments based on competitive analysis and demand forecasting." },
@@ -555,36 +595,58 @@ export default function PublicProposal() {
         <h2 style={{ ...sectionTitle, fontSize: 26, marginBottom: 4 }}>Why Opt for Holiday Homes?</h2>
         <div style={{ height: 2, background: GOLD, width: 40, marginTop: 12, marginBottom: 32 }} />
 
-        <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, overflow: "hidden" }}>
-          {/* Header */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", background: CREAM, borderBottom: `2px solid ${BORDER}` }}>
-            <div style={{ padding: "14px 20px" }} />
-            <div style={{ padding: "14px 20px", textAlign: "center", fontWeight: 700, color: GOLD, fontSize: 13, borderLeft: `1px solid ${BORDER}` }}>
-              Holiday Home (Short-Term)
-            </div>
-            <div style={{ padding: "14px 20px", textAlign: "center", fontWeight: 700, color: MUTED, fontSize: 13, borderLeft: `1px solid ${BORDER}` }}>
-              Traditional Long-Term Rental
-            </div>
+        {isMobile ? (
+          /* Mobile: one card per benefit topic */
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {[
+              ["20-58% Higher Returns",          "Higher yield through seasonality",    "Limited pricing flexibility",         "Fixed annual income"],
+              ["Asset protection & monitoring",   "Reduced long-term tenant risk",       "Property tied up for 12+ months",     "Tenant disputes and issues"],
+              ["Flexibility & owner usage",       "Maintain property value",             "Difficult to use property yourself",  "Wear and tear over time"],
+            ].map(([str1, str2, ltr1, ltr2], i) => (
+              <div key={i} style={{ border: `1px solid ${BORDER}`, borderRadius: 8, overflow: "hidden" }}>
+                <div style={{ padding: "12px 16px", background: CREAM, borderBottom: `1px solid ${BORDER}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: GOLD, marginBottom: 2 }}>✓ {str1}</div>
+                  <div style={{ fontSize: 12, color: "#555" }}>{str2}</div>
+                </div>
+                <div style={{ padding: "12px 16px" }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: MUTED, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>vs Long-Term Rental</div>
+                  <div style={{ fontSize: 12, color: "#dc2626", marginBottom: 4 }}>✕ {ltr1}</div>
+                  <div style={{ fontSize: 12, color: "#dc2626" }}>✕ {ltr2}</div>
+                </div>
+              </div>
+            ))}
           </div>
-
-          {[
-            ["20-58% Higher Returns",     "Higher yield through seasonality",   "Limited pricing flexibility",  "Fixed annual income"],
-            ["Asset protection & monitoring", "Reduced long-term tenant risk",  "Property tied up for 12+ months", "Tenant disputes and issues"],
-            ["Flexibility & owner usage", "Maintain property value",            "Difficult to use property yourself", "Wear and tear over time"],
-          ].map(([str1, str2, ltr1, ltr2], i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderTop: `1px solid ${BORDER}` }}>
-              <div style={{ padding: "18px 20px", background: CREAM, borderRight: `1px solid ${BORDER}` }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: DARK, marginBottom: 4 }}>✓ {str1}</div>
-                <div style={{ fontSize: 12, color: "#666" }}>{str2}</div>
+        ) : (
+          /* Desktop: 3-column grid table */
+          <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, overflow: "hidden" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", background: CREAM, borderBottom: `2px solid ${BORDER}` }}>
+              <div style={{ padding: "14px 20px" }} />
+              <div style={{ padding: "14px 20px", textAlign: "center", fontWeight: 700, color: GOLD, fontSize: 13, borderLeft: `1px solid ${BORDER}` }}>
+                Holiday Home (Short-Term)
               </div>
-              <div style={{ padding: "18px 20px", borderLeft: `1px solid ${BORDER}` }}>
-                <div style={{ fontSize: 12, color: "#dc2626" }}>✕ {ltr1}</div>
-                <div style={{ fontSize: 12, color: "#dc2626", marginTop: 4 }}>✕ {ltr2}</div>
+              <div style={{ padding: "14px 20px", textAlign: "center", fontWeight: 700, color: MUTED, fontSize: 13, borderLeft: `1px solid ${BORDER}` }}>
+                Traditional Long-Term Rental
               </div>
-              <div style={{ display: "none" }} />
             </div>
-          ))}
-        </div>
+            {[
+              ["20-58% Higher Returns",          "Higher yield through seasonality",    "Limited pricing flexibility",         "Fixed annual income"],
+              ["Asset protection & monitoring",   "Reduced long-term tenant risk",       "Property tied up for 12+ months",     "Tenant disputes and issues"],
+              ["Flexibility & owner usage",       "Maintain property value",             "Difficult to use property yourself",  "Wear and tear over time"],
+            ].map(([str1, str2, ltr1, ltr2], i) => (
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderTop: `1px solid ${BORDER}` }}>
+                <div style={{ padding: "18px 20px", background: CREAM, borderRight: `1px solid ${BORDER}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: DARK, marginBottom: 4 }}>✓ {str1}</div>
+                  <div style={{ fontSize: 12, color: "#666" }}>{str2}</div>
+                </div>
+                <div style={{ padding: "18px 20px", borderLeft: `1px solid ${BORDER}` }}>
+                  <div style={{ fontSize: 12, color: "#dc2626" }}>✕ {ltr1}</div>
+                  <div style={{ fontSize: 12, color: "#dc2626", marginTop: 4 }}>✕ {ltr2}</div>
+                </div>
+                <div style={{ display: "none" }} />
+              </div>
+            ))}
+          </div>
+        )}
 
         <p style={{ fontSize: 13, color: MUTED, marginTop: 24, fontStyle: "italic", lineHeight: 1.7 }}>
           Holiday homes allow your property to earn more by adapting pricing to market demand and seasonal trends.
@@ -649,7 +711,7 @@ export default function PublicProposal() {
         <h2 style={{ ...sectionTitle, fontSize: 26, textAlign: "center", marginBottom: 4 }}>Our Portfolio</h2>
         <div style={{ height: 2, background: GOLD, width: 40, margin: "12px auto 48px" }} />
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 24, marginBottom: 40 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, 1fr)", gap: 24, marginBottom: 40 }}>
           {PORTFOLIO.map(({ v, l }) => (
             <div key={l} style={{ textAlign: "center", padding: "28px 20px", border: `1px solid ${BORDER}`, borderRadius: 8 }}>
               <div style={{ fontSize: 36, fontWeight: 900, fontFamily: "serif", color: DARK, marginBottom: 8 }}>{v}</div>
@@ -712,7 +774,7 @@ export default function PublicProposal() {
         {/* Contact block */}
         <div style={{ borderTop: `2px solid ${BORDER}`, paddingTop: 36 }}>
           <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, marginBottom: 20 }}>Contact Us</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 40 }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: isMobile ? 24 : 40 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13, color: "#555" }}>
               <div>📞 {proposal.companyPhone ?? "800 RHH"}</div>
               <div>🌐 www.royalholidayhomes.ae</div>
@@ -720,8 +782,8 @@ export default function PublicProposal() {
               <div style={{ paddingLeft: 20, fontSize: 12, color: MUTED }}>Guests: bookings@royalholidayhomes.ae</div>
               <div>📍 Suite 503, Al Neyadi Building – Sheikh Rashid Bin Saeed St – Al Manhal – Abu Dhabi.</div>
             </div>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "flex-end" }}>
-              <div style={{ textAlign: "right" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: isMobile ? "flex-start" : "flex-end" }}>
+              <div style={{ textAlign: isMobile ? "left" : "right" }}>
                 <img src="/rhh-logo.png" alt="RHH" style={{ height: 32, width: "auto", marginBottom: 8 }}
                   onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                 <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "serif", color: DARK }}>Royal Holiday Homes</div>

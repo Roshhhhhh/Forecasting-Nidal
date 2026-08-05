@@ -16,6 +16,7 @@ router.get("/dashboard/kpis", requireAuth, async (_req, res): Promise<void> => {
     grossRevenue: sql<number>`coalesce(sum(gross_annual_revenue), 0)`,
     managementFee: sql<number>`coalesce(sum(gross_annual_revenue * management_fee_percent / 100), 0)`,
     avgIncrease: sql<number>`coalesce(avg(increase_vs_ltr_pct), 0)`,
+    avgManagementFeePct: sql<number>`coalesce(avg(management_fee_percent) filter (where management_fee_percent is not null), 0)`,
   }).from(forecastsTable).where(eq(forecastsTable.isArchived, false));
 
   const expiringSoon = await db.select({ count: sql<number>`count(*)::int` })
@@ -39,6 +40,7 @@ router.get("/dashboard/kpis", requireAuth, async (_req, res): Promise<void> => {
     conversionRate: published > 0 ? Math.round((accepted / published) * 100) : 0,
     forecastedGrossRevenue: Math.round(totals?.grossRevenue ?? 0),
     forecastedManagementFee: Math.round(totals?.managementFee ?? 0),
+    avgManagementFeePct: Math.round((totals?.avgManagementFeePct ?? 0) * 10) / 10,
     avgIncreaseVsLtr: Math.round(totals?.avgIncrease ?? 0),
     expiringSoon: expiringSoon[0]?.count ?? 0,
   });

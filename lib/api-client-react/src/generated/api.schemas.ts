@@ -1029,6 +1029,7 @@ export interface DashboardKpis {
   conversionRate: number;
   forecastedGrossRevenue: number;
   forecastedManagementFee: number;
+  avgManagementFeePct: number;
   avgIncreaseVsLtr: number;
   expiringSoon: number;
 }

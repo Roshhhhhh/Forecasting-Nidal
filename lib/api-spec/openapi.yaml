@@ -2749,7 +2749,7 @@ components:
     # DASHBOARD
     DashboardKpis:
       type: object
-      required: [totalForecasts, draftForecasts, pendingApproval, publishedProposals, viewedProposals, acceptedProposals, conversionRate, forecastedGrossRevenue, forecastedManagementFee, avgIncreaseVsLtr, expiringSoon]
+      required: [totalForecasts, draftForecasts, pendingApproval, publishedProposals, viewedProposals, acceptedProposals, conversionRate, forecastedGrossRevenue, forecastedManagementFee, avgManagementFeePct, avgIncreaseVsLtr, expiringSoon]
       properties:
         totalForecasts:
           type: number
@@ -2768,6 +2768,8 @@ components:
         forecastedGrossRevenue:
           type: number
         forecastedManagementFee:
+          type: number
+        avgManagementFeePct:
           type: number
         avgIncreaseVsLtr:
           type: number

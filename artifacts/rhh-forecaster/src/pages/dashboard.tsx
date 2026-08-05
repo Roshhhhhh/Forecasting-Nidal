@@ -119,6 +119,9 @@ export default function Dashboard() {
             <div className="text-2xl font-bold">{isKpisLoading ? "-" : formatCurrency(kpis?.forecastedGrossRevenue)}</div>
             <p className="text-xs text-muted-foreground mt-1">
               <span className="font-medium text-foreground">{formatCurrency(kpis?.forecastedManagementFee)}</span> avg mgmt fee
+              {kpis?.avgManagementFeePct != null && kpis.avgManagementFeePct > 0 && (
+                <span className="ml-2 text-primary font-medium">· {kpis.avgManagementFeePct}% avg commission</span>
+              )}
             </p>
           </CardContent>
         </Card>

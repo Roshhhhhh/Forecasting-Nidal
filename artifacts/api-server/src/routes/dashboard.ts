@@ -75,7 +75,8 @@ router.get("/dashboard/area-performance", requireAuth, async (_req, res): Promis
     ORDER BY avg_gross_revenue DESC
     LIMIT 10
   `);
-  res.json((result as any[]).map((r: any) => ({
+  const rows: any[] = Array.isArray(result) ? result : (result as any).rows ?? [];
+  res.json(rows.map((r: any) => ({
     area: r.area,
     forecastCount: r.forecast_count,
     avgGrossRevenue: Math.round(r.avg_gross_revenue),

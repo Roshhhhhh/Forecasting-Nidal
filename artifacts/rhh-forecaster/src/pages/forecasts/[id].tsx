@@ -1,42 +1,217 @@
-import { useGetForecast, useListForecastScenarios, useGetForecastMonthly } from "@workspace/api-client-react";
+import { useState, useEffect } from "react";
+import {
+  useGetForecast, useUpdateForecast, useCalculateForecast,
+  useListForecastScenarios, useGetForecastMonthly,
+} from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
+import { useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Save, Share, Send, Sparkles, Building, Calendar, DollarSign, Target, Copy, TrendingUp, FileText } from "lucide-react";
+import {
+  ArrowLeft, Save, Share, Copy, TrendingUp, DollarSign, Target,
+  Building, Calendar, Sparkles, Calculator, Loader2, CheckCircle2,
+} from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { useToast } from "@/hooks/use-toast";
+
+// Abu Dhabi seasonal weights (months per season out of 12)
+const SEASON_WEIGHTS = { low: 3, shoulder: 4, peak: 4, event: 1 }; // Jun-Aug | Apr,May,Sep,Oct | Nov,Jan,Feb,Mar | Dec
+
+function computeWeightedAdr(low: number, shoulder: number, peak: number, event: number): number {
+  const total = SEASON_WEIGHTS.low + SEASON_WEIGHTS.shoulder + SEASON_WEIGHTS.peak + SEASON_WEIGHTS.event;
+  return Math.round((low * SEASON_WEIGHTS.low + shoulder * SEASON_WEIGHTS.shoulder + peak * SEASON_WEIGHTS.peak + event * SEASON_WEIGHTS.event) / total);
+}
+
+const OCCUPANCY_LEVELS = [1.0, 0.95, 0.90, 0.85, 0.80, 0.75, 0.70];
+
+interface FormValues {
+  annualLtr: number;
+  ltrVacancyPercent: number;
+  lowSeasonAdr: number;
+  shoulderSeasonAdr: number;
+  peakSeasonAdr: number;
+  eventAdr: number;
+  utilityCost: number;
+  internetCost: number;
+  maintenanceCost: number;
+  miscCost: number;
+  managementFeePercent: number;
+  ownerBlockedNights: number;
+}
+
+function fmt(val?: number | null, opts?: { digits?: number }) {
+  if (val == null || isNaN(val)) return "—";
+  return new Intl.NumberFormat("en-AE", {
+    style: "currency", currency: "AED",
+    maximumFractionDigits: opts?.digits ?? 0,
+  }).format(val);
+}
+
+function pct(val?: number | null) {
+  if (val == null || isNaN(val)) return "—";
+  return `${val > 0 ? "+" : ""}${Math.round(val * 10) / 10}%`;
+}
+
+function getStatusColor(status: string) {
+  switch (status) {
+    case "published": return "bg-primary/20 text-primary border-primary/30";
+    case "accepted": return "bg-green-500/20 text-green-700 border-green-500/30";
+    case "declined": return "bg-red-500/20 text-red-700 border-red-500/30";
+    case "draft": return "bg-gray-400/20 text-gray-600 border-gray-400/30";
+    default: return "bg-secondary/20 text-secondary-foreground border-secondary/30";
+  }
+}
 
 export default function ForecastDetail() {
   const { id } = useParams<{ id: string }>();
   const forecastId = parseInt(id || "0", 10);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: forecast, isLoading } = useGetForecast(forecastId);
   const { data: scenarios } = useListForecastScenarios(forecastId);
   const { data: monthly } = useGetForecastMonthly(forecastId);
 
+  const updateForecast = useUpdateForecast();
+  const calculateForecast = useCalculateForecast();
+
+  const [isDirty, setIsDirty] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
+  const form = useForm<FormValues>({
+    defaultValues: {
+      annualLtr: 0, ltrVacancyPercent: 10,
+      lowSeasonAdr: 0, shoulderSeasonAdr: 0, peakSeasonAdr: 0, eventAdr: 0,
+      utilityCost: 0, internetCost: 0, maintenanceCost: 0, miscCost: 0,
+      managementFeePercent: 17, ownerBlockedNights: 0,
+    },
+  });
+
+  const values = form.watch();
+
+  // Populate form when forecast loads
+  useEffect(() => {
+    if (forecast) {
+      form.reset({
+        annualLtr: forecast.annualLtr ?? 0,
+        ltrVacancyPercent: forecast.ltrVacancyPercent ?? 10,
+        lowSeasonAdr: forecast.lowSeasonAdr ?? 0,
+        shoulderSeasonAdr: forecast.shoulderSeasonAdr ?? 0,
+        peakSeasonAdr: forecast.peakSeasonAdr ?? 0,
+        eventAdr: forecast.eventAdr ?? 0,
+        utilityCost: forecast.utilityCost ?? 0,
+        internetCost: forecast.internetCost ?? 0,
+        maintenanceCost: forecast.maintenanceCost ?? 0,
+        miscCost: forecast.miscCost ?? 0,
+        managementFeePercent: forecast.managementFeePercent ?? 17,
+        ownerBlockedNights: forecast.ownerBlockedNights ?? 0,
+      });
+      setIsDirty(false);
+    }
+  }, [forecast]);
+
+  // Track dirty state
+  useEffect(() => {
+    const sub = form.watch(() => setIsDirty(true));
+    return () => sub.unsubscribe();
+  }, [form]);
+
+  // Derived live calculations
+  const weightedAdr = computeWeightedAdr(values.lowSeasonAdr, values.shoulderSeasonAdr, values.peakSeasonAdr, values.eventAdr);
+  const ltrMonthly = values.annualLtr / 12;
+  const ltrEffective = values.annualLtr * (1 - (values.ltrVacancyPercent ?? 10) / 100);
+  const ltrMonthlyEffective = ltrEffective / 12;
+  const totalAnnualExpenses = values.utilityCost + values.internetCost + values.maintenanceCost + values.miscCost;
+  const totalMonthlyExpenses = totalAnnualExpenses / 12;
+
+  // Scenario computations
+  function computeScenario(occ: number) {
+    const gross = weightedAdr * 365 * occ;
+    const mgmtFee = gross * (values.managementFeePercent / 100);
+    const net = gross - mgmtFee - totalAnnualExpenses;
+    const monthly = net / 12;
+    const vsLtr = ltrEffective > 0 ? ((net - ltrEffective) / ltrEffective) * 100 : null;
+    return { gross, mgmtFee, net, monthly, vsLtr };
+  }
+
+  async function handleSave() {
+    try {
+      await updateForecast.mutateAsync({
+        id: forecastId,
+        data: {
+          annualLtr: values.annualLtr || null,
+          ltrVacancyPercent: values.ltrVacancyPercent,
+          lowSeasonAdr: values.lowSeasonAdr || null,
+          shoulderSeasonAdr: values.shoulderSeasonAdr || null,
+          peakSeasonAdr: values.peakSeasonAdr || null,
+          eventAdr: values.eventAdr || null,
+          utilityCost: values.utilityCost || null,
+          internetCost: values.internetCost || null,
+          maintenanceCost: values.maintenanceCost || null,
+          miscCost: values.miscCost || null,
+          managementFeePercent: values.managementFeePercent,
+          ownerBlockedNights: values.ownerBlockedNights,
+        } as any,
+      });
+      setIsDirty(false);
+      setLastSaved(new Date());
+      queryClient.invalidateQueries({ queryKey: ["getForecast", forecastId] });
+      toast({ title: "Inputs saved", description: "Your inputs have been saved as a draft." });
+    } catch {
+      toast({ title: "Save failed", variant: "destructive" });
+    }
+  }
+
+  async function handleCalculate() {
+    try {
+      // First save inputs
+      await updateForecast.mutateAsync({
+        id: forecastId,
+        data: {
+          annualLtr: values.annualLtr || null,
+          ltrVacancyPercent: values.ltrVacancyPercent,
+          lowSeasonAdr: values.lowSeasonAdr || null,
+          shoulderSeasonAdr: values.shoulderSeasonAdr || null,
+          peakSeasonAdr: values.peakSeasonAdr || null,
+          eventAdr: values.eventAdr || null,
+          utilityCost: values.utilityCost || null,
+          internetCost: values.internetCost || null,
+          maintenanceCost: values.maintenanceCost || null,
+          miscCost: values.miscCost || null,
+          managementFeePercent: values.managementFeePercent,
+          ownerBlockedNights: values.ownerBlockedNights,
+        } as any,
+      });
+      // Then calculate
+      await calculateForecast.mutateAsync({ id: forecastId });
+      setIsDirty(false);
+      setLastSaved(new Date());
+      // Refresh all forecast data
+      queryClient.invalidateQueries({ queryKey: ["getForecast", forecastId] });
+      queryClient.invalidateQueries({ queryKey: ["listForecastScenarios", forecastId] });
+      queryClient.invalidateQueries({ queryKey: ["getForecastMonthly", forecastId] });
+      toast({ title: "Calculation complete", description: "Revenue projections and scenarios have been updated." });
+    } catch (e: any) {
+      const msg = e?.data?.error ?? "Calculation failed. Ensure all ADR values are filled in.";
+      toast({ title: "Calculation failed", description: msg, variant: "destructive" });
+    }
+  }
+
+  const isSaving = updateForecast.isPending;
+  const isCalculating = calculateForecast.isPending || isSaving;
+
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading forecast...</div>;
   if (!forecast) return <div className="p-8 text-center text-red-500">Forecast not found.</div>;
 
-  const formatCurrency = (val?: number | null) => {
-    if (val === undefined || val === null) return "-";
-    return new Intl.NumberFormat("en-AE", { style: "currency", currency: "AED", maximumFractionDigits: 0 }).format(val);
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "published": return "bg-primary/20 text-primary border-primary/30";
-      case "accepted": return "bg-green-500/20 text-green-700 border-green-500/30";
-      case "declined": return "bg-red-500/20 text-red-700 border-red-500/30";
-      case "draft": return "bg-gray-500/20 text-gray-700 border-gray-500/30";
-      default: return "bg-secondary/20 text-secondary-foreground border-secondary/30";
-    }
-  };
-
   return (
-    <div className="flex flex-col h-[calc(100vh-theme(spacing.16))] w-full">
-      {/* Top Header Bar */}
-      <header className="flex items-center justify-between px-6 py-4 border-b border-border bg-background z-10 sticky top-0">
+    <div className="flex flex-col h-[calc(100vh-theme(spacing.0))] w-full">
+      {/* Top Header */}
+      <header className="flex items-center justify-between px-6 py-3 border-b border-border bg-background z-10 sticky top-0 shrink-0">
         <div className="flex items-center gap-4">
           <Link href="/forecasts" className="p-2 -ml-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
             <ArrowLeft className="h-5 w-5" />
@@ -44,16 +219,18 @@ export default function ForecastDetail() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-xl font-serif font-bold text-foreground">{forecast.referenceNumber}</h1>
-              <Badge variant="outline" className={`capitalize ${getStatusColor(forecast.status)}`}>
+              <Badge variant="outline" className={`capitalize text-xs ${getStatusColor(forecast.status)}`}>
                 {forecast.status.replace(/_/g, " ")}
               </Badge>
-            </div>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {(forecast as any).ownerName && (
-                <Link href={`/owners/${forecast.ownerId}`} className="hover:text-foreground">{(forecast as any).ownerName}</Link>
+              {lastSaved && !isDirty && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <CheckCircle2 className="h-3 w-3 text-green-500" /> Saved
+                </span>
               )}
-              {(forecast as any).ownerName && (forecast as any).propertyAddress && " • "}
-              {(forecast as any).propertyAddress && <span>{(forecast as any).propertyAddress}</span>}
+              {isDirty && <span className="text-xs text-amber-500">Unsaved changes</span>}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {(forecast as any).ownerName}{(forecast as any).ownerName && " · "}{(forecast as any).propertyAddress}
             </p>
           </div>
         </div>
@@ -61,212 +238,575 @@ export default function ForecastDetail() {
           <Button variant="outline" size="sm" className="gap-2">
             <Copy className="h-4 w-4" /> Duplicate
           </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Save className="h-4 w-4" /> Save Draft
+          <Button
+            variant="outline" size="sm"
+            onClick={handleSave}
+            disabled={isSaving || !isDirty}
+            className="gap-2"
+          >
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save Draft
           </Button>
-          <Button size="sm" className="gap-2">
+          <Button
+            size="sm"
+            onClick={handleCalculate}
+            disabled={isCalculating}
+            className="gap-2"
+          >
+            {isCalculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
+            Save & Calculate
+          </Button>
+          <Button variant="default" size="sm" className="gap-2 bg-primary/90 hover:bg-primary">
             <Share className="h-4 w-4" /> Generate Proposal
           </Button>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <div className="flex-1 overflow-auto p-6 max-w-[1600px] mx-auto w-full">
-        <Tabs defaultValue="summary" className="w-full">
-          <TabsList className="grid w-full grid-cols-6 max-w-[800px] mb-8">
-            <TabsTrigger value="summary">Summary</TabsTrigger>
-            <TabsTrigger value="inputs">Data Inputs</TabsTrigger>
-            <TabsTrigger value="monthly">Monthly</TabsTrigger>
-            <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
-            <TabsTrigger value="ai" className="relative">
-              AI Config
-              <Sparkles className="h-3 w-3 absolute top-1.5 right-1.5 text-primary" />
-            </TabsTrigger>
-            <TabsTrigger value="proposal">Proposal</TabsTrigger>
-          </TabsList>
+      {/* Tabs */}
+      <div className="flex-1 overflow-auto">
+        <Tabs defaultValue="inputs" className="w-full h-full">
+          <div className="px-6 pt-4 border-b border-border bg-background sticky top-0 z-10">
+            <TabsList className="grid grid-cols-5 max-w-[700px]">
+              <TabsTrigger value="summary">Summary</TabsTrigger>
+              <TabsTrigger value="inputs">Data Inputs</TabsTrigger>
+              <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
+              <TabsTrigger value="monthly">Monthly</TabsTrigger>
+              <TabsTrigger value="proposal">Proposal</TabsTrigger>
+            </TabsList>
+          </div>
 
-          <TabsContent value="summary" className="space-y-6">
-            {/* KPI Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* ── SUMMARY ── */}
+          <TabsContent value="summary" className="p-6 space-y-6 max-w-[1400px] mx-auto">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <Card className="border-border/50 shadow-sm">
                 <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-medium text-muted-foreground">Gross Revenue</h3>
                     <div className="p-2 bg-primary/10 rounded-md"><DollarSign className="h-4 w-4 text-primary" /></div>
                   </div>
-                  <div className="text-3xl font-bold">{formatCurrency(forecast.grossAnnualRevenue)}</div>
-                  <p className="text-xs text-muted-foreground mt-2">Projected annual top-line</p>
+                  <div className="text-2xl font-bold">{fmt(forecast.grossAnnualRevenue)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">Projected annual top-line</p>
                 </CardContent>
               </Card>
-
-              <Card className="border-border/50 shadow-sm bg-secondary/5 border-secondary/10">
+              <Card className="border-border/50 shadow-sm bg-primary/5 border-primary/10">
                 <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-medium text-secondary-foreground">Net Owner Income</h3>
-                    <div className="p-2 bg-background rounded-md shadow-sm"><Target className="h-4 w-4 text-secondary-foreground" /></div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-medium text-primary/80">Net Owner Income</h3>
+                    <div className="p-2 bg-primary/10 rounded-md"><Target className="h-4 w-4 text-primary" /></div>
                   </div>
-                  <div className="text-3xl font-bold text-secondary-foreground">{formatCurrency(forecast.netOwnerIncome)}</div>
-                  <p className="text-xs text-muted-foreground mt-2">After all expenses & fees</p>
+                  <div className="text-2xl font-bold text-primary">{fmt(forecast.netOwnerIncome)}</div>
+                  <p className="text-xs text-muted-foreground mt-1">After all expenses & fees</p>
                 </CardContent>
               </Card>
-
               <Card className="border-border/50 shadow-sm">
                 <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-medium text-muted-foreground">vs LTR Benchmark</h3>
                     <div className="p-2 bg-muted rounded-md"><Building className="h-4 w-4 text-muted-foreground" /></div>
                   </div>
-                  <div className={`text-3xl font-bold ${(forecast.increaseVsLtrPct ?? 0) > 0 ? "text-green-600 dark:text-green-500" : "text-red-600"}`}>
-                    {(forecast.increaseVsLtrPct ?? 0) > 0 ? "+" : ""}{forecast.increaseVsLtrPct ?? "—"}%
+                  <div className={`text-2xl font-bold ${(forecast.increaseVsLtrPct ?? 0) > 0 ? "text-green-600" : "text-red-500"}`}>
+                    {forecast.increaseVsLtrPct != null ? `${forecast.increaseVsLtrPct > 0 ? "+" : ""}${Math.round(forecast.increaseVsLtrPct)}%` : "—"}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">Net increase over LTR</p>
+                  <p className="text-xs text-muted-foreground mt-1">Net increase over LTR</p>
                 </CardContent>
               </Card>
-
               <Card className="border-border/50 shadow-sm">
                 <CardContent className="p-6">
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center justify-between mb-3">
                     <h3 className="text-sm font-medium text-muted-foreground">Key Metrics</h3>
                     <div className="p-2 bg-muted rounded-md"><TrendingUp className="h-4 w-4 text-muted-foreground" /></div>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Occupancy</span>
-                      <span className="font-medium">{forecast.recommendedOccupancy != null ? `${Math.round((forecast.recommendedOccupancy as number) * 100)}%` : "—"}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-muted-foreground">Weighted ADR</span>
-                      <span className="font-medium">{forecast.weightedAdr ? `AED ${forecast.weightedAdr}` : "—"}</span>
-                    </div>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Occupancy</span><span className="font-medium">{forecast.recommendedOccupancy != null ? `${Math.round((forecast.recommendedOccupancy as number) * 100)}%` : "—"}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Weighted ADR</span><span className="font-medium">{forecast.weightedAdr ? `AED ${forecast.weightedAdr}` : "—"}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Monthly Avg</span><span className="font-medium">{forecast.netOwnerIncome ? fmt(forecast.netOwnerIncome / 12) : "—"}</span></div>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Content split */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
-                <Card className="border-border/50 shadow-sm">
-                  <CardHeader className="bg-muted/20 border-b border-border">
-                    <CardTitle className="font-serif">Scenario Comparison</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-6 h-[350px]">
-                    {!scenarios || scenarios.length === 0 ? (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                        No scenarios generated yet. Run a calculation to see results.
-                      </div>
-                    ) : (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={scenarios} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} />
-                          <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => `AED ${val / 1000}k`} />
-                          <Tooltip
-                            formatter={(value: number) => formatCurrency(value)}
-                            cursor={{ fill: "hsl(var(--muted)/0.5)" }}
-                            contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
-                          />
-                          <Bar dataKey="netOwnerIncome" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={60} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    )}
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="lg:col-span-1 space-y-6">
-                <Card className="border-border/50 shadow-sm h-full">
-                  <CardHeader className="bg-muted/20 border-b border-border">
-                    <CardTitle className="font-serif text-lg">Forecast Actions</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-6 space-y-4">
-                    <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
-                      <h4 className="font-medium flex items-center gap-2 mb-2">
-                        <Sparkles className="h-4 w-4 text-primary" /> AI Optimizer
-                      </h4>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Run the AI engine to generate optimized ADRs based on market comps.
-                      </p>
-                      <Button className="w-full bg-primary hover:bg-primary/90 text-primary-foreground">Run Optimizer</Button>
-                    </div>
-                    <div className="space-y-3 pt-4 border-t border-border/50">
-                      <Button variant="outline" className="w-full justify-start text-left">
-                        <Send className="h-4 w-4 mr-2" /> Request Approval
-                      </Button>
-                      <Button variant="outline" className="w-full justify-start text-left">
-                        <FileText className="h-4 w-4 mr-2" /> Download PDF Internal
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-
-            {/* Monthly mini chart if available */}
-            {monthly && monthly.length > 0 && (
-              <Card className="border-border/50 shadow-sm">
-                <CardHeader className="bg-muted/20 border-b border-border">
-                  <CardTitle className="font-serif">Monthly Revenue Overview</CardTitle>
-                </CardHeader>
-                <CardContent className="p-6 h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={monthly} margin={{ top: 10, right: 30, left: 20, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                      <XAxis dataKey="monthName" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
-                      <YAxis axisLine={false} tickLine={false} tickFormatter={(val) => `${val / 1000}k`} />
-                      <Tooltip
-                        formatter={(value: number) => formatCurrency(value)}
-                        contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
-                      />
-                      <Bar dataKey="grossRevenue" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+            {(!forecast.grossAnnualRevenue) && (
+              <Card className="border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800">
+                <CardContent className="p-5 flex items-center gap-4">
+                  <Calculator className="h-8 w-8 text-amber-600 shrink-0" />
+                  <div>
+                    <p className="font-medium text-amber-800 dark:text-amber-400">No calculation run yet</p>
+                    <p className="text-sm text-amber-700 dark:text-amber-500 mt-0.5">Fill in your ADR values and expenses in the <strong>Data Inputs</strong> tab, then click <strong>Save & Calculate</strong> to generate projections.</p>
+                  </div>
                 </CardContent>
               </Card>
             )}
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="border-border/50 shadow-sm">
+                <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+                  <CardTitle className="font-serif text-base">Scenario Comparison</CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 h-[280px]">
+                  {!scenarios || scenarios.length === 0 || !scenarios[0].netOwnerIncome ? (
+                    <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">Run a calculation to see results.</div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={scenarios} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11 }} />
+                        <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `${v / 1000}k`} tick={{ fontSize: 11 }} />
+                        <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", fontSize: "12px" }} />
+                        <Bar dataKey="netOwnerIncome" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={60} name="Net Owner Income" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  )}
+                </CardContent>
+              </Card>
+
+              {monthly && monthly.length > 0 && (
+                <Card className="border-border/50 shadow-sm">
+                  <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+                    <CardTitle className="font-serif text-base">Monthly Revenue Overview</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-4 h-[280px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={monthly} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                        <XAxis dataKey="monthName" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+                        <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `${v / 1000}k`} tick={{ fontSize: 11 }} />
+                        <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", fontSize: "12px" }} />
+                        <Bar dataKey="grossRevenue" fill="hsl(var(--primary)/0.8)" radius={[3, 3, 0, 0]} name="Gross Revenue" />
+                        <Bar dataKey="netOwnerIncome" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} name="Net Income" />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </TabsContent>
 
-          <TabsContent value="inputs">
-            <Card className="border-border/50 shadow-sm">
-              <CardHeader className="bg-muted/20 border-b border-border">
-                <CardTitle className="font-serif">Financial Inputs</CardTitle>
-              </CardHeader>
-              <CardContent className="p-8">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  <div>
-                    <h3 className="font-medium mb-4 text-sm text-muted-foreground uppercase tracking-wide">ADR Settings</h3>
-                    <div className="space-y-3 text-sm">
-                      <div className="flex justify-between py-2 border-b border-border/50"><span className="text-muted-foreground">Low Season ADR</span><span className="font-medium">AED {forecast.lowSeasonAdr ?? "—"}</span></div>
-                      <div className="flex justify-between py-2 border-b border-border/50"><span className="text-muted-foreground">Shoulder Season ADR</span><span className="font-medium">AED {forecast.shoulderSeasonAdr ?? "—"}</span></div>
-                      <div className="flex justify-between py-2 border-b border-border/50"><span className="text-muted-foreground">Peak Season ADR</span><span className="font-medium">AED {forecast.peakSeasonAdr ?? "—"}</span></div>
-                      <div className="flex justify-between py-2 border-b border-border/50"><span className="text-muted-foreground">Event Season ADR</span><span className="font-medium">AED {forecast.eventAdr ?? "—"}</span></div>
+          {/* ── DATA INPUTS ── */}
+          <TabsContent value="inputs" className="p-6 max-w-[1200px] mx-auto">
+            <div className="space-y-6">
+              {/* LTR Section */}
+              <Card className="border-border/50 shadow-sm">
+                <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+                  <CardTitle className="font-serif text-base flex items-center gap-2">
+                    <Building className="h-4 w-4 text-primary" />
+                    Long-Term Rental (LTR) Benchmark
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Annual Market Rent (AED)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        placeholder="e.g. 150,000"
+                        {...form.register("annualLtr", { valueAsNumber: true })}
+                        className="h-11 text-base"
+                      />
+                      <p className="text-xs text-muted-foreground">Traditional annual rent value from market</p>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Lease Vacancy Gap (%)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="50"
+                        placeholder="10"
+                        {...form.register("ltrVacancyPercent", { valueAsNumber: true })}
+                        className="h-11 text-base"
+                      />
+                      <p className="text-xs text-muted-foreground">10% gap on every 5-year lease cycle</p>
+                    </div>
+                    <div className="space-y-3 p-4 bg-muted/30 rounded-lg border border-border/50">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">LTR Preview</p>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Monthly (gross)</span>
+                          <span className="font-semibold">{values.annualLtr > 0 ? fmt(ltrMonthly) : "—"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Effective with vacancy</span>
+                          <span className="font-semibold text-primary">{values.annualLtr > 0 ? fmt(ltrMonthlyEffective) : "—"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Annual effective</span>
+                          <span className="font-semibold">{values.annualLtr > 0 ? fmt(ltrEffective) : "—"}</span>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div>
-                    <h3 className="font-medium mb-4 text-sm text-muted-foreground uppercase tracking-wide">Expenses & Fees</h3>
-                    <div className="space-y-3 text-sm">
-                      <div className="flex justify-between py-2 border-b border-border/50"><span className="text-muted-foreground">Management Fee</span><span className="font-medium">{forecast.managementFeePercent}%</span></div>
-                      <div className="flex justify-between py-2 border-b border-border/50"><span className="text-muted-foreground">Annual LTR</span><span className="font-medium">AED {forecast.annualLtr?.toLocaleString() ?? "—"}</span></div>
-                      <div className="flex justify-between py-2 border-b border-border/50"><span className="text-muted-foreground">Internet</span><span className="font-medium">AED {forecast.internetCost?.toLocaleString() ?? "—"}</span></div>
-                      <div className="flex justify-between py-2 border-b border-border/50"><span className="text-muted-foreground">Utilities</span><span className="font-medium">AED {forecast.utilityCost?.toLocaleString() ?? "—"}</span></div>
-                      <div className="flex justify-between py-2 border-b border-border/50"><span className="text-muted-foreground">Maintenance</span><span className="font-medium">AED {forecast.maintenanceCost?.toLocaleString() ?? "—"}</span></div>
+                </CardContent>
+              </Card>
+
+              {/* ADR Section */}
+              <Card className="border-border/50 shadow-sm">
+                <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+                  <CardTitle className="font-serif text-base flex items-center gap-2">
+                    <DollarSign className="h-4 w-4 text-primary" />
+                    Average Daily Rate (ADR) by Season
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    {[
+                      { label: "Low Season", key: "lowSeasonAdr" as const, hint: "Jun · Jul · Aug", color: "bg-blue-50 border-blue-200 dark:bg-blue-900/10" },
+                      { label: "Shoulder Season", key: "shoulderSeasonAdr" as const, hint: "Apr · May · Sep · Oct", color: "bg-yellow-50 border-yellow-200 dark:bg-yellow-900/10" },
+                      { label: "Peak Season", key: "peakSeasonAdr" as const, hint: "Nov · Jan · Feb · Mar", color: "bg-orange-50 border-orange-200 dark:bg-orange-900/10" },
+                      { label: "Events / Special", key: "eventAdr" as const, hint: "Dec (F1 · NYE)", color: "bg-red-50 border-red-200 dark:bg-red-900/10" },
+                    ].map(({ label, key, hint, color }) => (
+                      <div key={key} className={`p-4 rounded-lg border ${color} space-y-2`}>
+                        <Label className="text-xs font-semibold uppercase tracking-wide">{label}</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">AED</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            {...form.register(key, { valueAsNumber: true })}
+                            className="pl-12 h-11 text-base font-semibold bg-background"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">{hint}</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Estimated Weighted Average ADR</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Weighted by Abu Dhabi seasonal calendar (3/4/4/1 months)</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-3xl font-bold text-primary">
+                        {weightedAdr > 0 ? `AED ${weightedAdr.toLocaleString()}` : "—"}
+                      </div>
+                      {weightedAdr > 0 && <p className="text-xs text-muted-foreground">per occupied night</p>}
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Expenses Section */}
+              <Card className="border-border/50 shadow-sm">
+                <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+                  <CardTitle className="font-serif text-base flex items-center gap-2">
+                    <Target className="h-4 w-4 text-primary" />
+                    Annual Operating Expenses
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="p-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    {[
+                      { label: "Utility Bills", key: "utilityCost" as const, hint: "Electricity, water, AC" },
+                      { label: "Internet / Phone", key: "internetCost" as const, hint: "Broadband, SIM" },
+                      { label: "Maintenance", key: "maintenanceCost" as const, hint: "Repairs, upkeep" },
+                      { label: "Miscellaneous", key: "miscCost" as const, hint: "Supplies, other" },
+                    ].map(({ label, key, hint }) => (
+                      <div key={key} className="space-y-2">
+                        <Label className="text-sm font-medium">{label}</Label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">AED</span>
+                          <Input
+                            type="number"
+                            min="0"
+                            placeholder="0"
+                            {...form.register(key, { valueAsNumber: true })}
+                            className="pl-12 h-11"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground">{hint} · annual</p>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg border border-border/50">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Total Monthly Expenses</span>
+                      <span className="font-semibold text-sm">{fmt(totalMonthlyExpenses)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">Total Annual Expenses</span>
+                      <span className="font-semibold text-sm">{fmt(totalAnnualExpenses)}</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* PM Commission & Settings */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <Card className="border-border/50 shadow-sm">
+                  <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+                    <CardTitle className="font-serif text-base">Property Management Fee</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">PM Commission (%)</Label>
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="50"
+                          step="0.5"
+                          placeholder="17"
+                          {...form.register("managementFeePercent", { valueAsNumber: true })}
+                          className="h-11 text-base pr-8"
+                        />
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Charged on gross STR revenue</p>
+                    </div>
+                    {weightedAdr > 0 && (
+                      <div className="p-3 bg-muted/30 rounded-md text-sm space-y-1">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">At 80% occupancy preview</p>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Gross Revenue</span>
+                          <span className="font-medium">{fmt(weightedAdr * 365 * 0.8)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Management Fee</span>
+                          <span className="font-medium text-red-600">-{fmt(weightedAdr * 365 * 0.8 * values.managementFeePercent / 100)}</span>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-border/50 shadow-sm">
+                  <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+                    <CardTitle className="font-serif text-base">Additional Settings</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-6 space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Owner Blocked Nights (annual)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="365"
+                        placeholder="0"
+                        {...form.register("ownerBlockedNights", { valueAsNumber: true })}
+                        className="h-11"
+                      />
+                      <p className="text-xs text-muted-foreground">Nights reserved for owner use (reduces available inventory)</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Action bar */}
+              <div className="flex items-center justify-between p-4 bg-muted/20 rounded-lg border border-border/50">
+                <p className="text-sm text-muted-foreground">
+                  {isDirty ? "You have unsaved changes." : lastSaved ? `Last saved ${lastSaved.toLocaleTimeString()}` : "Fill in all fields above, then calculate."}
+                </p>
+                <div className="flex gap-3">
+                  <Button variant="outline" onClick={handleSave} disabled={isSaving || !isDirty} className="gap-2">
+                    {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    Save Draft
+                  </Button>
+                  <Button onClick={handleCalculate} disabled={isCalculating} className="gap-2 min-w-[180px]">
+                    {isCalculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
+                    {isCalculating ? "Calculating…" : "Save & Calculate"}
+                  </Button>
                 </div>
-              </CardContent>
+              </div>
+            </div>
+          </TabsContent>
+
+          {/* ── SCENARIOS ── */}
+          <TabsContent value="scenarios" className="p-6 max-w-[1400px] mx-auto space-y-6">
+            {/* Live preview note */}
+            <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg">
+              <Sparkles className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
+              <div>
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-400">Live preview</p>
+                <p className="text-xs text-blue-700 dark:text-blue-500 mt-0.5">
+                  This table is computed in real time from your current inputs using the weighted average ADR (AED {weightedAdr > 0 ? weightedAdr.toLocaleString() : "—"}). Click <strong>Save & Calculate</strong> to store the official results and generate monthly projections.
+                </p>
+              </div>
+            </div>
+
+            {/* LTR Benchmark header */}
+            <div className="grid grid-cols-2 gap-4">
+              <Card className="border-border/50 shadow-sm">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">LTR Annual (Market Rate)</p>
+                    <p className="text-2xl font-bold mt-1">{values.annualLtr > 0 ? fmt(values.annualLtr) : "—"}</p>
+                  </div>
+                  <Building className="h-8 w-8 text-muted-foreground/30" />
+                </CardContent>
+              </Card>
+              <Card className="border-border/50 shadow-sm bg-amber-50/50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wide font-semibold">LTR Effective (with {values.ltrVacancyPercent ?? 10}% vacancy)</p>
+                    <p className="text-2xl font-bold mt-1">{values.annualLtr > 0 ? fmt(ltrEffective) : "—"}</p>
+                  </div>
+                  <Building className="h-8 w-8 text-amber-400/50" />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Income Calculator table — matching the PDF layout */}
+            <Card className="border-border/50 shadow-sm overflow-hidden">
+              <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+                <CardTitle className="font-serif text-base">Income Calculator — Occupancy Scenarios</CardTitle>
+              </CardHeader>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-muted/40 border-b border-border">
+                      <th className="px-5 py-3 text-left font-semibold text-muted-foreground">Metric</th>
+                      {OCCUPANCY_LEVELS.map(occ => (
+                        <th key={occ} className={`px-5 py-3 text-right font-semibold ${occ === 0.80 ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}>
+                          {Math.round(occ * 100)}%
+                          {occ === 0.80 && <div className="text-[10px] font-normal mt-0.5">Realistic</div>}
+                          {occ === 0.85 && <div className="text-[10px] font-normal mt-0.5">Confident</div>}
+                          {occ === 0.75 && <div className="text-[10px] font-normal mt-0.5">Conservative</div>}
+                          {occ === 0.90 && <div className="text-[10px] font-normal mt-0.5">Optimistic</div>}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {/* INCOME */}
+                    <tr className="bg-muted/20">
+                      <td colSpan={OCCUPANCY_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">INCOME</td>
+                    </tr>
+                    <tr className="hover:bg-muted/20 transition-colors">
+                      <td className="px-5 py-3 font-medium">Gross Annual Revenue (AED)</td>
+                      {OCCUPANCY_LEVELS.map(occ => {
+                        const s = computeScenario(occ);
+                        return (
+                          <td key={occ} className={`px-5 py-3 text-right font-semibold tabular-nums ${occ === 0.80 ? "bg-primary/5 text-primary" : ""}`}>
+                            {weightedAdr > 0 ? Math.round(s.gross).toLocaleString() : "—"}
+                          </td>
+                        );
+                      })}
+                    </tr>
+
+                    {/* COSTS */}
+                    <tr className="bg-muted/20">
+                      <td colSpan={OCCUPANCY_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">COSTS</td>
+                    </tr>
+                    <tr className="hover:bg-muted/20 transition-colors text-muted-foreground">
+                      <td className="px-5 py-3">Utility Bills</td>
+                      {OCCUPANCY_LEVELS.map(occ => (
+                        <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
+                          {values.utilityCost > 0 ? values.utilityCost.toLocaleString() : "—"}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr className="hover:bg-muted/20 transition-colors text-muted-foreground">
+                      <td className="px-5 py-3">Internet / Phone</td>
+                      {OCCUPANCY_LEVELS.map(occ => (
+                        <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
+                          {values.internetCost > 0 ? values.internetCost.toLocaleString() : "—"}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr className="hover:bg-muted/20 transition-colors text-muted-foreground">
+                      <td className="px-5 py-3">Maintenance</td>
+                      {OCCUPANCY_LEVELS.map(occ => (
+                        <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
+                          {values.maintenanceCost > 0 ? values.maintenanceCost.toLocaleString() : "—"}
+                        </td>
+                      ))}
+                    </tr>
+                    {values.miscCost > 0 && (
+                      <tr className="hover:bg-muted/20 transition-colors text-muted-foreground">
+                        <td className="px-5 py-3">Miscellaneous</td>
+                        {OCCUPANCY_LEVELS.map(occ => (
+                          <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
+                            {values.miscCost.toLocaleString()}
+                          </td>
+                        ))}
+                      </tr>
+                    )}
+
+                    {/* FEES */}
+                    <tr className="bg-muted/20">
+                      <td colSpan={OCCUPANCY_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">FEES</td>
+                    </tr>
+                    <tr className="hover:bg-muted/20 transition-colors text-muted-foreground">
+                      <td className="px-5 py-3">Management Fees ({values.managementFeePercent}%)</td>
+                      {OCCUPANCY_LEVELS.map(occ => {
+                        const s = computeScenario(occ);
+                        return (
+                          <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
+                            {weightedAdr > 0 ? Math.round(s.mgmtFee).toLocaleString() : "—"}
+                          </td>
+                        );
+                      })}
+                    </tr>
+
+                    {/* NET OUTCOME */}
+                    <tr className="bg-muted/20">
+                      <td colSpan={OCCUPANCY_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">NET OUTCOME</td>
+                    </tr>
+                    <tr className="hover:bg-muted/20 transition-colors font-semibold border-t-2 border-primary/20">
+                      <td className="px-5 py-3 text-foreground">Net Annual Income (AED)</td>
+                      {OCCUPANCY_LEVELS.map(occ => {
+                        const s = computeScenario(occ);
+                        return (
+                          <td key={occ} className={`px-5 py-3 text-right tabular-nums font-bold ${occ === 0.80 ? "bg-primary/10 text-primary" : "text-foreground"}`}>
+                            {weightedAdr > 0 ? Math.round(s.net).toLocaleString() : "—"}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                    <tr className="hover:bg-muted/20 transition-colors text-muted-foreground">
+                      <td className="px-5 py-3">Monthly Average Payout</td>
+                      {OCCUPANCY_LEVELS.map(occ => {
+                        const s = computeScenario(occ);
+                        return (
+                          <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
+                            {weightedAdr > 0 ? Math.round(s.monthly).toLocaleString() : "—"}
+                          </td>
+                        );
+                      })}
+                    </tr>
+
+                    {/* VS LTR */}
+                    {values.annualLtr > 0 && (
+                      <>
+                        <tr className="bg-muted/20">
+                          <td colSpan={OCCUPANCY_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">INCREASE VS LONG-TERM RENTAL</td>
+                        </tr>
+                        <tr className="hover:bg-muted/20 transition-colors">
+                          <td className="px-5 py-3 font-medium">vs LTR (with vacancy)</td>
+                          {OCCUPANCY_LEVELS.map(occ => {
+                            const s = computeScenario(occ);
+                            const positive = s.vsLtr != null && s.vsLtr > 0;
+                            return (
+                              <td key={occ} className={`px-5 py-3 text-right tabular-nums font-bold ${occ === 0.80 ? "bg-primary/5" : ""} ${positive ? "text-green-600" : "text-red-500"}`}>
+                                {s.vsLtr != null ? `${positive ? "+" : ""}${Math.round(s.vsLtr)}%` : "—"}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      </>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="p-4 border-t border-border/50 bg-muted/10">
+                <p className="text-xs text-muted-foreground">
+                  Note: This is a projection based on the information provided and current market conditions. Figures may vary over time depending on market supply and demand. Weighted ADR is based on Abu Dhabi's seasonal calendar.
+                </p>
+              </div>
             </Card>
           </TabsContent>
 
-          <TabsContent value="monthly">
+          {/* ── MONTHLY ── */}
+          <TabsContent value="monthly" className="p-6 max-w-[1400px] mx-auto">
             <Card className="border-border/50 shadow-sm">
-              <CardHeader className="bg-muted/20 border-b border-border">
-                <CardTitle className="font-serif">Monthly Projections</CardTitle>
+              <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+                <CardTitle className="font-serif text-base">Monthly Projections</CardTitle>
               </CardHeader>
               <CardContent className="p-0">
                 {!monthly || monthly.length === 0 ? (
                   <div className="p-12 text-center text-muted-foreground">
                     <Calendar className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
-                    <p>Run a calculation to generate monthly projections.</p>
+                    <p className="font-medium">No monthly data yet</p>
+                    <p className="text-sm mt-1">Fill in the Data Inputs tab and click <strong>Save & Calculate</strong></p>
                   </div>
                 ) : (
                   <div className="overflow-auto">
@@ -274,29 +814,46 @@ export default function ForecastDetail() {
                       <thead className="bg-muted/40 border-b border-border">
                         <tr>
                           <th className="px-4 py-3 text-left font-medium">Month</th>
-                          <th className="px-4 py-3 text-right font-medium">Available Nights</th>
+                          <th className="px-4 py-3 text-left font-medium">Season</th>
+                          <th className="px-4 py-3 text-right font-medium">Available</th>
                           <th className="px-4 py-3 text-right font-medium">Occupied</th>
                           <th className="px-4 py-3 text-right font-medium">Occupancy</th>
                           <th className="px-4 py-3 text-right font-medium">ADR</th>
                           <th className="px-4 py-3 text-right font-medium">Gross Revenue</th>
-                          <th className="px-4 py-3 text-right font-medium">Net Income</th>
-                          <th className="px-4 py-3 text-left font-medium">Season</th>
+                          <th className="px-4 py-3 text-right font-medium text-primary">Net Income</th>
+                          <th className="px-4 py-3 text-right font-medium text-muted-foreground">vs LTR</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border">
                         {monthly.map((m) => (
                           <tr key={m.month} className="hover:bg-muted/20">
                             <td className="px-4 py-3 font-medium">{m.monthName}</td>
+                            <td className="px-4 py-3">
+                              <span className={`text-xs px-2 py-0.5 rounded-full capitalize font-medium ${
+                                m.seasonType === "peak" ? "bg-orange-100 text-orange-700 dark:bg-orange-900/20" :
+                                m.seasonType === "low" ? "bg-blue-100 text-blue-700 dark:bg-blue-900/20" :
+                                m.seasonType === "event" ? "bg-red-100 text-red-700 dark:bg-red-900/20" :
+                                "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20"
+                              }`}>{m.seasonType}</span>
+                            </td>
                             <td className="px-4 py-3 text-right text-muted-foreground">{m.availableNights}</td>
-                            <td className="px-4 py-3 text-right text-muted-foreground">{m.occupiedNights}</td>
+                            <td className="px-4 py-3 text-right text-muted-foreground">{Math.round((m.occupiedNights as number) * 10) / 10}</td>
                             <td className="px-4 py-3 text-right">{Math.round((m.occupancyRate as number) * 100)}%</td>
-                            <td className="px-4 py-3 text-right">AED {m.adr}</td>
-                            <td className="px-4 py-3 text-right font-medium">{formatCurrency(m.grossRevenue)}</td>
-                            <td className="px-4 py-3 text-right font-medium text-primary">{formatCurrency(m.netOwnerIncome)}</td>
-                            <td className="px-4 py-3 capitalize text-muted-foreground text-xs">{m.seasonType}</td>
+                            <td className="px-4 py-3 text-right">AED {m.adr?.toLocaleString()}</td>
+                            <td className="px-4 py-3 text-right font-medium">{fmt(m.grossRevenue)}</td>
+                            <td className="px-4 py-3 text-right font-bold text-primary">{fmt(m.netOwnerIncome)}</td>
+                            <td className="px-4 py-3 text-right text-muted-foreground text-xs">{m.ltrBenchmark ? fmt(m.ltrBenchmark) : "—"}</td>
                           </tr>
                         ))}
                       </tbody>
+                      <tfoot className="bg-muted/30 border-t-2 border-border font-semibold">
+                        <tr>
+                          <td className="px-4 py-3" colSpan={6}>Annual Total</td>
+                          <td className="px-4 py-3 text-right">{fmt(monthly.reduce((s, m) => s + (m.grossRevenue ?? 0), 0))}</td>
+                          <td className="px-4 py-3 text-right text-primary">{fmt(monthly.reduce((s, m) => s + (m.netOwnerIncome ?? 0), 0))}</td>
+                          <td className="px-4 py-3 text-right text-muted-foreground text-xs">{monthly[0]?.ltrBenchmark ? fmt(monthly.reduce((s, m) => s + (m.ltrBenchmark ?? 0), 0)) : "—"}</td>
+                        </tr>
+                      </tfoot>
                     </table>
                   </div>
                 )}
@@ -304,24 +861,13 @@ export default function ForecastDetail() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="scenarios">
+          {/* ── PROPOSAL ── */}
+          <TabsContent value="proposal" className="p-6 max-w-[1400px] mx-auto">
             <Card className="border-border/50 shadow-sm">
               <CardContent className="p-8 text-center text-muted-foreground">
-                Scenarios management will be rendered here.
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="ai">
-            <Card className="border-border/50 shadow-sm">
-              <CardContent className="p-8 text-center text-muted-foreground">
-                AI suggestions and overrides will be rendered here.
-              </CardContent>
-            </Card>
-          </TabsContent>
-          <TabsContent value="proposal">
-            <Card className="border-border/50 shadow-sm">
-              <CardContent className="p-8 text-center text-muted-foreground">
-                Proposal narrative editor will be rendered here.
+                <Share className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+                <p className="font-medium">Proposal generation coming soon</p>
+                <p className="text-sm mt-1">Run a calculation first, then use "Generate Proposal" to create the owner-facing PDF.</p>
               </CardContent>
             </Card>
           </TabsContent>

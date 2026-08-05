@@ -3,6 +3,7 @@ import {
   useGetForecast, useUpdateForecast, useCalculateForecast,
   useListForecastScenarios, useGetForecastMonthly,
   useGenerateAiRecommendation, useListProposals, usePublishProposal,
+  useUpdateProposal,
 } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -10,6 +11,7 @@ import { useForm } from "react-hook-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -89,6 +91,17 @@ export default function ForecastDetail() {
   const [isDirty, setIsDirty] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [proposalTab, setProposalTab] = useState<"share" | null>(null);
+
+  const updateProposal = useUpdateProposal();
+  const [narrativeText, setNarrativeText] = useState("");
+  const [narrativeSaved, setNarrativeSaved] = useState(false);
+
+  // Sync narrative from proposal when it loads
+  useEffect(() => {
+    if (proposal?.coverNarrative != null) {
+      setNarrativeText(proposal.coverNarrative);
+    }
+  }, [proposal?.id, proposal?.coverNarrative]);
 
   const form = useForm<FormValues>({
     defaultValues: {
@@ -239,6 +252,19 @@ export default function ForecastDetail() {
       toast({ title: "AI suggestions applied", description: "Fields pre-filled from comparable properties. Review and calculate." });
     } catch {
       toast({ title: "AI optimizer failed", variant: "destructive" });
+    }
+  }
+
+  async function handleSaveNarrative() {
+    if (!proposal) { toast({ title: "No proposal record found", variant: "destructive" }); return; }
+    try {
+      await updateProposal.mutateAsync({ id: proposal.id, data: { coverNarrative: narrativeText } });
+      queryClient.invalidateQueries({ queryKey: ["/api/proposals"] });
+      setNarrativeSaved(true);
+      setTimeout(() => setNarrativeSaved(false), 3000);
+      toast({ title: "Narrative saved", description: "The cover narrative has been updated on the proposal." });
+    } catch {
+      toast({ title: "Save failed", variant: "destructive" });
     }
   }
 
@@ -964,6 +990,86 @@ export default function ForecastDetail() {
 
           {/* ── PROPOSAL ── */}
           <TabsContent value="proposal" className="p-6 max-w-[900px] mx-auto space-y-6">
+
+            {/* Narrative editor */}
+            <Card className="border-border/50 shadow-sm">
+              <CardHeader className="bg-muted/20 border-b border-border pb-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <CardTitle className="font-serif text-base flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-primary" />
+                      Cover Narrative
+                    </CardTitle>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Personalised opening paragraph shown on page 1 of the owner's proposal.
+                    </p>
+                  </div>
+                  {narrativeSaved && (
+                    <span className="text-xs text-green-600 flex items-center gap-1 mt-1">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Saved
+                    </span>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="p-5 space-y-4">
+                <div className="space-y-2">
+                  <Textarea
+                    placeholder={`e.g. Based on our detailed analysis of comparable units in Yas Island, we are confident your ${(forecast as any).propertyType ?? "property"} can generate significantly more than traditional long-term rental. Our team has reviewed current STR performance across similar units in the building and the projections in this report reflect achievable market rates.`}
+                    className="min-h-[160px] resize-y text-sm leading-relaxed"
+                    maxLength={1000}
+                    value={narrativeText}
+                    onChange={e => {
+                      setNarrativeText(e.target.value);
+                      setNarrativeSaved(false);
+                    }}
+                  />
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs text-muted-foreground">
+                      <span className={narrativeText.length > 900 ? "text-amber-500 font-medium" : ""}>
+                        {narrativeText.length}
+                      </span>
+                      {" / 1,000 characters"}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Tip: Mention the location, a standout feature, and why STR outperforms LTR here.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Formatting hints */}
+                <div className="p-3 bg-muted/30 rounded-lg border border-border/50 space-y-1.5">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What works well</p>
+                  <ul className="text-xs text-muted-foreground space-y-1 list-none">
+                    <li>✦ Reference the specific area or building to show local expertise</li>
+                    <li>✦ Highlight a key data point (e.g. ADR, occupancy) to build confidence</li>
+                    <li>✦ Keep it 2–4 sentences — concise and owner-focused</li>
+                    <li>✦ Avoid generic phrases; make it feel written for this owner specifically</li>
+                  </ul>
+                </div>
+
+                <div className="flex justify-end">
+                  <Button
+                    size="sm"
+                    className="gap-2"
+                    onClick={handleSaveNarrative}
+                    disabled={updateProposal.isPending || !proposal || narrativeSaved}
+                    title={!proposal ? "Publish a proposal first to enable narrative saving" : ""}
+                  >
+                    {updateProposal.isPending
+                      ? <><Loader2 className="h-4 w-4 animate-spin" /> Saving…</>
+                      : narrativeSaved
+                        ? <><CheckCircle2 className="h-4 w-4" /> Saved</>
+                        : <><Save className="h-4 w-4" /> Save Narrative</>}
+                  </Button>
+                </div>
+
+                {!proposal && (
+                  <p className="text-xs text-muted-foreground text-center">
+                    Run <strong>Save &amp; Calculate</strong> then <strong>Generate Proposal</strong> to create a proposal record before saving the narrative.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
             {/* Status card */}
             {!forecast?.grossAnnualRevenue ? (

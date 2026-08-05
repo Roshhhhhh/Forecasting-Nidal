@@ -178,7 +178,7 @@ router.get("/p/:token", async (req, res): Promise<void> => {
     netLtrIncome: forecast.netLtrIncome ?? null,
     increaseVsLtr: forecast.increaseVsLtr ?? null,
     increaseVsLtrPct: forecast.increaseVsLtrPct ?? null,
-    narrativeText: forecast.narrativeText ?? null,
+    narrativeText: proposal.coverNarrative ?? forecast.narrativeText ?? null,
     scenarios,
     monthlyProjections,
     proposalDate: new Date().toISOString().split("T")[0],

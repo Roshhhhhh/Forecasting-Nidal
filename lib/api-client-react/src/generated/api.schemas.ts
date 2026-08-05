@@ -138,6 +138,14 @@ export interface Owner {
   /** @nullable */
   assignedToId?: number | null;
   /** @nullable */
+  assignedToName?: string | null;
+  /** @nullable */
+  refereeId?: number | null;
+  /** @nullable */
+  refereeName?: string | null;
+  /** @nullable */
+  refereeCode?: string | null;
+  /** @nullable */
   notes?: string | null;
   createdAt: string;
 }
@@ -165,6 +173,7 @@ export interface OwnerInput {
   isExistingClient?: boolean;
   objectives?: string[];
   assignedToId?: number;
+  refereeId?: number;
   notes?: string;
 }
 
@@ -182,7 +191,75 @@ export interface OwnerUpdate {
   isExistingClient?: boolean;
   objectives?: string[];
   assignedToId?: number;
+  refereeId?: number;
   notes?: string;
+}
+
+export interface Referee {
+  id: number;
+  refereeCode: string;
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  companyName?: string | null;
+  commissionPercent?: number;
+  /** @nullable */
+  notes?: string | null;
+  isActive: boolean;
+  referredCount?: number;
+  createdAt: string;
+}
+
+export type RefereeDetailReferredOwnersItem = {
+  id?: number;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  leadSource?: string | null;
+  createdAt?: string;
+};
+
+export interface RefereeDetail {
+  id: number;
+  refereeCode: string;
+  name: string;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  companyName?: string | null;
+  commissionPercent?: number;
+  /** @nullable */
+  notes?: string | null;
+  isActive: boolean;
+  createdAt: string;
+  referredOwners?: RefereeDetailReferredOwnersItem[];
+}
+
+export interface RefereeInput {
+  name: string;
+  phone?: string;
+  email?: string;
+  companyName?: string;
+  commissionPercent?: number;
+  notes?: string;
+}
+
+export interface RefereeUpdate {
+  name?: string;
+  phone?: string;
+  email?: string;
+  companyName?: string;
+  commissionPercent?: number;
+  notes?: string;
+  isActive?: boolean;
 }
 
 export type PropertyPropertyType = typeof PropertyPropertyType[keyof typeof PropertyPropertyType];

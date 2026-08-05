@@ -32,6 +32,14 @@ export interface Owner {
   /** @nullable */
   assignedToId?: number | null;
   /** @nullable */
+  assignedToName?: string | null;
+  /** @nullable */
+  refereeId?: number | null;
+  /** @nullable */
+  refereeName?: string | null;
+  /** @nullable */
+  refereeCode?: string | null;
+  /** @nullable */
   notes?: string | null;
   createdAt: Date;
 }

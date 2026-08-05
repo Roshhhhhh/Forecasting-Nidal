@@ -29,6 +29,7 @@ export const ownersTable = pgTable("owners", {
   isExistingClient: boolean("is_existing_client").notNull().default(false),
   objectives: text("objectives").array(),
   assignedToId: integer("assigned_to_id"),
+  refereeId: integer("referee_id"),
   notes: text("notes"),
   isArchived: boolean("is_archived").notNull().default(false),
   createdById: integer("created_by_id"),

@@ -13,7 +13,7 @@ import { requireAuth, requireRole } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-router.get("/users", requireAuth, requireRole("super_admin", "admin"), async (_req, res): Promise<void> => {
+router.get("/users", requireAuth, async (_req, res): Promise<void> => {
   const users = await db.select().from(usersTable).orderBy(desc(usersTable.createdAt));
   res.json(users.map(u => ({ id: u.id, email: u.email, name: u.name, role: u.role, isActive: u.isActive, phone: u.phone, avatarUrl: u.avatarUrl, createdAt: u.createdAt, lastLoginAt: u.lastLoginAt })));
 });

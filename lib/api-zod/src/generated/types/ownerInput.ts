@@ -22,5 +22,6 @@ export interface OwnerInput {
   isExistingClient?: boolean;
   objectives?: string[];
   assignedToId?: number;
+  refereeId?: number;
   notes?: string;
 }

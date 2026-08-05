@@ -1,7 +1,7 @@
 import { FC, ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarProvider } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, FileDown } from "lucide-react";
+import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, UserCheck } from "lucide-react";
 import { useLogout, useGetMe } from "@workspace/api-client-react";
 
 const NAV_ITEMS = [
@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { label: "Forecasts", href: "/forecasts", icon: TrendingUp },
   { label: "Market Data", href: "/market", icon: LineChart },
   { label: "Proposals", href: "/proposals", icon: FileText },
+  { label: "Referees", href: "/referees", icon: UserCheck },
 ];
 
 export const AppSidebar: FC = () => {
@@ -25,14 +26,13 @@ export const AppSidebar: FC = () => {
 
   return (
     <Sidebar variant="sidebar" className="border-r border-sidebar-border bg-sidebar">
-      <SidebarHeader className="py-6 px-4">
-        <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded bg-primary flex items-center justify-center text-primary-foreground font-serif font-bold text-lg">
-            R
-          </div>
-          <span className="font-serif font-semibold text-lg text-sidebar-foreground tracking-wide">
-            Royal Holiday
-          </span>
+      <SidebarHeader className="py-5 px-4">
+        <div className="flex items-center justify-center">
+          <img
+            src="/rhh-logo.png"
+            alt="Royal Holiday Homes"
+            className="h-10 w-auto"
+          />
         </div>
       </SidebarHeader>
       <SidebarContent>

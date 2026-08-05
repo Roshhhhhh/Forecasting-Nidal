@@ -5,3 +5,4 @@ export * from "./market";
 export * from "./forecasts";
 export * from "./proposals";
 export * from "./settings";
+export * from "./referees";

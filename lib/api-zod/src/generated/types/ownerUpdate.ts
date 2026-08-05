@@ -20,5 +20,6 @@ export interface OwnerUpdate {
   isExistingClient?: boolean;
   objectives?: string[];
   assignedToId?: number;
+  refereeId?: number;
   notes?: string;
 }

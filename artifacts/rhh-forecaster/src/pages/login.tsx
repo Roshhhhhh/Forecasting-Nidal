@@ -44,10 +44,11 @@ export default function Login() {
     <div className="min-h-[100dvh] w-full flex items-center justify-center bg-background">
       <div className="w-full max-w-md p-6">
         <div className="flex flex-col items-center mb-10 text-center">
-          <div className="h-14 w-14 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-serif font-bold text-3xl shadow-lg mb-4">
-            R
-          </div>
-          <h1 className="font-serif text-3xl font-semibold tracking-tight text-foreground">Royal Holiday Homes</h1>
+          <img
+            src="/rhh-logo.png"
+            alt="Royal Holiday Homes"
+            className="h-24 w-auto mb-2 drop-shadow-sm"
+          />
           <p className="text-muted-foreground mt-2">Revenue Forecasting Platform</p>
         </div>
 

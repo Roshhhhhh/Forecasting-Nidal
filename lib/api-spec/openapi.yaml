@@ -11,6 +11,7 @@ tags:
   - name: auth
   - name: users
   - name: owners
+  - name: referees
   - name: properties
   - name: market
   - name: forecasts
@@ -270,6 +271,98 @@ paths:
       responses:
         "200":
           description: Archived
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # REFEREES
+  /referees:
+    get:
+      operationId: listReferees
+      tags: [referees]
+      summary: List all referees
+      responses:
+        "200":
+          description: List of referees
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Referee"
+    post:
+      operationId: createReferee
+      tags: [referees]
+      summary: Create a new referee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefereeInput"
+      responses:
+        "201":
+          description: Created referee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Referee"
+
+  /referees/{id}:
+    get:
+      operationId: getReferee
+      tags: [referees]
+      summary: Get referee by ID with referred owners
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Referee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefereeDetail"
+    patch:
+      operationId: updateReferee
+      tags: [referees]
+      summary: Update a referee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefereeUpdate"
+      responses:
+        "200":
+          description: Updated referee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Referee"
+    delete:
+      operationId: deleteReferee
+      tags: [referees]
+      summary: Deactivate a referee
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Deactivated
           content:
             application/json:
               schema:
@@ -1241,6 +1334,14 @@ components:
             type: string
         assignedToId:
           type: ["number", "null"]
+        assignedToName:
+          type: ["string", "null"]
+        refereeId:
+          type: ["number", "null"]
+        refereeName:
+          type: ["string", "null"]
+        refereeCode:
+          type: ["string", "null"]
         notes:
           type: ["string", "null"]
         createdAt:
@@ -1282,6 +1383,8 @@ components:
             type: string
         assignedToId:
           type: number
+        refereeId:
+          type: number
         notes:
           type: string
 
@@ -1316,8 +1419,120 @@ components:
             type: string
         assignedToId:
           type: number
+        refereeId:
+          type: number
         notes:
           type: string
+
+    # REFEREES
+    Referee:
+      type: object
+      required: [id, refereeCode, name, isActive, createdAt]
+      properties:
+        id:
+          type: number
+        refereeCode:
+          type: string
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        companyName:
+          type: ["string", "null"]
+        commissionPercent:
+          type: number
+        notes:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        referredCount:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+
+    RefereeDetail:
+      type: object
+      required: [id, refereeCode, name, isActive, createdAt]
+      properties:
+        id:
+          type: number
+        refereeCode:
+          type: string
+        name:
+          type: string
+        phone:
+          type: ["string", "null"]
+        email:
+          type: ["string", "null"]
+        companyName:
+          type: ["string", "null"]
+        commissionPercent:
+          type: number
+        notes:
+          type: ["string", "null"]
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        referredOwners:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: number
+              firstName:
+                type: string
+              lastName:
+                type: string
+              email:
+                type: string
+              phone:
+                type: ["string", "null"]
+              leadSource:
+                type: ["string", "null"]
+              createdAt:
+                type: string
+                format: date-time
+
+    RefereeInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        companyName:
+          type: string
+        commissionPercent:
+          type: number
+        notes:
+          type: string
+
+    RefereeUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+        companyName:
+          type: string
+        commissionPercent:
+          type: number
+        notes:
+          type: string
+        isActive:
+          type: boolean
 
     # PROPERTIES
     Property:

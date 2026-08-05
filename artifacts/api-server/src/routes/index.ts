@@ -9,6 +9,7 @@ import forecastsRouter from "./forecasts";
 import proposalsRouter from "./proposals";
 import dashboardRouter from "./dashboard";
 import settingsRouter from "./settings";
+import refereesRouter from "./referees";
 
 const router: IRouter = Router();
 
@@ -22,5 +23,6 @@ router.use(forecastsRouter);
 router.use(proposalsRouter);
 router.use(dashboardRouter);
 router.use(settingsRouter);
+router.use(refereesRouter);
 
 export default router;

@@ -15,6 +15,7 @@
     "@types/connect-pg-simple": "^7.0.3",
     "@types/express-session": "^1.19.0",
     "@workspace/api-zod": "workspace:*",
+    "zod": "catalog:",
     "@workspace/db": "workspace:*",
     "bcrypt": "^6.0.0",
     "connect-pg-simple": "^10.0.0",

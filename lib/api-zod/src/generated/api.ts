@@ -172,6 +172,10 @@ export const ListOwnersResponseItem = zod.object({
   "isExistingClient": zod.boolean().optional(),
   "objectives": zod.array(zod.string()).optional(),
   "assignedToId": zod.number().nullish(),
+  "assignedToName": zod.string().nullish(),
+  "refereeId": zod.number().nullish(),
+  "refereeName": zod.string().nullish(),
+  "refereeCode": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -196,6 +200,7 @@ export const CreateOwnerBody = zod.object({
   "isExistingClient": zod.boolean().optional(),
   "objectives": zod.array(zod.string()).optional(),
   "assignedToId": zod.number().optional(),
+  "refereeId": zod.number().optional(),
   "notes": zod.string().optional()
 })
 
@@ -215,6 +220,10 @@ export const CreateOwnerResponse = zod.object({
   "isExistingClient": zod.boolean().optional(),
   "objectives": zod.array(zod.string()).optional(),
   "assignedToId": zod.number().nullish(),
+  "assignedToName": zod.string().nullish(),
+  "refereeId": zod.number().nullish(),
+  "refereeName": zod.string().nullish(),
+  "refereeCode": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -243,6 +252,10 @@ export const GetOwnerResponse = zod.object({
   "isExistingClient": zod.boolean().optional(),
   "objectives": zod.array(zod.string()).optional(),
   "assignedToId": zod.number().nullish(),
+  "assignedToName": zod.string().nullish(),
+  "refereeId": zod.number().nullish(),
+  "refereeName": zod.string().nullish(),
+  "refereeCode": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -269,6 +282,7 @@ export const UpdateOwnerBody = zod.object({
   "isExistingClient": zod.boolean().optional(),
   "objectives": zod.array(zod.string()).optional(),
   "assignedToId": zod.number().optional(),
+  "refereeId": zod.number().optional(),
   "notes": zod.string().optional()
 })
 
@@ -288,6 +302,10 @@ export const UpdateOwnerResponse = zod.object({
   "isExistingClient": zod.boolean().optional(),
   "objectives": zod.array(zod.string()).optional(),
   "assignedToId": zod.number().nullish(),
+  "assignedToName": zod.string().nullish(),
+  "refereeId": zod.number().nullish(),
+  "refereeName": zod.string().nullish(),
+  "refereeCode": zod.string().nullish(),
   "notes": zod.string().nullish(),
   "createdAt": zod.coerce.date()
 })
@@ -301,6 +319,126 @@ export const DeleteOwnerParams = zod.object({
 })
 
 export const DeleteOwnerResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary List all referees
+ */
+export const ListRefereesResponseItem = zod.object({
+  "id": zod.number(),
+  "refereeCode": zod.string(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "companyName": zod.string().nullish(),
+  "commissionPercent": zod.number().optional(),
+  "notes": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "referredCount": zod.number().optional(),
+  "createdAt": zod.coerce.date()
+})
+export const ListRefereesResponse = zod.array(ListRefereesResponseItem)
+
+
+/**
+ * @summary Create a new referee
+ */
+export const CreateRefereeBody = zod.object({
+  "name": zod.string(),
+  "phone": zod.string().optional(),
+  "email": zod.string().optional(),
+  "companyName": zod.string().optional(),
+  "commissionPercent": zod.number().optional(),
+  "notes": zod.string().optional()
+})
+
+export const CreateRefereeResponse = zod.object({
+  "id": zod.number(),
+  "refereeCode": zod.string(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "companyName": zod.string().nullish(),
+  "commissionPercent": zod.number().optional(),
+  "notes": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "referredCount": zod.number().optional(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get referee by ID with referred owners
+ */
+export const GetRefereeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetRefereeResponse = zod.object({
+  "id": zod.number(),
+  "refereeCode": zod.string(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "companyName": zod.string().nullish(),
+  "commissionPercent": zod.number().optional(),
+  "notes": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "createdAt": zod.coerce.date(),
+  "referredOwners": zod.array(zod.object({
+  "id": zod.number().optional(),
+  "firstName": zod.string().optional(),
+  "lastName": zod.string().optional(),
+  "email": zod.string().optional(),
+  "phone": zod.string().nullish(),
+  "leadSource": zod.string().nullish(),
+  "createdAt": zod.coerce.date().optional()
+})).optional()
+})
+
+
+/**
+ * @summary Update a referee
+ */
+export const UpdateRefereeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateRefereeBody = zod.object({
+  "name": zod.string().optional(),
+  "phone": zod.string().optional(),
+  "email": zod.string().optional(),
+  "companyName": zod.string().optional(),
+  "commissionPercent": zod.number().optional(),
+  "notes": zod.string().optional(),
+  "isActive": zod.boolean().optional()
+})
+
+export const UpdateRefereeResponse = zod.object({
+  "id": zod.number(),
+  "refereeCode": zod.string(),
+  "name": zod.string(),
+  "phone": zod.string().nullish(),
+  "email": zod.string().nullish(),
+  "companyName": zod.string().nullish(),
+  "commissionPercent": zod.number().optional(),
+  "notes": zod.string().nullish(),
+  "isActive": zod.boolean(),
+  "referredCount": zod.number().optional(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Deactivate a referee
+ */
+export const DeleteRefereeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const DeleteRefereeResponse = zod.object({
   "message": zod.string()
 })
 

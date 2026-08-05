@@ -1,0 +1,270 @@
+import { useState } from "react";
+import {
+  useListReferees, useCreateReferee, useUpdateReferee,
+} from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
+import { Link } from "wouter";
+import { Plus, UserCheck, Phone, Mail, Building, Copy, Users, Loader2, Pencil } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+
+interface RefereeFormValues {
+  name: string;
+  phone?: string;
+  email?: string;
+  companyName?: string;
+  commissionPercent?: number;
+  notes?: string;
+}
+
+export default function RefereesList() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: referees, isLoading } = useListReferees();
+  const createReferee = useCreateReferee();
+  const updateReferee = useUpdateReferee();
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+
+  const form = useForm<RefereeFormValues>({
+    defaultValues: { name: "", commissionPercent: 5 },
+  });
+
+  function openCreate() {
+    form.reset({ name: "", commissionPercent: 5 });
+    setEditingId(null);
+    setDialogOpen(true);
+  }
+
+  function openEdit(referee: any) {
+    form.reset({
+      name: referee.name,
+      phone: referee.phone ?? "",
+      email: referee.email ?? "",
+      companyName: referee.companyName ?? "",
+      commissionPercent: referee.commissionPercent ?? 5,
+      notes: referee.notes ?? "",
+    });
+    setEditingId(referee.id);
+    setDialogOpen(true);
+  }
+
+  async function onSubmit(data: RefereeFormValues) {
+    try {
+      if (editingId) {
+        await updateReferee.mutateAsync({ id: editingId, data: data as any });
+        toast({ title: "Referee updated" });
+      } else {
+        await createReferee.mutateAsync({ data: data as any });
+        toast({ title: "Referee created", description: `A unique Referee ID has been generated.` });
+      }
+      queryClient.invalidateQueries({ queryKey: ["listReferees"] });
+      setDialogOpen(false);
+    } catch {
+      toast({ title: "Error", variant: "destructive", description: "Failed to save referee." });
+    }
+  }
+
+  const isPending = createReferee.isPending || updateReferee.isPending;
+
+  return (
+    <div className="p-8 max-w-[1200px] mx-auto space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-serif font-bold text-foreground">Referees</h1>
+          <p className="text-muted-foreground mt-1">
+            Track partners and referrers entitled to commission on owner introductions.
+          </p>
+        </div>
+        <Button onClick={openCreate} className="gap-2">
+          <Plus className="h-4 w-4" />
+          Add Referee
+        </Button>
+      </div>
+
+      {/* Stats bar */}
+      <div className="grid grid-cols-3 gap-4">
+        <Card className="border-border/50 shadow-sm">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-md"><UserCheck className="h-5 w-5 text-primary" /></div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Referees</p>
+              <p className="text-xl font-bold">{referees?.length ?? 0}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50 shadow-sm">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 bg-green-100 rounded-md"><Users className="h-5 w-5 text-green-600" /></div>
+            <div>
+              <p className="text-xs text-muted-foreground">Active Referees</p>
+              <p className="text-xl font-bold">{referees?.filter(r => r.isActive).length ?? 0}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border/50 shadow-sm">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 bg-blue-100 rounded-md"><Building className="h-5 w-5 text-blue-600" /></div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Referred Owners</p>
+              <p className="text-xl font-bold">
+                {referees?.reduce((sum, r) => sum + ((r as any).referredCount ?? 0), 0) ?? 0}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* List */}
+      {isLoading ? (
+        <div className="text-center text-muted-foreground py-12">Loading referees...</div>
+      ) : !referees || referees.length === 0 ? (
+        <Card className="border-border/50 shadow-sm">
+          <CardContent className="py-16 text-center">
+            <UserCheck className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+            <p className="text-lg font-medium">No referees yet</p>
+            <p className="text-muted-foreground text-sm mt-1 mb-4">Add your first referee to start tracking referral commissions.</p>
+            <Button onClick={openCreate} className="gap-2">
+              <Plus className="h-4 w-4" /> Add Referee
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {referees.map((referee: any) => (
+            <Card key={referee.id} className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+              <CardHeader className="pb-3 border-b border-border/50">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="outline" className="font-mono text-xs bg-primary/5 border-primary/30 text-primary">
+                        {referee.refereeCode}
+                      </Badge>
+                      {!referee.isActive && (
+                        <Badge variant="outline" className="text-xs text-muted-foreground">Inactive</Badge>
+                      )}
+                    </div>
+                    <h3 className="font-semibold text-base truncate">{referee.name}</h3>
+                    {referee.companyName && (
+                      <p className="text-xs text-muted-foreground truncate">{referee.companyName}</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => openEdit(referee)}
+                    className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors ml-2"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4 space-y-3">
+                <div className="space-y-1.5 text-sm">
+                  {referee.phone && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Phone className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{referee.phone}</span>
+                    </div>
+                  )}
+                  {referee.email && (
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Mail className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{referee.email}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-border/50">
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Commission: </span>
+                    <span className="font-semibold text-primary">{referee.commissionPercent}%</span>
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Referred: </span>
+                    <span className="font-semibold">{(referee as any).referredCount ?? 0} owners</span>
+                  </div>
+                </div>
+                <Link href={`/referees/${referee.id}`}>
+                  <Button variant="outline" size="sm" className="w-full text-xs gap-1.5">
+                    <Users className="h-3.5 w-3.5" /> View Referred Owners
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Create/Edit Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-serif">
+              {editingId ? "Edit Referee" : "Add New Referee"}
+            </DialogTitle>
+            {!editingId && (
+              <p className="text-sm text-muted-foreground mt-1">
+                A unique Referee ID (e.g. <span className="font-mono font-medium">REF-001</span>) will be automatically generated.
+              </p>
+            )}
+          </DialogHeader>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Full Name <span className="text-destructive">*</span></Label>
+              <Input placeholder="e.g. Ahmed Al-Mansoori" {...form.register("name", { required: true })} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Phone</Label>
+                <Input placeholder="+971 50 123 4567" {...form.register("phone")} />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <Input type="email" placeholder="ahmed@example.com" {...form.register("email")} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Company / Agency</Label>
+              <Input placeholder="Al Mansoori Real Estate LLC" {...form.register("companyName")} />
+            </div>
+            <div className="space-y-2">
+              <Label>Commission Percentage (%)</Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="100"
+                  placeholder="5"
+                  {...form.register("commissionPercent", { valueAsNumber: true })}
+                  className="pr-8"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
+              </div>
+              <p className="text-xs text-muted-foreground">Percentage of management fee owed to this referee for referred owners.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Notes</Label>
+              <Textarea placeholder="Any additional context..." {...form.register("notes")} className="min-h-[80px]" />
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={isPending} className="gap-2">
+                {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                {editingId ? "Save Changes" : "Create Referee"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

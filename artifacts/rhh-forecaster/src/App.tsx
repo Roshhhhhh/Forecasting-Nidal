@@ -25,6 +25,8 @@ import ProposalDetail from '@/pages/proposals/[id]';
 import Settings from '@/pages/settings';
 import UsersList from '@/pages/admin/users';
 import PublicProposal from '@/pages/public/proposal';
+import RefereesList from '@/pages/referees/index';
+import RefereeDetail from '@/pages/referees/[id]';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,6 +57,8 @@ function ProtectedRouter() {
         <Route path="/proposals/:id" component={ProposalDetail} />
         <Route path="/settings" component={Settings} />
         <Route path="/admin/users" component={UsersList} />
+        <Route path="/referees" component={RefereesList} />
+        <Route path="/referees/:id" component={RefereeDetail} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

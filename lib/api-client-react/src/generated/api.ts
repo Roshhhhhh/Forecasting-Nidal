@@ -58,6 +58,10 @@ import type {
   ProposalUpdate,
   PublicProposal,
   PublishInput,
+  Referee,
+  RefereeDetail,
+  RefereeInput,
+  RefereeUpdate,
   Scenario,
   ScenarioInput,
   ShareLink,
@@ -1126,6 +1130,374 @@ export const useDeleteOwner = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteOwnerMutationOptions(options));
+    }
+
+export const getListRefereesUrl = () => {
+
+
+
+
+  return `/api/referees`
+}
+
+/**
+ * @summary List all referees
+ */
+export const listReferees = async ( options?: Parameters<typeof customFetch>[1]): Promise<Referee[]> => {
+
+  return customFetch<Referee[]>(getListRefereesUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListRefereesQueryKey = () => {
+    return [
+    `/api/referees`
+    ] as const;
+    }
+
+
+export const getListRefereesQueryOptions = <TData = Awaited<ReturnType<typeof listReferees>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReferees>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListRefereesQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listReferees>>> = ({ signal }) => listReferees({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listReferees>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListRefereesQueryResult = NonNullable<Awaited<ReturnType<typeof listReferees>>>
+export type ListRefereesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all referees
+ */
+
+export function useListReferees<TData = Awaited<ReturnType<typeof listReferees>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listReferees>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListRefereesQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateRefereeUrl = () => {
+
+
+
+
+  return `/api/referees`
+}
+
+/**
+ * @summary Create a new referee
+ */
+export const createReferee = async (refereeInput: RefereeInput, options?: Parameters<typeof customFetch>[1]): Promise<Referee> => {
+
+  return customFetch<Referee>(getCreateRefereeUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(refereeInput)
+  }
+);}
+
+
+
+
+
+export const getCreateRefereeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReferee>>, TError,{data: BodyType<RefereeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createReferee>>, TError,{data: BodyType<RefereeInput>}, TContext> => {
+
+const mutationKey = ['createReferee'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createReferee>>, {data: BodyType<RefereeInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createReferee(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateRefereeMutationResult = NonNullable<Awaited<ReturnType<typeof createReferee>>>
+    export type CreateRefereeMutationBody = BodyType<RefereeInput>
+    export type CreateRefereeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Create a new referee
+ */
+export const useCreateReferee = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createReferee>>, TError,{data: BodyType<RefereeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createReferee>>,
+        TError,
+        {data: BodyType<RefereeInput>},
+        TContext
+      > => {
+      return useMutation(getCreateRefereeMutationOptions(options));
+    }
+
+export const getGetRefereeUrl = (id: number,) => {
+
+
+
+
+  return `/api/referees/${id}`
+}
+
+/**
+ * @summary Get referee by ID with referred owners
+ */
+export const getReferee = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<RefereeDetail> => {
+
+  return customFetch<RefereeDetail>(getGetRefereeUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRefereeQueryKey = (id: number,) => {
+    return [
+    `/api/referees/${id}`
+    ] as const;
+    }
+
+
+export const getGetRefereeQueryOptions = <TData = Awaited<ReturnType<typeof getReferee>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReferee>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRefereeQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getReferee>>> = ({ signal }) => getReferee(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getReferee>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRefereeQueryResult = NonNullable<Awaited<ReturnType<typeof getReferee>>>
+export type GetRefereeQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get referee by ID with referred owners
+ */
+
+export function useGetReferee<TData = Awaited<ReturnType<typeof getReferee>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getReferee>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRefereeQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateRefereeUrl = (id: number,) => {
+
+
+
+
+  return `/api/referees/${id}`
+}
+
+/**
+ * @summary Update a referee
+ */
+export const updateReferee = async (id: number,
+    refereeUpdate: RefereeUpdate, options?: Parameters<typeof customFetch>[1]): Promise<Referee> => {
+
+  return customFetch<Referee>(getUpdateRefereeUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(refereeUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateRefereeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReferee>>, TError,{id: number;data: BodyType<RefereeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateReferee>>, TError,{id: number;data: BodyType<RefereeUpdate>}, TContext> => {
+
+const mutationKey = ['updateReferee'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateReferee>>, {id: number;data: BodyType<RefereeUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateReferee(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateRefereeMutationResult = NonNullable<Awaited<ReturnType<typeof updateReferee>>>
+    export type UpdateRefereeMutationBody = BodyType<RefereeUpdate>
+    export type UpdateRefereeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update a referee
+ */
+export const useUpdateReferee = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateReferee>>, TError,{id: number;data: BodyType<RefereeUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateReferee>>,
+        TError,
+        {id: number;data: BodyType<RefereeUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateRefereeMutationOptions(options));
+    }
+
+export const getDeleteRefereeUrl = (id: number,) => {
+
+
+
+
+  return `/api/referees/${id}`
+}
+
+/**
+ * @summary Deactivate a referee
+ */
+export const deleteReferee = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getDeleteRefereeUrl(id),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteRefereeMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteReferee>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteReferee>>, TError,{id: number}, TContext> => {
+
+const mutationKey = ['deleteReferee'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteReferee>>, {id: number}> = (props) => {
+          const {id} = props ?? {};
+
+          return  deleteReferee(id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteRefereeMutationResult = NonNullable<Awaited<ReturnType<typeof deleteReferee>>>
+
+    export type DeleteRefereeMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Deactivate a referee
+ */
+export const useDeleteReferee = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteReferee>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteReferee>>,
+        TError,
+        {id: number},
+        TContext
+      > => {
+      return useMutation(getDeleteRefereeMutationOptions(options));
     }
 
 export const getListPropertiesUrl = () => {

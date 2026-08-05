@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, sql } from "drizzle-orm";
-import { db, ownersTable, usersTable } from "@workspace/db";
+import { db, ownersTable, usersTable, refereesTable } from "@workspace/db";
 import {
   CreateOwnerBody,
   UpdateOwnerBody,
@@ -12,7 +12,7 @@ import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
 
-function formatOwner(owner: any, assignedName?: string | null) {
+function formatOwner(owner: any, assignedName?: string | null, refereeName?: string | null, refereeCode?: string | null) {
   return {
     id: owner.id,
     ownerType: owner.ownerType,
@@ -29,9 +29,12 @@ function formatOwner(owner: any, assignedName?: string | null) {
     isExistingClient: owner.isExistingClient,
     objectives: owner.objectives ?? [],
     assignedToId: owner.assignedToId,
+    assignedToName: assignedName ?? null,
+    refereeId: owner.refereeId ?? null,
+    refereeName: refereeName ?? null,
+    refereeCode: refereeCode ?? null,
     notes: owner.notes,
     createdAt: owner.createdAt,
-    assignedToName: assignedName ?? null,
   };
 }
 
@@ -62,7 +65,14 @@ router.get("/owners/:id", requireAuth, async (req, res): Promise<void> => {
     const [u] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, owner.assignedToId));
     assignedName = u?.name ?? null;
   }
-  res.json(formatOwner(owner, assignedName));
+  let refereeName: string | null = null;
+  let refereeCode: string | null = null;
+  if (owner.refereeId) {
+    const [r] = await db.select({ name: refereesTable.name, refereeCode: refereesTable.refereeCode }).from(refereesTable).where(eq(refereesTable.id, owner.refereeId));
+    refereeName = r?.name ?? null;
+    refereeCode = r?.refereeCode ?? null;
+  }
+  res.json(formatOwner(owner, assignedName, refereeName, refereeCode));
 });
 
 router.patch("/owners/:id", requireAuth, async (req, res): Promise<void> => {

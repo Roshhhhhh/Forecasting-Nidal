@@ -1,11 +1,6 @@
 import { useGetPublicProposal, useSubmitProposalAction } from "@workspace/api-client-react";
 import { useParams } from "wouter";
-import { Button } from "@/components/ui/button";
-import {
-  CheckCircle2, Phone, FileText, Printer, Copy, RefreshCw,
-  MapPin, Home, Star, Users, TrendingUp, Shield, Zap,
-  Eye, Clock, DollarSign, BarChart2, ArrowRight,
-} from "lucide-react";
+import { FileText, Printer, Phone, CheckCircle2, ArrowRight, MapPin, TrendingUp } from "lucide-react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, LineChart, Line, Cell,
@@ -13,53 +8,92 @@ import {
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
-const G = "#B8860B"; // gold
-const DARK = "#111111";
-const BEIGE = "#FAFAF8";
+// ── Brand tokens ──────────────────────────────────────────────────────────────
+const GOLD   = "#C9A84C";
+const DARK   = "#1C1C1C";
+const CREAM  = "#FDFCF8";
+const WHITE  = "#FFFFFF";
+const BORDER = "#E8E4DC";
+const MUTED  = "#888888";
 
 function fmt(v?: number | null) {
   if (v == null) return "—";
   return new Intl.NumberFormat("en-AE", { maximumFractionDigits: 0 }).format(v);
 }
 
-const MONTH_LABELS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTH_LABELS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 
 const HOW_IT_WORKS = [
-  { n: "01", title: "Onboarding", desc: "Simple onboarding with clear terms, timelines, and revenue expectations." },
-  { n: "02", title: "Licensing", desc: "We handle all holiday home permits and compliance requirements." },
-  { n: "03", title: "Setup", desc: "Professional setup to maximise guest appeal and booking potential." },
-  { n: "04", title: "Listing & Pricing", desc: "Your property is listed across top platforms with demand-based pricing." },
-  { n: "05", title: "Operations", desc: "End-to-end guest handling, housekeeping, and maintenance." },
-  { n: "06", title: "Revenue Management", desc: "Continuous performance tracking with transparent monthly reports." },
-  { n: "07", title: "Monthly Payout", desc: "Net earnings transferred directly to you every month." },
+  { n: 1, title: "Onboarding",          desc: "Simple onboarding with clear terms, timelines, and revenue expectations." },
+  { n: 2, title: "Licensing",           desc: "We handle all holiday home permits and compliance requirements." },
+  { n: 3, title: "Setup",               desc: "Professional setup to maximise guest appeal and booking potential." },
+  { n: 4, title: "Listing & Pricing",   desc: "Your property is listed across top platforms with demand-based pricing." },
+  { n: 5, title: "Operations",          desc: "End-to-end guest handling, housekeeping, and maintenance." },
+  { n: 6, title: "Revenue Management",  desc: "Continuous performance tracking with transparent monthly reports." },
+  { n: 7, title: "Monthly Payout",      desc: "Net earnings transferred directly to you every month." },
 ];
 
 const WHY_RHH = [
-  { icon: MapPin, title: "Abu Dhabi Specialists", desc: "Deep local knowledge of building regulations and guest preferences." },
-  { icon: TrendingUp, title: "Earn More", desc: "Our data-driven approach consistently outperforms the market average." },
-  { icon: Home, title: "In-House Teams", desc: "Cleaning, maintenance, and laundry — all handled internally, not outsourced." },
-  { icon: Shield, title: "Proven Compliance", desc: "Fully licensed by the Department of Culture and Tourism." },
-  { icon: Zap, title: "Performance First", desc: "Our goals are aligned — we only earn when you earn." },
-  { icon: Star, title: "Hassle Free", desc: "We manage everything so you can enjoy the returns without the effort." },
-  { icon: DollarSign, title: "Value for Money", desc: "Transparent pricing — no hidden fees, no surprises." },
+  { title: "Abu Dhabi Specialists",  desc: "Deep local knowledge of building regulations and guest preferences." },
+  { title: "Earn More",              desc: "We offer a supportive environment where you can grow your business and earn more profit and our helpful support team is always here to assist you." },
+  { title: "In-House Teams",         desc: "Our cleaning, maintenance, and laundry are not outsourced." },
+  { title: "Proven Compliance",      desc: "Fully licensed by the Department of Culture and Tourism." },
+  { title: "Performance First",      desc: "Our goals are aligned — we only earn when you earn." },
+  { title: "Hassle Free",            desc: "We're always committed to making your experience and living smooth, hassle-free, comfortable, and enjoyable as possible." },
+  { title: "Value for Money",        desc: "Our pricing is transparent, so you can trust that you're getting a reliable deal. We constantly evaluate our offerings to ensure that we are delivering real value." },
 ];
 
-const PORTFOLIO_STATS = [
-  { v: "160+", l: "Managed Premium Properties" },
-  { v: "5,000+", l: "5-Star Reviews" },
-  { v: "1,000+", l: "Bookings Per Month" },
-  { v: "3,500+", l: "Hosted Travellers Monthly" },
-  { v: "AED 250M+", l: "Managed Assets" },
-  { v: "100+", l: "Trusted Home Owners" },
+const PORTFOLIO = [
+  { v: "160+",       l: "Managed Premium Properties" },
+  { v: "5,000+",     l: "5 Star Reviews" },
+  { v: "1,000+",     l: "Managed Bookings per month" },
+  { v: "3,500+",     l: "Hosted Travelers monthly" },
+  { v: "250M",       l: "Managed Assets" },
+  { v: "100+",       l: "Trusted Home Owners in Abu Dhabi" },
 ];
 
+// ── Shared layout primitives ──────────────────────────────────────────────────
+const page: React.CSSProperties = {
+  background: WHITE,
+  padding: "56px 64px",
+  maxWidth: 860,
+  margin: "0 auto",
+};
+
+const confidential: React.CSSProperties = {
+  fontSize: 11,
+  color: MUTED,
+  marginTop: 48,
+  paddingTop: 16,
+  borderTop: `1px solid ${BORDER}`,
+  letterSpacing: 0.5,
+};
+
+const sectionLabel: React.CSSProperties = {
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: 3,
+  textTransform: "uppercase" as const,
+  color: GOLD,
+  marginBottom: 8,
+};
+
+const sectionTitle: React.CSSProperties = {
+  fontFamily: "serif",
+  fontSize: 28,
+  fontWeight: 700,
+  color: DARK,
+  marginBottom: 0,
+};
+
+// ── Component ─────────────────────────────────────────────────────────────────
 export default function PublicProposal() {
   const { token } = useParams<{ token: string }>();
   const { toast } = useToast();
-
   const { data: proposal, isLoading, error } = useGetPublicProposal(token || "");
   const submitAction = useSubmitProposalAction();
 
@@ -69,32 +103,29 @@ export default function PublicProposal() {
   const [submitted, setSubmitted] = useState(false);
 
   if (isLoading) return (
-    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: BEIGE }}>
-      <div style={{ textAlign: "center" }}>
-        <div style={{ width: 56, height: 56, borderRadius: 8, background: G, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", fontSize: 28, fontWeight: 700, color: "#fff", fontFamily: "serif" }}>R</div>
-        <p style={{ color: "#888", fontFamily: "serif", fontSize: 16 }}>Preparing your proposal…</p>
-      </div>
+    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: CREAM }}>
+      <p style={{ color: MUTED, fontFamily: "serif", fontSize: 16 }}>Preparing your proposal…</p>
     </div>
   );
 
   if (error || !proposal) return (
-    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: BEIGE, padding: 24 }}>
-      <div style={{ maxWidth: 400, textAlign: "center", background: "#fff", borderRadius: 16, padding: 40, boxShadow: "0 20px 60px rgba(0,0,0,0.1)" }}>
+    <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: CREAM, padding: 24 }}>
+      <div style={{ maxWidth: 400, textAlign: "center" }}>
         <FileText style={{ width: 48, height: 48, color: "#ccc", margin: "0 auto 16px" }} />
         <h2 style={{ fontSize: 22, fontFamily: "serif", fontWeight: 700, marginBottom: 8 }}>Proposal Unavailable</h2>
-        <p style={{ color: "#888", lineHeight: 1.6 }}>This link has expired or is invalid. Please contact your Royal Holiday Homes representative.</p>
+        <p style={{ color: MUTED }}>This link has expired or is invalid. Please contact your Royal Holiday Homes representative.</p>
       </div>
     </div>
   );
 
   const scenarios = (proposal.scenarios ?? []).sort((a: any, b: any) => a.occupancyRate - b.occupancyRate);
-  const monthly = (proposal.monthlyProjections ?? []).sort((a: any, b: any) => a.month - b.month);
-  const recOcc = Math.round((proposal.recommendedOccupancy ?? 0.85) * 100);
-  const hasLtr = (proposal.netLtrIncome ?? 0) > 0;
+  const monthly   = (proposal.monthlyProjections ?? []).sort((a: any, b: any) => a.month - b.month);
+  const recOcc    = Math.round((proposal.recommendedOccupancy ?? 0.85) * 100);
+  const hasLtr    = (proposal.netLtrIncome ?? 0) > 0;
   const hasScenarios = scenarios.length > 0;
-  const hasMonthly = monthly.length > 0;
+  const hasMonthly   = monthly.length > 0;
 
-  const handleSubmit = async () => {
+  async function handleSubmit() {
     if (!dialogType) return;
     try {
       await submitAction.mutateAsync({
@@ -112,522 +143,614 @@ export default function PublicProposal() {
     } catch {
       toast({ title: "Error", description: "Failed to submit. Please try again.", variant: "destructive" });
     }
-  };
+  }
+
+  const propDate = new Date(proposal.proposalDate || Date.now())
+    .toLocaleDateString("en-GB", { day: "2-digit", month: "2-digit", year: "numeric" })
+    .replace(/\//g, "/");
+
+  // ── td helpers ───────────────────────────────────────────────────────────────
+  const tdLabel = (text: string, sub?: string): React.CSSProperties => ({
+    padding: "12px 16px",
+    fontSize: 13,
+    color: "#444",
+    borderBottom: `1px solid ${BORDER}`,
+    verticalAlign: "top" as const,
+  });
+
+  const tdVal = (isConfident: boolean): React.CSSProperties => ({
+    padding: "12px 16px",
+    textAlign: "right" as const,
+    fontSize: 13,
+    fontWeight: 600,
+    color: isConfident ? GOLD : DARK,
+    background: isConfident ? `${GOLD}12` : "transparent",
+    borderBottom: `1px solid ${BORDER}`,
+    borderLeft: isConfident ? `2px solid ${GOLD}` : `1px solid ${BORDER}`,
+  });
 
   return (
-    <div style={{ background: BEIGE, color: DARK, fontFamily: "'Inter', 'Segoe UI', sans-serif", overflowX: "hidden" }}>
+    <div style={{ background: CREAM, fontFamily: "'Inter','Segoe UI',sans-serif", color: DARK }}>
 
-      {/* ── Print / PDF button (screen only) ── */}
-      <div className="print:hidden" style={{ position: "fixed", top: 16, right: 16, zIndex: 999, display: "flex", gap: 8 }}>
+      {/* ── Print button (screen only) ── */}
+      <div className="print:hidden" style={{ position: "fixed", top: 16, right: 16, zIndex: 999 }}>
         <button
           onClick={() => window.print()}
-          style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 8, background: DARK, color: "#fff", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
+          style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 18px", borderRadius: 8, background: DARK, color: WHITE, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600 }}
         >
           <Printer style={{ width: 16, height: 16 }} /> Download PDF
         </button>
       </div>
 
-      {/* ── SECTION 1: HERO COVER ── */}
-      <section style={{ background: DARK, color: "#fff", padding: "64px 48px 80px", position: "relative", overflow: "hidden", pageBreakAfter: "always" }}>
-        {/* Gold glow */}
-        <div style={{ position: "absolute", top: -200, right: -200, width: 600, height: 600, borderRadius: "50%", background: `${G}18`, filter: "blur(80px)", pointerEvents: "none" }} />
-        <div style={{ maxWidth: 900, margin: "0 auto" }}>
-          {/* Header row */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 64 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <img src="/rhh-logo.png" alt="Royal Holiday Homes" style={{ height: 40, width: "auto" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-              <span style={{ fontSize: 18, fontWeight: 600, fontFamily: "serif", letterSpacing: 1 }}>Royal Holiday Homes</span>
-            </div>
-            <div style={{ textAlign: "right", color: "#aaa", fontSize: 13 }}>
-              <div style={{ textTransform: "uppercase", letterSpacing: 2, marginBottom: 4 }}>Proposal Ref</div>
-              <div style={{ fontSize: 16, color: G, fontWeight: 700 }}>{proposal.referenceNumber}</div>
-              <div style={{ marginTop: 6, color: "#666" }}>{new Date(proposal.proposalDate || Date.now()).toLocaleDateString("en-AE", { day: "2-digit", month: "long", year: "numeric" })}</div>
-            </div>
-          </div>
+      {/* ══════════════════════════════════════════════
+          PAGE 1 — COVER
+      ══════════════════════════════════════════════ */}
+      <div style={{ ...page, pageBreakAfter: "always", minHeight: "90vh", display: "flex", flexDirection: "column" }}>
 
-          {/* Tagline */}
-          <div style={{ color: G, fontSize: 12, fontWeight: 700, letterSpacing: 4, textTransform: "uppercase", marginBottom: 20 }}>
-            Property Management Proposal
+        {/* Header row */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 48, paddingBottom: 24, borderBottom: `1px solid ${BORDER}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img src="/rhh-logo.png" alt="Royal Holiday Homes" style={{ height: 36, width: "auto" }}
+              onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            <span style={{ fontFamily: "serif", fontSize: 16, fontWeight: 700, color: DARK }}>Royal Holiday Homes</span>
           </div>
-          <h1 style={{ fontSize: "clamp(32px, 5vw, 56px)", fontFamily: "serif", fontWeight: 800, lineHeight: 1.15, marginBottom: 24, maxWidth: 700 }}>
+          <div style={{ textAlign: "right", fontSize: 12 }}>
+            <div style={{ display: "flex", gap: 32 }}>
+              <div>
+                <div style={{ color: MUTED, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4, fontSize: 10 }}>Date</div>
+                <div style={{ fontWeight: 600, color: DARK }}>{propDate}</div>
+              </div>
+              <div>
+                <div style={{ color: MUTED, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 4, fontSize: 10 }}>Proposal Ref#</div>
+                <div style={{ fontWeight: 600, color: DARK }}>{proposal.referenceNumber}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Tagline */}
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", paddingTop: 32 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 4, textTransform: "uppercase", color: GOLD, marginBottom: 20 }}>
             Turn Your Second Home Into Your Second Income
+          </div>
+          <h1 style={{ fontFamily: "serif", fontSize: 38, fontWeight: 800, color: DARK, lineHeight: 1.2, marginBottom: 40 }}>
+            Property Management Proposal
           </h1>
-          <p style={{ fontSize: 20, color: "#ccc", fontFamily: "serif", fontStyle: "italic", marginBottom: 8 }}>
-            Prepared exclusively for <span style={{ color: "#fff", fontStyle: "normal", fontWeight: 600 }}>
+
+          <div style={{ marginBottom: 40 }}>
+            <div style={{ fontSize: 11, color: MUTED, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+              Prepared Exclusively For
+            </div>
+          </div>
+
+          {/* Owner block */}
+          <div style={{ marginBottom: 40 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, marginBottom: 6 }}>Owner(s)</div>
+            <div style={{ fontSize: 22, fontWeight: 700, fontFamily: "serif", color: DARK }}>
               {proposal.ownerTitle ? `${proposal.ownerTitle} ` : ""}{proposal.ownerName}
-            </span>
-          </p>
-          <p style={{ color: "#888", fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
-            <MapPin style={{ width: 14, height: 14 }} /> {proposal.propertyAddress}
-          </p>
-
-          {/* Hero KPI strip */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 1, marginTop: 56, background: "#222", borderRadius: 12, overflow: "hidden" }}>
-            {[
-              { label: "Average Daily Rate", value: `AED ${fmt(proposal.weightedAdr)}` },
-              { label: `Occupancy (${recOcc}%)`, value: `AED ${fmt(proposal.grossAnnualRevenue)}`, sub: "Gross Annual Revenue" },
-              { label: "Net Annual Income", value: `AED ${fmt(proposal.netOwnerIncome)}`, gold: true },
-              { label: "Monthly Average Payout", value: `AED ${fmt(proposal.monthlyPayout)}` },
-              ...(hasLtr ? [{ label: "vs Long-Term Rental", value: `+${proposal.increaseVsLtrPct ?? 0}%`, green: true }] : []),
-            ].map((k, i) => (
-              <div key={i} style={{ padding: "24px 20px", background: k.gold ? `${G}22` : "#1a1a1a", borderLeft: k.gold ? `3px solid ${G}` : "none" }}>
-                <div style={{ fontSize: 11, color: "#888", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>{k.sub ?? k.label}</div>
-                <div style={{ fontSize: k.gold ? 26 : 20, fontWeight: 800, color: k.gold ? G : k.green ? "#4ade80" : "#fff" }}>{k.value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── SECTION 2: PROPERTY PROFILE ── */}
-      <section style={{ maxWidth: 900, margin: "-32px auto 0", padding: "0 24px 48px", position: "relative", zIndex: 10 }}>
-        <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 20px 60px rgba(0,0,0,0.12)", overflow: "hidden" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
-            <div style={{ padding: "40px 40px" }}>
-              <div style={{ fontSize: 11, color: G, textTransform: "uppercase", letterSpacing: 2, fontWeight: 700, marginBottom: 16 }}>Asset Profile</div>
-              <h2 style={{ fontSize: 26, fontFamily: "serif", fontWeight: 700, marginBottom: 24 }}>Property Overview</h2>
-              <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "12px 24px", fontSize: 14 }}>
-                <span style={{ color: "#888" }}>Address</span>
-                <span style={{ fontWeight: 600 }}>{proposal.propertyAddress}</span>
-                <span style={{ color: "#888" }}>Type</span>
-                <span style={{ fontWeight: 600, textTransform: "capitalize" }}>{proposal.propertyType}</span>
-                <span style={{ color: "#888" }}>Bedrooms</span>
-                <span style={{ fontWeight: 600 }}>{proposal.bedrooms} Bedroom{proposal.bedrooms !== 1 ? "s" : ""}</span>
-                <span style={{ color: "#888" }}>Bathrooms</span>
-                <span style={{ fontWeight: 600 }}>{proposal.bathrooms} Bathroom{proposal.bathrooms !== 1 ? "s" : ""}</span>
-                <span style={{ color: "#888" }}>Size</span>
-                <span style={{ fontWeight: 600 }}>{fmt(proposal.internalArea)} sqft</span>
-                {proposal.view && <><span style={{ color: "#888" }}>View</span><span style={{ fontWeight: 600 }}>{proposal.view}</span></>}
-                {proposal.furnishingStatus && <><span style={{ color: "#888" }}>Condition</span><span style={{ fontWeight: 600, textTransform: "capitalize" }}>{proposal.furnishingStatus.replace(/_/g, " ")}</span></>}
-              </div>
             </div>
-            <div style={{ background: DARK, color: "#fff", padding: "40px 40px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-              <div style={{ fontSize: 11, color: G, textTransform: "uppercase", letterSpacing: 2, fontWeight: 700, marginBottom: 20 }}>Revenue Forecast</div>
-              <p style={{ color: "#aaa", lineHeight: 1.7, fontSize: 14, marginBottom: 24 }}>
-                {proposal.narrativeText ?? `Based on our analysis of comparable units in ${proposal.propertyAddress.split(",")[0]}, we forecast your property to generate significant returns through the short-term rental market — outperforming traditional long-term leasing.`}
-              </p>
-              {hasLtr && (
-                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", background: `${G}20`, borderRadius: 8, borderLeft: `3px solid ${G}` }}>
-                  <TrendingUp style={{ width: 20, height: 20, color: G, flexShrink: 0 }} />
-                  <div>
-                    <div style={{ color: G, fontWeight: 700, fontSize: 22 }}>+{proposal.increaseVsLtrPct ?? 0}% Higher Yield</div>
-                    <div style={{ color: "#aaa", fontSize: 12, marginTop: 2 }}>vs traditional long-term leasing</div>
-                  </div>
+          </div>
+
+          {/* Property details */}
+          <div style={{ background: CREAM, border: `1px solid ${BORDER}`, borderRadius: 8, padding: "24px 28px", marginBottom: 40 }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, marginBottom: 16 }}>Property Details</div>
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>Address</div>
+              <div style={{ fontWeight: 600, fontSize: 14 }}>{proposal.propertyAddress}</div>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginTop: 16 }}>
+              {[
+                { label: "Property Type", value: proposal.propertyType },
+                { label: "Bedroom",       value: `${proposal.bedrooms} Bedroom${(proposal.bedrooms ?? 1) !== 1 ? "s" : ""}` },
+                { label: "Bathroom",      value: `${proposal.bathrooms} Bathroom${(proposal.bathrooms ?? 1) !== 1 ? "s" : ""}` },
+                { label: "Size",          value: proposal.internalArea ? `${fmt(proposal.internalArea)} Sq.Ft.` : null },
+                { label: "View",          value: proposal.view },
+              ].filter(x => x.value).map(({ label, value }) => (
+                <div key={label}>
+                  <div style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontWeight: 600, fontSize: 13, textTransform: "capitalize" }}>{value}</div>
                 </div>
-              )}
+              ))}
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* ── SECTION 3: INCOME CALCULATOR TABLE ── */}
+          {/* Narrative */}
+          <p style={{ fontSize: 15, color: "#555", lineHeight: 1.8, fontFamily: "serif" }}>
+            {proposal.narrativeText ??
+              `Based on our analysis of comparable units in ${proposal.propertyAddress?.split(",")[0] ?? "Abu Dhabi"}, we forecast your property to generate AED ${fmt(proposal.grossAnnualRevenue)} annually at ${recOcc}% occupancy, representing a +${proposal.increaseVsLtrPct ?? 0}% increase compared to traditional long-term leasing.`}
+          </p>
+        </div>
+
+        <div style={confidential}>Confidential © Royal Holiday Homes</div>
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          PAGE 2 — EXECUTIVE FINANCIAL SUMMARY
+      ══════════════════════════════════════════════ */}
+      <div style={{ ...page, pageBreakAfter: "always" }}>
+        <div style={sectionLabel}>Executive Financial Summary</div>
+        <div style={{ height: 1, background: BORDER, margin: "12px 0 48px" }} />
+
+        {/* Top KPIs */}
+        <div style={{ display: "flex", justifyContent: "space-around", marginBottom: 48 }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 40, fontWeight: 900, fontFamily: "serif", color: DARK }}>AED {fmt(proposal.weightedAdr)}</div>
+            <div style={{ fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 1, marginTop: 6 }}>Average Daily Rate</div>
+          </div>
+          <div style={{ width: 1, background: BORDER }} />
+          <div style={{ textAlign: "center" }}>
+            <div style={{ fontSize: 40, fontWeight: 900, fontFamily: "serif", color: DARK }}>{recOcc}%</div>
+            <div style={{ fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 1, marginTop: 6 }}>Assumed occupancy %</div>
+          </div>
+        </div>
+
+        {/* Stacked KPI pyramid */}
+        <div style={{ textAlign: "center", borderTop: `1px solid ${BORDER}` }}>
+          {[
+            { label: "Gross Annual Revenue",     value: `AED ${fmt(proposal.grossAnnualRevenue)}`,    size: 28 },
+            { label: "Annual Net Profit Forecast", value: `AED ${fmt(proposal.netOwnerIncome)}`,       size: 36 },
+            { label: "Monthly Average Net Payout", value: `AED ${fmt(proposal.monthlyPayout)}`,        size: 28 },
+            ...(hasLtr ? [{ label: "vs Long Term Rental", value: `+${proposal.increaseVsLtrPct ?? 0}% Higher Yield`, size: 22, gold: true }] : []),
+          ].map(({ label, value, size, gold }) => (
+            <div key={label} style={{ padding: "24px 16px", borderBottom: `1px solid ${BORDER}` }}>
+              <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>{label}</div>
+              <div style={{ fontSize: size, fontWeight: 900, fontFamily: "serif", color: gold ? GOLD : DARK }}>{value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div style={confidential}>Confidential © Royal Holiday Homes</div>
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          PAGE 3 — INCOME CALCULATOR
+      ══════════════════════════════════════════════ */}
       {hasScenarios && (
-        <section style={{ maxWidth: 900, margin: "0 auto", padding: "16px 24px 48px", pageBreakBefore: "always" }}>
-          <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 11, color: G, textTransform: "uppercase", letterSpacing: 2, fontWeight: 700, marginBottom: 8 }}>Financial Analysis</div>
-            <h2 style={{ fontSize: 32, fontFamily: "serif", fontWeight: 700 }}>Income Calculator</h2>
-            <p style={{ color: "#666", marginTop: 8 }}>Revenue projections across different occupancy scenarios.</p>
+        <div style={{ ...page, pageBreakAfter: "always" }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 32 }}>
+            <div style={sectionLabel}>Income Calculator</div>
           </div>
 
-          {/* LTR comparison row */}
+          {/* LTR reference boxes */}
           {hasLtr && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 24 }}>
-              <div style={{ background: "#fff", borderRadius: 12, padding: "20px 24px", boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
-                <div style={{ fontSize: 12, color: "#888", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Long-Term Rental (Market Rate)</div>
-                <div style={{ fontSize: 28, fontWeight: 800 }}>AED {fmt(proposal.netLtrIncome)}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 28 }}>
+              <div style={{ border: `1px solid ${BORDER}`, borderRadius: 6, padding: "16px 20px" }}>
+                <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Long-term Rental (Average Market Rate)</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: DARK }}>AED {fmt(proposal.netLtrIncome)}</div>
               </div>
-              <div style={{ background: `${G}15`, borderRadius: 12, padding: "20px 24px", border: `1px solid ${G}40` }}>
-                <div style={{ fontSize: 12, color: "#888", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>LTR Effective (with 10% vacancy)</div>
-                <div style={{ fontSize: 28, fontWeight: 800, color: G }}>AED {fmt((proposal.netLtrIncome ?? 0) * 0.9)}</div>
+              <div style={{ border: `1px solid ${BORDER}`, borderRadius: 6, padding: "16px 20px" }}>
+                <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: 1, marginBottom: 6 }}>Long-term Rental (With 10% vacancy)</div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: DARK }}>AED {fmt((proposal.netLtrIncome ?? 0) * 0.9)}</div>
               </div>
             </div>
           )}
 
           {/* Scenarios table */}
-          <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 4px 20px rgba(0,0,0,0.06)", overflow: "hidden" }}>
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
-                <thead>
-                  <tr style={{ borderBottom: "2px solid #f0f0f0" }}>
-                    <th style={{ padding: "16px 20px", textAlign: "left", color: "#888", fontWeight: 600, background: "#FAFAF8" }}>Metric</th>
-                    {scenarios.map((s: any) => {
-                      const isConfident = s.name === "Confident";
-                      return (
-                        <th key={s.id} style={{ padding: "16px 20px", textAlign: "right", background: isConfident ? `${G}12` : "#FAFAF8", borderLeft: isConfident ? `3px solid ${G}` : "none" }}>
-                          <div style={{ fontSize: 18, fontWeight: 800, color: isConfident ? G : DARK }}>{Math.round(s.occupancyRate * 100)}%</div>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: isConfident ? G : "#888", textTransform: "uppercase", letterSpacing: 1, marginTop: 2 }}>{s.name}</div>
-                          {isConfident && <div style={{ fontSize: 10, color: G, marginTop: 2 }}>★ Recommended</div>}
-                        </th>
-                      );
-                    })}
-                  </tr>
-                </thead>
-                <tbody>
-                  {/* Gross Revenue */}
-                  <tr style={{ borderTop: "1px solid #f0f0f0", background: "#fff" }}>
-                    <td style={{ padding: "14px 20px", color: "#444", fontWeight: 500 }}>
-                      <div style={{ fontSize: 10, color: "#888", textTransform: "uppercase", letterSpacing: 1, marginBottom: 2 }}>INCOME</div>
-                      Gross Annual Revenue (AED)
-                    </td>
-                    {scenarios.map((s: any) => (
-                      <td key={s.id} style={{ padding: "14px 20px", textAlign: "right", fontWeight: 700, background: s.name === "Confident" ? `${G}08` : "transparent", borderLeft: s.name === "Confident" ? `3px solid ${G}30` : "none" }}>
-                        {fmt(s.grossRevenue)}
-                      </td>
-                    ))}
-                  </tr>
-                  {/* Total Deductions */}
-                  <tr style={{ borderTop: "1px solid #f0f0f0", background: "#FAFAF8" }}>
-                    <td style={{ padding: "14px 20px", color: "#888" }}>
-                      <div style={{ fontSize: 10, color: "#888", textTransform: "uppercase", letterSpacing: 1, marginBottom: 2 }}>COSTS & FEES</div>
-                      Total Deductions (AED)
-                    </td>
-                    {scenarios.map((s: any) => (
-                      <td key={s.id} style={{ padding: "14px 20px", textAlign: "right", color: "#999", background: s.name === "Confident" ? `${G}08` : "transparent", borderLeft: s.name === "Confident" ? `3px solid ${G}30` : "none" }}>
-                        {fmt((s.grossRevenue ?? 0) - (s.netOwnerIncome ?? 0))}
-                      </td>
-                    ))}
-                  </tr>
-                  {/* Net Owner Income */}
-                  <tr style={{ borderTop: "2px solid #e8e8e8", background: "#fff" }}>
-                    <td style={{ padding: "16px 20px", fontWeight: 700, color: DARK }}>
-                      <div style={{ fontSize: 10, color: "#888", textTransform: "uppercase", letterSpacing: 1, marginBottom: 2 }}>NET OUTCOME</div>
-                      Net Annual Income (AED)
-                    </td>
-                    {scenarios.map((s: any) => {
-                      const isConfident = s.name === "Confident";
-                      return (
-                        <td key={s.id} style={{ padding: "16px 20px", textAlign: "right", fontWeight: 800, fontSize: 17, color: isConfident ? G : DARK, background: isConfident ? `${G}12` : "transparent", borderLeft: isConfident ? `3px solid ${G}` : "none" }}>
-                          {fmt(s.netOwnerIncome)}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                  {/* Monthly payout */}
-                  <tr style={{ borderTop: "1px solid #f0f0f0", background: "#FAFAF8" }}>
-                    <td style={{ padding: "14px 20px", color: "#666" }}>Monthly Average Payout (AED)</td>
-                    {scenarios.map((s: any) => (
-                      <td key={s.id} style={{ padding: "14px 20px", textAlign: "right", fontWeight: 600, background: s.name === "Confident" ? `${G}08` : "transparent", borderLeft: s.name === "Confident" ? `3px solid ${G}30` : "none" }}>
-                        {fmt(Math.round((s.netOwnerIncome ?? 0) / 12))}
-                      </td>
-                    ))}
-                  </tr>
-                  {/* vs LTR */}
-                  {hasLtr && (
-                    <tr style={{ borderTop: "1px solid #f0f0f0", background: "#fff" }}>
-                      <td style={{ padding: "14px 20px", color: "#666" }}>
-                        <div style={{ fontSize: 10, color: "#888", textTransform: "uppercase", letterSpacing: 1, marginBottom: 2 }}>COMPARISON</div>
-                        Increase vs Long-Term Rental
-                      </td>
+          <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, overflow: "hidden" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: CREAM }}>
+                  <th style={{ padding: "14px 16px", textAlign: "left", fontWeight: 600, color: MUTED, borderBottom: `2px solid ${BORDER}`, width: "36%" }}></th>
+                  {scenarios.map((s: any) => {
+                    const isConfident = s.name === "Confident";
+                    const occ = Math.round(s.occupancyRate * 100);
+                    return (
+                      <th key={s.id} style={{ padding: "14px 16px", textAlign: "right", fontWeight: 700, borderBottom: `2px solid ${BORDER}`, borderLeft: isConfident ? `2px solid ${GOLD}` : `1px solid ${BORDER}`, background: isConfident ? `${GOLD}12` : "transparent", color: isConfident ? GOLD : DARK, width: "16%" }}>
+                        <div style={{ fontSize: 18 }}>{occ}%</div>
+                        {isConfident && <div style={{ fontSize: 10, fontWeight: 500, color: GOLD, marginTop: 2 }}>Confident</div>}
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {/* Occupancy row label */}
+                <tr>
+                  <td style={{ ...tdLabel("Occupancy"), color: MUTED, fontStyle: "italic" }}>Occupancy</td>
+                  {scenarios.map((s: any) => (
+                    <td key={s.id} style={tdVal(s.name === "Confident")}>{Math.round(s.occupancyRate * 100)}%</td>
+                  ))}
+                </tr>
+
+                {/* INCOME group header */}
+                <tr style={{ background: "#F7F5F0" }}>
+                  <td colSpan={scenarios.length + 1} style={{ padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, borderBottom: `1px solid ${BORDER}` }}>Income</td>
+                </tr>
+                <tr>
+                  <td style={tdLabel("")}>Gross Annual Revenue (AED)</td>
+                  {scenarios.map((s: any) => (
+                    <td key={s.id} style={tdVal(s.name === "Confident")}>{fmt(s.grossRevenue)}</td>
+                  ))}
+                </tr>
+
+                {/* COSTS group header */}
+                <tr style={{ background: "#F7F5F0" }}>
+                  <td colSpan={scenarios.length + 1} style={{ padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, borderBottom: `1px solid ${BORDER}` }}>Costs</td>
+                </tr>
+                <tr>
+                  <td style={tdLabel("")}>Total Operating Costs (AED)</td>
+                  {scenarios.map((s: any) => {
+                    const costs = s.totalExpenses != null
+                      ? s.totalExpenses - (s.grossRevenue ?? 0) * 0.17
+                      : (s.grossRevenue ?? 0) - (s.netOwnerIncome ?? 0) - (s.grossRevenue ?? 0) * 0.17;
+                    return <td key={s.id} style={tdVal(s.name === "Confident")}>{fmt(Math.max(0, costs))}</td>;
+                  })}
+                </tr>
+
+                {/* FEES group header */}
+                <tr style={{ background: "#F7F5F0" }}>
+                  <td colSpan={scenarios.length + 1} style={{ padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, borderBottom: `1px solid ${BORDER}` }}>Fees</td>
+                </tr>
+                <tr>
+                  <td style={tdLabel("")}>Management Fees (17%)</td>
+                  {scenarios.map((s: any) => {
+                    const fee = (s.grossRevenue ?? 0) * 0.17;
+                    return <td key={s.id} style={tdVal(s.name === "Confident")}>{fmt(fee)}</td>;
+                  })}
+                </tr>
+
+                {/* NET OUTCOME group header */}
+                <tr style={{ background: "#F7F5F0" }}>
+                  <td colSpan={scenarios.length + 1} style={{ padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, borderBottom: `1px solid ${BORDER}` }}>Net Outcome</td>
+                </tr>
+                <tr style={{ fontWeight: 800 }}>
+                  <td style={{ ...tdLabel(""), fontWeight: 700, color: DARK }}>Net Annual Income (AED)</td>
+                  {scenarios.map((s: any) => (
+                    <td key={s.id} style={{ ...tdVal(s.name === "Confident"), fontSize: 14 }}>{fmt(s.netOwnerIncome)}</td>
+                  ))}
+                </tr>
+
+                {/* INCREASE VS LTR */}
+                {hasLtr && (
+                  <>
+                    <tr style={{ background: "#F7F5F0" }}>
+                      <td colSpan={scenarios.length + 1} style={{ padding: "8px 16px", fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, borderBottom: `1px solid ${BORDER}` }}>Increase vs Long Term Rental</td>
+                    </tr>
+                    <tr>
+                      <td style={tdLabel("")}>Increase vs Long-term Rental</td>
                       {scenarios.map((s: any) => {
                         const ltr = proposal.netLtrIncome ?? 0;
                         const pct = ltr > 0 ? Math.round(((s.netOwnerIncome ?? 0) - ltr) / ltr * 100) : null;
-                        const isConfident = s.name === "Confident";
                         return (
-                          <td key={s.id} style={{ padding: "14px 20px", textAlign: "right", fontWeight: 700, color: (pct ?? 0) > 0 ? "#16a34a" : "#dc2626", background: isConfident ? `${G}08` : "transparent", borderLeft: isConfident ? `3px solid ${G}30` : "none" }}>
-                            {pct != null ? `${pct > 0 ? "+" : ""}${pct}%` : "—"}
+                          <td key={s.id} style={{ ...tdVal(s.name === "Confident"), color: s.name === "Confident" ? GOLD : (pct ?? 0) >= 0 ? "#16a34a" : "#dc2626" }}>
+                            {pct != null ? `${pct >= 0 ? "+" : ""}${pct}%` : "—"}
                           </td>
                         );
                       })}
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div style={{ padding: "12px 20px", borderTop: "1px solid #f0f0f0", background: "#FAFAF8" }}>
-              <p style={{ fontSize: 12, color: "#999", lineHeight: 1.5 }}>
-                Note: This is a projection based on the information provided and current market conditions. Figures may vary over time depending on market supply and demand.
+                  </>
+                )}
+              </tbody>
+            </table>
+
+            {/* Note */}
+            <div style={{ padding: "12px 16px", background: CREAM, borderTop: `1px solid ${BORDER}` }}>
+              <p style={{ fontSize: 11, color: MUTED, lineHeight: 1.6 }}>
+                Note: Please note this is a projection based on the information we have and the current market. Figures may vary over time depending on the market supply and demand.
               </p>
             </div>
           </div>
-        </section>
-      )}
 
-      {/* ── SECTION 4: CHARTS ── */}
-      {(hasScenarios || hasMonthly) && (
-        <section style={{ maxWidth: 900, margin: "0 auto", padding: "0 24px 48px", pageBreakBefore: "always" }}>
-          <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 11, color: G, textTransform: "uppercase", letterSpacing: 2, fontWeight: 700, marginBottom: 8 }}>Expected Revenue Comparison</div>
-            <h2 style={{ fontSize: 32, fontFamily: "serif", fontWeight: 700 }}>Revenue Visualised</h2>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: hasScenarios && hasMonthly ? "1fr 1fr" : "1fr", gap: 24 }}>
-            {/* Scenario bar chart */}
-            {hasScenarios && (
-              <div style={{ background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Net Income by Scenario</h3>
-                <p style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>Gross revenue vs net income</p>
-                <div style={{ height: 260 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={scenarios.map((s: any) => ({ name: s.name, gross: Math.round(s.grossRevenue ?? 0), net: Math.round(s.netOwnerIncome ?? 0) }))} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#888", fontSize: 11 }} />
-                      <YAxis axisLine={false} tickLine={false} tickFormatter={v => `${v / 1000}k`} tick={{ fill: "#888", fontSize: 11 }} />
-                      <RechartsTooltip formatter={(v: number) => `AED ${fmt(v)}`} contentStyle={{ borderRadius: 8, border: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }} />
-                      <Bar dataKey="gross" name="Gross Revenue" radius={[4, 4, 0, 0]} maxBarSize={36}>
-                        {scenarios.map((s: any) => <Cell key={s.id} fill={s.name === "Confident" ? `${G}60` : "#e5e7eb"} />)}
-                      </Bar>
-                      <Bar dataKey="net" name="Net Income" radius={[4, 4, 0, 0]} maxBarSize={36}>
-                        {scenarios.map((s: any) => <Cell key={s.id} fill={s.name === "Confident" ? G : DARK} />)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-                <div style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 12, color: "#888" }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: "#e5e7eb", display: "inline-block" }} /> Gross Revenue</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: DARK, display: "inline-block" }} /> Net Income</span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 12, height: 12, borderRadius: 3, background: G, display: "inline-block" }} /> Confident (85%)</span>
-                </div>
-              </div>
-            )}
-
-            {/* Monthly chart */}
-            {hasMonthly && (
-              <div style={{ background: "#fff", borderRadius: 16, padding: 28, boxShadow: "0 4px 20px rgba(0,0,0,0.06)" }}>
-                <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 4 }}>Monthly Revenue Projection</h3>
-                <p style={{ fontSize: 13, color: "#888", marginBottom: 20 }}>STR vs LTR comparison — month by month</p>
-                <div style={{ height: 260 }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart
-                      data={monthly.map((m: any) => ({
-                        name: MONTH_LABELS[(m.month - 1) % 12] ?? `M${m.month}`,
-                        str: Math.round(m.netOwnerIncome ?? 0),
-                        ltr: m.ltrBenchmark ? Math.round(m.ltrBenchmark) : null,
-                      }))}
-                      margin={{ top: 10, right: 10, left: -10, bottom: 5 }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#888", fontSize: 11 }} />
-                      <YAxis axisLine={false} tickLine={false} tickFormatter={v => `${v / 1000}k`} tick={{ fill: "#888", fontSize: 11 }} />
-                      <RechartsTooltip formatter={(v: number) => `AED ${fmt(v)}`} contentStyle={{ borderRadius: 8, border: "none", boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }} />
-                      <Line type="monotone" dataKey="str" name="STR Net Income" stroke={G} strokeWidth={2.5} dot={{ fill: G, r: 3 }} />
-                      {hasLtr && <Line type="monotone" dataKey="ltr" name="LTR Benchmark" stroke="#cbd5e1" strokeWidth={2} strokeDasharray="6 3" dot={false} />}
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-                <div style={{ display: "flex", gap: 16, marginTop: 12, fontSize: 12, color: "#888" }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 20, height: 3, background: G, display: "inline-block", borderRadius: 2 }} /> STR Net Income</span>
-                  {hasLtr && <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 20, height: 3, background: "#cbd5e1", display: "inline-block", borderRadius: 2 }} /> LTR Benchmark</span>}
-                </div>
-              </div>
-            )}
-          </div>
-        </section>
-      )}
-
-      {/* ── SECTION 5: WHY YOUR PROPERTY EARNS MORE ── */}
-      <section style={{ background: DARK, color: "#fff", padding: "64px 48px", pageBreakBefore: "always" }}>
-        <div style={{ maxWidth: 900, margin: "0 auto" }}>
-          <div style={{ fontSize: 11, color: G, textTransform: "uppercase", letterSpacing: 2, fontWeight: 700, marginBottom: 8 }}>Revenue Intelligence</div>
-          <h2 style={{ fontSize: 36, fontFamily: "serif", fontWeight: 700, marginBottom: 12 }}>Why Your Property Earns More</h2>
-          <p style={{ color: "#aaa", maxWidth: 600, lineHeight: 1.7, marginBottom: 48 }}>
-            Short-term rentals outperform through strategic seasonal pricing and data-driven demand management — maximising yield across every week of the year.
-          </p>
-
-          {/* ADR callout */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 48 }}>
-            <div style={{ padding: "28px 24px", background: "#1a1a1a", borderRadius: 12 }}>
-              <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Weighted Average ADR</div>
-              <div style={{ fontSize: 36, fontWeight: 800, color: G }}>AED {fmt(proposal.weightedAdr)}</div>
-              <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>Across all seasonal periods</div>
-            </div>
-            <div style={{ padding: "28px 24px", background: "#1a1a1a", borderRadius: 12 }}>
-              <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Projected Occupancy</div>
-              <div style={{ fontSize: 36, fontWeight: 800, color: "#fff" }}>{recOcc}%</div>
-              <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>Confident annual average</div>
-            </div>
-            <div style={{ padding: "28px 24px", background: "#1a1a1a", borderRadius: 12 }}>
-              <div style={{ fontSize: 11, color: "#666", textTransform: "uppercase", letterSpacing: 1.5, marginBottom: 8 }}>Monthly Average Payout</div>
-              <div style={{ fontSize: 36, fontWeight: 800, color: "#fff" }}>AED {fmt(proposal.monthlyPayout)}</div>
-              <div style={{ fontSize: 12, color: "#666", marginTop: 8 }}>Direct to your account</div>
-            </div>
-          </div>
-
-          {/* Owner benefits */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
-            {[
-              { icon: BarChart2, title: "Dynamic Revenue Capture", desc: "Leverage premium pricing during high-demand periods to maximise returns." },
-              { icon: Eye, title: "Market Intelligence", desc: "Real-time adjustments based on competitive analysis and demand forecasting." },
-              { icon: TrendingUp, title: "Transparent Analytics", desc: "Clear insights into performance drivers and revenue attribution." },
-              { icon: RefreshCw, title: "Consistent Profitability", desc: "Stable cash flow across all seasonal cycles through active management." },
-            ].map(({ icon: Icon, title, desc }) => (
-              <div key={title} style={{ padding: "24px 20px", background: "#1a1a1a", borderRadius: 12 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 8, background: `${G}20`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 16 }}>
-                  <Icon style={{ width: 18, height: 18, color: G }} />
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>{title}</div>
-                <div style={{ fontSize: 13, color: "#888", lineHeight: 1.6 }}>{desc}</div>
-              </div>
-            ))}
-          </div>
+          <div style={confidential}>Confidential © Royal Holiday Homes</div>
         </div>
-      </section>
+      )}
 
-      {/* ── SECTION 6: STR vs LTR COMPARISON ── */}
-      <section style={{ maxWidth: 900, margin: "0 auto", padding: "64px 24px", pageBreakBefore: "always" }}>
-        <div style={{ fontSize: 11, color: G, textTransform: "uppercase", letterSpacing: 2, fontWeight: 700, marginBottom: 8 }}>The Smarter Choice</div>
-        <h2 style={{ fontSize: 36, fontFamily: "serif", fontWeight: 700, marginBottom: 8 }}>Why Opt for Holiday Homes?</h2>
-        <p style={{ color: "#666", marginBottom: 40 }}>Holiday homes allow your property to earn more by adapting pricing to market demand and seasonal trends.</p>
+      {/* ══════════════════════════════════════════════
+          PAGE 4 — CHARTS
+      ══════════════════════════════════════════════ */}
+      {(hasScenarios || hasMonthly) && (
+        <div style={{ ...page, pageBreakAfter: "always" }}>
+          {/* Monthly chart */}
+          {hasMonthly && (
+            <div style={{ marginBottom: 48 }}>
+              <div style={{ ...sectionLabel, textAlign: "right" }}>Expected Revenue Comparison</div>
+              <h2 style={{ ...sectionTitle, textAlign: "right", marginBottom: 4 }}>Monthly STR vs LTR Comparison</h2>
+              <p style={{ textAlign: "right", fontSize: 12, color: MUTED, marginBottom: 28 }}>Based on Realistic ({recOcc}%) scenario</p>
+              <div style={{ height: 280, border: `1px solid ${BORDER}`, borderRadius: 8, padding: "16px 8px 8px", background: WHITE }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={monthly.map((m: any) => ({ name: MONTH_LABELS[(m.month - 1) % 12], str: Math.round(m.netOwnerIncome ?? 0), ltr: m.ltrBenchmark ? Math.round(m.ltrBenchmark) : null }))} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={BORDER} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: MUTED, fontSize: 11 }} />
+                    <YAxis axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v / 1000)}k`} tick={{ fill: MUTED, fontSize: 11 }} />
+                    <RechartsTooltip formatter={(v: number) => `AED ${fmt(v)}`} contentStyle={{ borderRadius: 6, border: `1px solid ${BORDER}` }} />
+                    <Line type="monotone" dataKey="str" name="STR Net" stroke={GOLD} strokeWidth={2.5} dot={{ fill: GOLD, r: 3 }} />
+                    {hasLtr && <Line type="monotone" dataKey="ltr" name="LTR" stroke="#ccc" strokeWidth={1.5} strokeDasharray="5 3" dot={false} />}
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{ display: "flex", gap: 20, marginTop: 10, fontSize: 12, color: MUTED, justifyContent: "center" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 24, height: 3, background: GOLD, display: "inline-block", borderRadius: 2 }} /> STR Net Income</span>
+                {hasLtr && <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 24, height: 3, background: "#ccc", display: "inline-block", borderRadius: 2 }} /> LTR Benchmark</span>}
+              </div>
+            </div>
+          )}
 
-        <div style={{ background: "#fff", borderRadius: 16, boxShadow: "0 4px 20px rgba(0,0,0,0.06)", overflow: "hidden" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", borderBottom: "1px solid #f0f0f0" }}>
-            <div style={{ padding: "16px 24px", fontWeight: 600, color: "#888", fontSize: 13 }}>Criteria</div>
-            <div style={{ padding: "16px 24px", textAlign: "center", background: `${G}10`, fontWeight: 700, color: G, fontSize: 13, borderLeft: `2px solid ${G}30` }}>Holiday Home (STR)</div>
-            <div style={{ padding: "16px 24px", textAlign: "center", fontWeight: 600, color: "#888", fontSize: 13 }}>Long-Term Rental</div>
-          </div>
+          {/* Bar chart */}
+          {hasScenarios && (
+            <div>
+              <div style={{ ...sectionLabel, textAlign: "right" }}>Expected Revenue Comparison</div>
+              <h2 style={{ ...sectionTitle, textAlign: "right", marginBottom: 4 }}>Revenue vs Profit Analysis</h2>
+              <p style={{ textAlign: "right", fontSize: 12, color: MUTED, marginBottom: 28 }}>Gross revenue vs net income by scenario</p>
+              <div style={{ height: 260, border: `1px solid ${BORDER}`, borderRadius: 8, padding: "16px 8px 8px", background: WHITE }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={scenarios.map((s: any) => ({ name: s.name, gross: Math.round(s.grossRevenue ?? 0), net: Math.round(s.netOwnerIncome ?? 0) }))} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={BORDER} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: MUTED, fontSize: 11 }} />
+                    <YAxis axisLine={false} tickLine={false} tickFormatter={v => `${Math.round(v / 1000)}k`} tick={{ fill: MUTED, fontSize: 11 }} />
+                    <RechartsTooltip formatter={(v: number) => `AED ${fmt(v)}`} contentStyle={{ borderRadius: 6, border: `1px solid ${BORDER}` }} />
+                    <Bar dataKey="gross" name="Gross Revenue" radius={[3, 3, 0, 0]} maxBarSize={40}>
+                      {scenarios.map((s: any) => <Cell key={s.id} fill={s.name === "Confident" ? `${GOLD}50` : "#E5E0D5"} />)}
+                    </Bar>
+                    <Bar dataKey="net" name="Net Income" radius={[3, 3, 0, 0]} maxBarSize={40}>
+                      {scenarios.map((s: any) => <Cell key={s.id} fill={s.name === "Confident" ? GOLD : "#A09580"} />)}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div style={{ display: "flex", gap: 20, marginTop: 10, fontSize: 12, color: MUTED, justifyContent: "center" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 14, background: "#E5E0D5", display: "inline-block", borderRadius: 2 }} /> Gross Revenue</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 14, background: "#A09580", display: "inline-block", borderRadius: 2 }} /> Net Income</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 14, height: 14, background: GOLD, display: "inline-block", borderRadius: 2 }} /> Confident</span>
+              </div>
+            </div>
+          )}
+
+          <div style={confidential}>Confidential © Royal Holiday Homes</div>
+        </div>
+      )}
+
+      {/* ══════════════════════════════════════════════
+          PAGE 5 — WHY YOUR PROPERTY EARNS MORE
+      ══════════════════════════════════════════════ */}
+      <div style={{ ...page, pageBreakAfter: "always" }}>
+        <h2 style={{ ...sectionTitle, fontSize: 26, marginBottom: 20 }}>Why Your Property Earns More?</h2>
+        <div style={{ height: 2, background: GOLD, width: 40, marginBottom: 24 }} />
+        <p style={{ fontSize: 14, color: "#555", lineHeight: 1.8, marginBottom: 40, maxWidth: 600 }}>
+          Short-term rental properties demonstrate superior revenue performance by strategically capitalizing on seasonal demand fluctuations. Our data-driven approach optimizes pricing across peak, shoulder, and low seasons, ensuring maximum profitability while maintaining competitive occupancy rates throughout the calendar year.
+        </p>
+
+        {/* ADR by season */}
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, marginBottom: 16 }}>
+          Average Daily Rate (ADR) by Season
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 40 }}>
           {[
-            ["Annual Yield Potential", "20–58% Higher Returns", "Fixed Annual Income"],
-            ["Revenue Flexibility", "Dynamic Seasonal Pricing", "Limited Flexibility"],
-            ["Owner Usage", "Full Flexibility to Use Property", "Tied Up for 12+ Months"],
-            ["Asset Monitoring", "Regular Inspections & Care", "Minimal Oversight"],
-            ["Risk Profile", "Reduced Long-Term Tenant Risk", "Tenant Disputes & Issues"],
-            ["Property Condition", "Maintained to Hotel Standard", "Wear & Tear Over Time"],
-          ].map(([label, str, ltr]) => (
-            <div key={label} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", borderTop: "1px solid #f0f0f0" }}>
-              <div style={{ padding: "14px 24px", fontSize: 14, color: "#444", fontWeight: 500 }}>{label}</div>
-              <div style={{ padding: "14px 24px", textAlign: "center", fontSize: 13, fontWeight: 600, color: "#16a34a", background: `${G}05`, borderLeft: `2px solid ${G}20` }}>✓ {str}</div>
-              <div style={{ padding: "14px 24px", textAlign: "center", fontSize: 13, color: "#dc2626" }}>✕ {ltr}</div>
+            { label: "Low Season",          value: (proposal as any).lowSeasonAdr,    note: "75% Accuracy" },
+            { label: "Peak Season",         value: (proposal as any).peakSeasonAdr,   note: "92% Accuracy" },
+            { label: "Average Yearly",      value: proposal.weightedAdr,              note: "85% Accuracy" },
+          ].map(({ label, value, note }) => (
+            <div key={label} style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: "20px 20px", textAlign: "center" }}>
+              <div style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>{label}</div>
+              <div style={{ fontSize: 26, fontWeight: 900, fontFamily: "serif", color: DARK, marginBottom: 4 }}>AED {fmt(value as any)}</div>
+              <div style={{ fontSize: 11, color: MUTED }}>{note}</div>
             </div>
           ))}
         </div>
-      </section>
 
-      {/* ── SECTION 7: HOW IT WORKS ── */}
-      <section style={{ background: "#f5f0e8", padding: "64px 48px", pageBreakBefore: "always" }}>
-        <div style={{ maxWidth: 900, margin: "0 auto" }}>
-          <div style={{ fontSize: 11, color: G, textTransform: "uppercase", letterSpacing: 2, fontWeight: 700, marginBottom: 8 }}>Our Process</div>
-          <h2 style={{ fontSize: 36, fontFamily: "serif", fontWeight: 700, marginBottom: 48 }}>How It Works</h2>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 20 }}>
-            {HOW_IT_WORKS.map(({ n, title, desc }) => (
-              <div key={n} style={{ background: "#fff", borderRadius: 12, padding: "28px 24px", boxShadow: "0 2px 12px rgba(0,0,0,0.05)" }}>
-                <div style={{ fontSize: 36, fontWeight: 900, color: `${G}30`, fontFamily: "serif", marginBottom: 12, lineHeight: 1 }}>{n}</div>
-                <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 8 }}>{title}</div>
-                <div style={{ fontSize: 13, color: "#888", lineHeight: 1.6 }}>{desc}</div>
-              </div>
-            ))}
-          </div>
+        {/* Benefits grid */}
+        <div style={{ fontSize: 12, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, marginBottom: 16 }}>
+          Owner Benefits &amp; Value Proposition
         </div>
-      </section>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          {[
+            { title: "Dynamic Revenue Capture",   desc: "Leverage premium pricing during high-demand periods to maximize returns." },
+            { title: "Market Intelligence",        desc: "Real-time adjustments based on competitive analysis and demand forecasting." },
+            { title: "Transparent Analytics",      desc: "Clear insights into performance drivers and revenue attribution." },
+            { title: "Consistent Profitability",   desc: "Stable cash flow across all seasonal cycles." },
+          ].map(({ title, desc }) => (
+            <div key={title} style={{ border: `1px solid ${BORDER}`, borderRadius: 8, padding: "20px 20px" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: DARK, marginBottom: 8 }}>{title}</div>
+              <div style={{ fontSize: 13, color: "#666", lineHeight: 1.6 }}>{desc}</div>
+            </div>
+          ))}
+        </div>
 
-      {/* ── SECTION 8: WHY ROYAL HOLIDAY HOMES ── */}
-      <section style={{ maxWidth: 900, margin: "0 auto", padding: "64px 24px", pageBreakBefore: "always" }}>
-        <div style={{ fontSize: 11, color: G, textTransform: "uppercase", letterSpacing: 2, fontWeight: 700, marginBottom: 8 }}>Our Commitment</div>
-        <h2 style={{ fontSize: 36, fontFamily: "serif", fontWeight: 700, marginBottom: 8 }}>Why Royal Holiday Homes?</h2>
-        <p style={{ color: "#666", marginBottom: 40 }}>We are operators, not just agents — deeply invested in your property's performance.</p>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 }}>
-          {WHY_RHH.map(({ icon: Icon, title, desc }) => (
-            <div key={title} style={{ display: "flex", gap: 16, padding: "20px 20px", background: "#fff", borderRadius: 12, boxShadow: "0 2px 12px rgba(0,0,0,0.05)", alignItems: "flex-start" }}>
-              <div style={{ width: 40, height: 40, borderRadius: 10, background: `${G}15`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
-                <Icon style={{ width: 18, height: 18, color: G }} />
+        <div style={confidential}>Confidential © Royal Holiday Homes</div>
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          PAGE 6 — WHY HOLIDAY HOMES
+      ══════════════════════════════════════════════ */}
+      <div style={{ ...page, pageBreakAfter: "always" }}>
+        <h2 style={{ ...sectionTitle, fontSize: 26, marginBottom: 4 }}>Why Opt for Holiday Homes?</h2>
+        <div style={{ height: 2, background: GOLD, width: 40, marginTop: 12, marginBottom: 32 }} />
+
+        <div style={{ border: `1px solid ${BORDER}`, borderRadius: 8, overflow: "hidden" }}>
+          {/* Header */}
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", background: CREAM, borderBottom: `2px solid ${BORDER}` }}>
+            <div style={{ padding: "14px 20px" }} />
+            <div style={{ padding: "14px 20px", textAlign: "center", fontWeight: 700, color: GOLD, fontSize: 13, borderLeft: `1px solid ${BORDER}` }}>
+              Holiday Home (Short-Term)
+            </div>
+            <div style={{ padding: "14px 20px", textAlign: "center", fontWeight: 700, color: MUTED, fontSize: 13, borderLeft: `1px solid ${BORDER}` }}>
+              Traditional Long-Term Rental
+            </div>
+          </div>
+
+          {[
+            ["20-58% Higher Returns",     "Higher yield through seasonality",   "Limited pricing flexibility",  "Fixed annual income"],
+            ["Asset protection & monitoring", "Reduced long-term tenant risk",  "Property tied up for 12+ months", "Tenant disputes and issues"],
+            ["Flexibility & owner usage", "Maintain property value",            "Difficult to use property yourself", "Wear and tear over time"],
+          ].map(([str1, str2, ltr1, ltr2], i) => (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderTop: `1px solid ${BORDER}` }}>
+              <div style={{ padding: "18px 20px", background: CREAM, borderRight: `1px solid ${BORDER}` }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: DARK, marginBottom: 4 }}>✓ {str1}</div>
+                <div style={{ fontSize: 12, color: "#666" }}>{str2}</div>
+              </div>
+              <div style={{ padding: "18px 20px", borderLeft: `1px solid ${BORDER}` }}>
+                <div style={{ fontSize: 12, color: "#dc2626" }}>✕ {ltr1}</div>
+                <div style={{ fontSize: 12, color: "#dc2626", marginTop: 4 }}>✕ {ltr2}</div>
+              </div>
+              <div style={{ display: "none" }} />
+            </div>
+          ))}
+        </div>
+
+        <p style={{ fontSize: 13, color: MUTED, marginTop: 24, fontStyle: "italic", lineHeight: 1.7 }}>
+          Holiday homes allow your property to earn more by adapting pricing to market demand and seasonal trends.
+        </p>
+
+        <div style={confidential}>Confidential © Royal Holiday Homes</div>
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          PAGE 7 — HOW IT WORKS
+      ══════════════════════════════════════════════ */}
+      <div style={{ ...page, pageBreakAfter: "always" }}>
+        <h2 style={{ ...sectionTitle, fontSize: 26, marginBottom: 4 }}>How It Works?</h2>
+        <div style={{ height: 2, background: GOLD, width: 40, marginTop: 12, marginBottom: 36 }} />
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+          {HOW_IT_WORKS.map(({ n, title, desc }) => (
+            <div key={n} style={{ display: "flex", gap: 24, padding: "20px 0", borderBottom: `1px solid ${BORDER}`, alignItems: "flex-start" }}>
+              <div style={{ width: 36, height: 36, borderRadius: "50%", border: `2px solid ${GOLD}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: GOLD, fontWeight: 700, fontSize: 14, marginTop: 2 }}>
+                {n}
               </div>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>{title}</div>
-                <div style={{ fontSize: 13, color: "#888", lineHeight: 1.5 }}>{desc}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: DARK, marginBottom: 4, textTransform: "uppercase", letterSpacing: 0.5 }}>{title}</div>
+                <div style={{ fontSize: 13, color: "#666", lineHeight: 1.7 }}>{desc}</div>
               </div>
             </div>
           ))}
         </div>
-      </section>
 
-      {/* ── SECTION 9: PORTFOLIO STATS ── */}
-      <section style={{ background: DARK, color: "#fff", padding: "64px 48px" }}>
-        <div style={{ maxWidth: 900, margin: "0 auto" }}>
-          <div style={{ fontSize: 11, color: G, textTransform: "uppercase", letterSpacing: 2, fontWeight: 700, marginBottom: 8 }}>Track Record</div>
-          <h2 style={{ fontSize: 36, fontFamily: "serif", fontWeight: 700, marginBottom: 8 }}>Our Portfolio</h2>
-          <p style={{ color: "#aaa", marginBottom: 40 }}>Delivering 5-star hospitality excellence across Abu Dhabi.</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 16 }}>
-            {PORTFOLIO_STATS.map(({ v, l }) => (
-              <div key={l} style={{ padding: "24px 20px", background: "#1a1a1a", borderRadius: 12, textAlign: "center" }}>
-                <div style={{ fontSize: 28, fontWeight: 900, color: G, fontFamily: "serif", marginBottom: 8 }}>{v}</div>
-                <div style={{ fontSize: 12, color: "#888", lineHeight: 1.4 }}>{l}</div>
+        <div style={confidential}>Confidential © Royal Holiday Homes</div>
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          PAGE 8 — WHY ROYAL HOLIDAY HOMES
+      ══════════════════════════════════════════════ */}
+      <div style={{ ...page, pageBreakAfter: "always" }}>
+        <h2 style={{ ...sectionTitle, fontSize: 26, marginBottom: 4 }}>Why Royal Holiday Homes?</h2>
+        <p style={{ fontSize: 13, color: MUTED, fontStyle: "italic", marginTop: 8, marginBottom: 4 }}>We are Operators, Not Just Agents.</p>
+        <div style={{ height: 2, background: GOLD, width: 40, marginTop: 12, marginBottom: 36 }} />
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+          {WHY_RHH.map(({ title, desc }) => (
+            <div key={title} style={{ padding: "18px 0", borderBottom: `1px solid ${BORDER}` }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                <div style={{ width: 20, height: 20, borderRadius: "50%", border: `1.5px solid ${GOLD}`, flexShrink: 0, marginTop: 2 }} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: DARK, textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 4 }}>{title}</div>
+                  <div style={{ fontSize: 13, color: "#666", lineHeight: 1.7 }}>{desc}</div>
+                </div>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
-      </section>
 
-      {/* ── SECTION 10: CTA ── */}
-      <section className="print:hidden" style={{ maxWidth: 900, margin: "0 auto", padding: "64px 24px 80px" }}>
-        <div style={{ background: "#fff", borderRadius: 20, boxShadow: "0 20px 60px rgba(0,0,0,0.1)", padding: "56px 48px", textAlign: "center", position: "relative", overflow: "hidden" }}>
-          <div style={{ position: "absolute", top: -100, right: -100, width: 300, height: 300, borderRadius: "50%", background: `${G}08`, filter: "blur(60px)" }} />
-          <div style={{ position: "absolute", bottom: -100, left: -100, width: 300, height: 300, borderRadius: "50%", background: `${G}08`, filter: "blur(60px)" }} />
+        <div style={confidential}>Confidential © Royal Holiday Homes</div>
+      </div>
 
+      {/* ══════════════════════════════════════════════
+          PAGE 9 — PORTFOLIO
+      ══════════════════════════════════════════════ */}
+      <div style={{ ...page, pageBreakAfter: "always" }}>
+        <h2 style={{ ...sectionTitle, fontSize: 26, textAlign: "center", marginBottom: 4 }}>Our Portfolio</h2>
+        <div style={{ height: 2, background: GOLD, width: 40, margin: "12px auto 48px" }} />
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 24, marginBottom: 40 }}>
+          {PORTFOLIO.map(({ v, l }) => (
+            <div key={l} style={{ textAlign: "center", padding: "28px 20px", border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+              <div style={{ fontSize: 36, fontWeight: 900, fontFamily: "serif", color: DARK, marginBottom: 8 }}>{v}</div>
+              <div style={{ fontSize: 12, color: MUTED, textTransform: "uppercase", letterSpacing: 1 }}>{l}</div>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ textAlign: "center", fontSize: 13, color: MUTED, fontStyle: "italic", marginBottom: 32 }}>
+          Delivering 5 Star Hospitality Excellence
+        </p>
+
+        <div style={{ textAlign: "center", fontSize: 12, color: MUTED, fontWeight: 600, letterSpacing: 2, textTransform: "uppercase" }}>
+          Our Distribution Partners
+        </div>
+        <p style={{ textAlign: "center", fontSize: 12, color: MUTED, marginTop: 8 }}>Airbnb · Booking.com · Vrbo · Expedia · And Much More…</p>
+
+        <div style={confidential}>Confidential © Royal Holiday Homes</div>
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          PAGE 10 — CTA + CONTACT
+      ══════════════════════════════════════════════ */}
+      <div style={{ ...page }}>
+        <h2 style={{ ...sectionTitle, fontSize: 26, marginBottom: 4 }}>Ready to Maximize Your Property's Potential?</h2>
+        <div style={{ height: 2, background: GOLD, width: 40, marginTop: 12, marginBottom: 16 }} />
+        <p style={{ fontSize: 13, fontWeight: 600, color: MUTED, textTransform: "uppercase", letterSpacing: 1, marginBottom: 32 }}>Next Steps</p>
+
+        <p style={{ fontSize: 14, color: "#555", lineHeight: 1.8, marginBottom: 40 }}>
+          {proposal.advisorName
+            ? `Your dedicated representative, ${proposal.advisorName}, is ready to assist you every step of the way.`
+            : "Reach out to begin onboarding, our team will take care of everything required to prepare, position, and launch your property for successful bookings."}
+        </p>
+
+        {/* CTA buttons — hidden on print */}
+        <div className="print:hidden" style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 48 }}>
           {submitted ? (
-            <div style={{ position: "relative", zIndex: 1 }}>
-              <CheckCircle2 style={{ width: 56, height: 56, color: "#16a34a", margin: "0 auto 16px" }} />
-              <h2 style={{ fontSize: 28, fontFamily: "serif", fontWeight: 700, marginBottom: 12 }}>Thank you!</h2>
-              <p style={{ color: "#666" }}>Your representative {proposal.advisorName ? `(${proposal.advisorName})` : ""} will be in touch with you shortly.</p>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "16px 24px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 8 }}>
+              <CheckCircle2 style={{ width: 20, height: 20, color: "#16a34a" }} />
+              <span style={{ fontSize: 14, fontWeight: 600, color: "#16a34a" }}>Thank you! Your representative will be in touch shortly.</span>
             </div>
           ) : (
             <>
-              <div style={{ position: "relative", zIndex: 1, fontSize: 11, color: G, textTransform: "uppercase", letterSpacing: 2, fontWeight: 700, marginBottom: 12 }}>Next Steps</div>
-              <h2 style={{ position: "relative", zIndex: 1, fontSize: 36, fontFamily: "serif", fontWeight: 700, marginBottom: 12 }}>
-                Ready to Maximise Your Property's Potential?
-              </h2>
-              <p style={{ position: "relative", zIndex: 1, color: "#666", maxWidth: 520, margin: "0 auto 40px" }}>
-                {proposal.advisorName ? `Your dedicated representative, ${proposal.advisorName}, is ready to assist you every step of the way.` : "Reach out to begin onboarding — our team will take care of everything required to prepare, position, and launch your property."}
-              </p>
-              <div style={{ position: "relative", zIndex: 1, display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
-                <button onClick={() => setDialogType("accept")}
-                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 28px", borderRadius: 10, background: DARK, color: "#fff", border: "none", cursor: "pointer", fontSize: 15, fontWeight: 700 }}>
-                  <CheckCircle2 style={{ width: 20, height: 20, color: G }} /> Accept Proposal
-                </button>
-                <button onClick={() => setDialogType("call")}
-                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 28px", borderRadius: 10, background: "#fff", color: DARK, border: "2px solid #e5e7eb", cursor: "pointer", fontSize: 15, fontWeight: 600 }}>
-                  <Phone style={{ width: 20, height: 20 }} /> Request a Call
-                </button>
-                <button onClick={() => setDialogType("question")}
-                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "16px 28px", borderRadius: 10, background: "#fff", color: DARK, border: "2px solid #e5e7eb", cursor: "pointer", fontSize: 15, fontWeight: 600 }}>
-                  <ArrowRight style={{ width: 20, height: 20 }} /> Ask a Question
-                </button>
-              </div>
+              <button onClick={() => setDialogType("accept")}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 24px", borderRadius: 8, background: DARK, color: WHITE, border: "none", cursor: "pointer", fontSize: 14, fontWeight: 700 }}>
+                <CheckCircle2 style={{ width: 18, height: 18, color: GOLD }} /> Accept Proposal
+              </button>
+              <button onClick={() => setDialogType("call")}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 24px", borderRadius: 8, background: WHITE, color: DARK, border: `1.5px solid ${BORDER}`, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
+                <Phone style={{ width: 18, height: 18 }} /> Request a Call
+              </button>
+              <button onClick={() => setDialogType("question")}
+                style={{ display: "flex", alignItems: "center", gap: 8, padding: "14px 24px", borderRadius: 8, background: WHITE, color: DARK, border: `1.5px solid ${BORDER}`, cursor: "pointer", fontSize: 14, fontWeight: 600 }}>
+                <ArrowRight style={{ width: 18, height: 18 }} /> Ask a Question
+              </button>
             </>
           )}
         </div>
-      </section>
 
-      {/* ── CONTACT / FOOTER ── */}
-      <section style={{ background: DARK, color: "#fff", padding: "48px 48px 40px", pageBreakBefore: "always" }}>
-        <div style={{ maxWidth: 900, margin: "0 auto" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 40, alignItems: "start", marginBottom: 32 }}>
-            <div>
-              <div style={{ fontSize: 11, color: G, textTransform: "uppercase", letterSpacing: 2, fontWeight: 700, marginBottom: 16 }}>Contact Us</div>
-              <div style={{ fontSize: 22, fontFamily: "serif", fontWeight: 700, marginBottom: 16 }}>Ready to get started?</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, fontSize: 14, color: "#aaa" }}>
-                <div>📞 {proposal.companyPhone ?? "800 RHH"}</div>
-                <div>🌐 www.royalholidayhomes.ae</div>
-                {proposal.companyEmail && <div>✉️ {proposal.companyEmail}</div>}
-                <div>📍 Suite 503, Al Neyadi Building – Sheikh Rashid Bin Saeed St – Al Manhal – Abu Dhabi</div>
+        {/* Contact block */}
+        <div style={{ borderTop: `2px solid ${BORDER}`, paddingTop: 36 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", color: MUTED, marginBottom: 20 }}>Contact Us</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 40 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13, color: "#555" }}>
+              <div>📞 {proposal.companyPhone ?? "800 RHH"}</div>
+              <div>🌐 www.royalholidayhomes.ae</div>
+              <div>📧 Landlords: owners@royalholidayhomes.ae</div>
+              <div style={{ paddingLeft: 20, fontSize: 12, color: MUTED }}>Guests: bookings@royalholidayhomes.ae</div>
+              <div>📍 Suite 503, Al Neyadi Building – Sheikh Rashid Bin Saeed St – Al Manhal – Abu Dhabi.</div>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "flex-end" }}>
+              <div style={{ textAlign: "right" }}>
+                <img src="/rhh-logo.png" alt="RHH" style={{ height: 32, width: "auto", marginBottom: 8 }}
+                  onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                <div style={{ fontSize: 14, fontWeight: 700, fontFamily: "serif", color: DARK }}>Royal Holiday Homes</div>
+                <div style={{ fontSize: 11, color: MUTED, marginTop: 6 }}>Ref: {proposal.referenceNumber}</div>
+                <div style={{ fontSize: 11, color: MUTED, marginTop: 2 }}>
+                  Expires: {new Date(proposal.expiresAt).toLocaleDateString("en-AE", { day: "2-digit", month: "short", year: "numeric" })}
+                </div>
               </div>
             </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "flex-end", marginBottom: 12 }}>
-                <img src="/rhh-logo.png" alt="RHH" style={{ height: 32, width: "auto" }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
-                <span style={{ fontSize: 16, fontWeight: 600, fontFamily: "serif" }}>Royal Holiday Homes</span>
-              </div>
-              <div style={{ fontSize: 12, color: "#666" }}>
-                <div>Ref: {proposal.referenceNumber}</div>
-                <div style={{ marginTop: 4 }}>Expires: {new Date(proposal.expiresAt).toLocaleDateString("en-AE", { day: "2-digit", month: "short", year: "numeric" })}</div>
-              </div>
-            </div>
-          </div>
-          <div style={{ borderTop: "1px solid #222", paddingTop: 20, fontSize: 11, color: "#555", lineHeight: 1.6 }}>
-            <p>{proposal.disclaimer ?? "This forecast is an estimate based on historical market data and comparable properties. Actual revenue may vary and is not guaranteed. Figures are subject to change based on market conditions."}</p>
-            <p style={{ marginTop: 8 }}>Confidential © Royal Holiday Homes {new Date().getFullYear()}. All rights reserved.</p>
           </div>
         </div>
-      </section>
 
-      {/* ── Action Dialogs ── */}
-      <Dialog open={dialogType !== null} onOpenChange={(open) => !open && setDialogType(null)}>
-        <DialogContent className="sm:max-w-[425px]">
+        <div style={{ ...confidential, marginTop: 32 }}>
+          <p>{proposal.disclaimer ?? "This forecast is an estimate based on historical market data and comparable properties. Actual revenue may vary and is not guaranteed."}</p>
+          <p style={{ marginTop: 6 }}>Confidential © Royal Holiday Homes {new Date().getFullYear()}. All rights reserved.</p>
+        </div>
+      </div>
+
+      {/* ── Action dialogs ── */}
+      <Dialog open={dialogType !== null} onOpenChange={open => !open && setDialogType(null)}>
+        <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle className="font-serif text-xl">
               {dialogType === "accept" ? "Accept Proposal" : dialogType === "call" ? "Request a Callback" : "Ask a Question"}
             </DialogTitle>
             <DialogDescription>
               {dialogType === "accept" ? "We'll get in touch to finalise your management agreement." :
-               dialogType === "call" ? "Provide your number and we'll call you at your convenience." :
-               "Send your question and we'll respond promptly."}
+               dialogType === "call"   ? "Provide your number and we'll call you at your convenience." :
+                                         "Send your question and we'll respond promptly."}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -644,20 +767,19 @@ export default function PublicProposal() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogType(null)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={submitAction.isPending} style={{ background: DARK, color: "#fff" }}>
+            <Button onClick={handleSubmit} disabled={submitAction.isPending} style={{ background: DARK, color: WHITE }}>
               {submitAction.isPending ? "Submitting…" : "Submit"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Print-only styles */}
+      {/* Print styles */}
       <style>{`
         @media print {
           body { background: white !important; }
-          section { page-break-inside: avoid; }
-          button, .print\\:hidden { display: none !important; }
-          @page { margin: 10mm; size: A4; }
+          .print\\:hidden { display: none !important; }
+          @page { margin: 8mm; size: A4; }
         }
       `}</style>
     </div>

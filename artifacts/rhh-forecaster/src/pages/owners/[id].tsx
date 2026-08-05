@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,7 +22,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Plus, Mail, Phone, MapPin, FileText, Pencil, Home, Globe,
-  UserCheck, UserPlus, Loader2, RefreshCw,
+  UserCheck, UserPlus, Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -43,6 +42,7 @@ const editSchema = z.object({
   refereeId: z.coerce.number().optional().nullable(),
   notes: z.string().optional(),
 });
+
 type EditFormValues = z.infer<typeof editSchema>;
 
 interface RepQuickFormValues {
@@ -52,9 +52,11 @@ interface RepQuickFormValues {
 }
 
 interface RefereeQuickFormValues {
-  name: string; phone?: string; email?: string; companyName?: string;
-  referralFeeStudio: number; referralFee1br: number; referralFee2br: number;
-  referralFee3br: number; referralFee4brPlus: number; isRecurringEnabled: boolean;
+  name: string;
+  phone?: string;
+  email?: string;
+  companyName?: string;
+  commissionPercent?: number;
 }
 
 export default function OwnerDetail() {
@@ -82,17 +84,12 @@ export default function OwnerDetail() {
     defaultValues: { name: "", email: "", password: "", role: "sales" },
   });
   const refereeForm = useForm<RefereeQuickFormValues>({
-    defaultValues: {
-      name: "", referralFeeStudio: 1500, referralFee1br: 2000,
-      referralFee2br: 2500, referralFee3br: 3000, referralFee4brPlus: 3500,
-      isRecurringEnabled: false,
-    },
+    defaultValues: { name: "", commissionPercent: 5 },
   });
 
   const watchedOwnerType = form.watch("ownerType");
   const watchedLeadSource = form.watch("leadSource");
   const watchedRefereeId = form.watch("refereeId");
-  const isRefereeRecurring = refereeForm.watch("isRecurringEnabled");
 
   const selectedReferee = referees?.find((r: any) => r.id === watchedRefereeId);
 
@@ -121,7 +118,7 @@ export default function OwnerDetail() {
     try {
       const payload: any = { ...data };
       if (!payload.assignedToId) delete payload.assignedToId;
-      if (!payload.refereeId) delete payload.refereeId;
+      if (!payload.refereeId) payload.refereeId = null;
       if (!payload.companyName) delete payload.companyName;
       await updateOwner.mutateAsync({ id: ownerId, data: payload });
       queryClient.invalidateQueries({ queryKey: ["getOwner"] });
@@ -151,7 +148,7 @@ export default function OwnerDetail() {
       queryClient.invalidateQueries({ queryKey: ["listReferees"] });
       form.setValue("refereeId", (newRef as any).id);
       setAddRefereeOpen(false);
-      refereeForm.reset({ name: "", referralFeeStudio: 1500, referralFee1br: 2000, referralFee2br: 2500, referralFee3br: 3000, referralFee4brPlus: 3500, isRecurringEnabled: false });
+      refereeForm.reset({ name: "", commissionPercent: 5 });
       toast({ title: "Referee created", description: `${(newRef as any).refereeCode} — ${(newRef as any).name}` });
     } catch {
       toast({ title: "Failed to create referee", variant: "destructive" });
@@ -494,12 +491,15 @@ export default function OwnerDetail() {
                   )} />
                 </div>
 
-                {/* Referee section */}
+                {/* Referee section — shown when leadSource === "referral" */}
                 {watchedLeadSource === "referral" && (
                   <div className="rounded-lg border border-primary/30 bg-primary/5 p-4 space-y-4">
                     <div className="flex items-center gap-2">
                       <UserCheck className="h-4 w-4 text-primary" />
                       <h4 className="font-semibold text-sm text-primary">Referee</h4>
+                      <p className="text-xs text-muted-foreground ml-1">
+                        — Link this owner to a registered referee who will earn commission.
+                      </p>
                     </div>
                     <div className="flex gap-2 items-start">
                       <FormField control={form.control} name="refereeId" render={({ field }) => (
@@ -530,31 +530,19 @@ export default function OwnerDetail() {
                       </Button>
                     </div>
                     {selectedReferee && (
-                      <div className="p-3 bg-background rounded-md border border-border/50 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="font-mono text-xs bg-primary/5 border-primary/30 text-primary">
-                            {(selectedReferee as any).refereeCode}
-                          </Badge>
-                          <span className="text-sm font-medium">{selectedReferee.name}</span>
-                          {(selectedReferee as any).isRecurringEnabled && (
-                            <Badge variant="outline" className="text-xs gap-1 text-emerald-700 border-emerald-300 bg-emerald-50">
-                              <RefreshCw className="h-2.5 w-2.5" /> Recurring
-                            </Badge>
+                      <div className="flex items-center gap-3 p-3 bg-background rounded-md border border-border/50">
+                        <Badge variant="outline" className="font-mono text-xs bg-primary/5 border-primary/30 text-primary shrink-0">
+                          {(selectedReferee as any).refereeCode}
+                        </Badge>
+                        <div className="min-w-0">
+                          <p className="font-medium text-sm">{selectedReferee.name}</p>
+                          {(selectedReferee as any).companyName && (
+                            <p className="text-xs text-muted-foreground">{(selectedReferee as any).companyName}</p>
                           )}
                         </div>
-                        <div className="grid grid-cols-5 gap-1 text-center text-xs">
-                          {[
-                            { l: "Studio", v: (selectedReferee as any).referralFeeStudio },
-                            { l: "1 BR", v: (selectedReferee as any).referralFee1br },
-                            { l: "2 BR", v: (selectedReferee as any).referralFee2br },
-                            { l: "3 BR", v: (selectedReferee as any).referralFee3br },
-                            { l: "4+ BR", v: (selectedReferee as any).referralFee4brPlus },
-                          ].map(({ l, v }) => (
-                            <div key={l} className="bg-muted/40 rounded p-1">
-                              <p className="text-[10px] text-muted-foreground">{l}</p>
-                              <p className="font-semibold">{Number(v ?? 0).toLocaleString()} AED</p>
-                            </div>
-                          ))}
+                        <div className="ml-auto text-sm shrink-0">
+                          <span className="text-muted-foreground">Commission: </span>
+                          <span className="font-semibold text-primary">{(selectedReferee as any).commissionPercent}%</span>
                         </div>
                       </div>
                     )}
@@ -641,10 +629,12 @@ export default function OwnerDetail() {
 
       {/* Quick-create Referee */}
       <Dialog open={addRefereeOpen} onOpenChange={setAddRefereeOpen}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="font-serif">Register New Referee</DialogTitle>
-            <p className="text-sm text-muted-foreground mt-1">A unique Referee ID will be automatically generated.</p>
+            <p className="text-sm text-muted-foreground mt-1">
+              A unique Referee ID (e.g. <span className="font-mono font-medium">REF-001</span>) will be automatically generated.
+            </p>
           </DialogHeader>
           <form onSubmit={refereeForm.handleSubmit(handleCreateReferee)} className="space-y-4">
             <div className="space-y-2">
@@ -666,40 +656,18 @@ export default function OwnerDetail() {
               <Input {...refereeForm.register("companyName")} placeholder="Al Mansoori Real Estate" />
             </div>
             <div className="space-y-2">
-              <div className="flex items-center gap-1.5 mb-1">
-                <Home className="h-3.5 w-3.5 text-primary" />
-                <Label className="text-sm">One-Time Referral Fees (AED)</Label>
+              <Label>Commission (%)</Label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  max="100"
+                  {...refereeForm.register("commissionPercent", { valueAsNumber: true })}
+                  className="pr-8"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">%</span>
               </div>
-              <div className="grid grid-cols-2 gap-2 rounded-lg border border-border/60 bg-muted/20 p-3">
-                {([
-                  { label: "Studio", field: "referralFeeStudio" },
-                  { label: "1 Bedroom", field: "referralFee1br" },
-                  { label: "2 Bedrooms", field: "referralFee2br" },
-                  { label: "3 Bedrooms", field: "referralFee3br" },
-                  { label: "4+ Bedrooms", field: "referralFee4brPlus" },
-                ] as const).map(({ label, field }) => (
-                  <div key={field} className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">{label}</Label>
-                    <div className="relative">
-                      <Input type="number" min="0" step="100"
-                        {...refereeForm.register(field, { valueAsNumber: true })}
-                        className="pr-10 text-sm h-8" />
-                      <span className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">AED</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3">
-              <div className="flex items-center gap-2">
-                <RefreshCw className="h-3.5 w-3.5 text-emerald-600" />
-                <div>
-                  <Label className="text-sm font-medium">Recurring Commission</Label>
-                  <p className="text-xs text-muted-foreground">Agent earns PM%−16% per year</p>
-                </div>
-              </div>
-              <Switch checked={isRefereeRecurring}
-                onCheckedChange={(val) => refereeForm.setValue("isRecurringEnabled", val)} />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setAddRefereeOpen(false)}>Cancel</Button>

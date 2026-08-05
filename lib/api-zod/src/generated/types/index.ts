@@ -61,6 +61,8 @@ export * from './proposalUpdate';
 export * from './publicProposal';
 export * from './publishInput';
 export * from './referee';
+export * from './refereeCommission';
+export * from './refereeCommissionOwnerBreakdownsItem';
 export * from './refereeDetail';
 export * from './refereeDetailReferredOwnersItem';
 export * from './refereeInput';

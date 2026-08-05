@@ -221,7 +221,38 @@ export interface Referee {
   notes?: string | null;
   isActive: boolean;
   referredCount?: number;
+  /** Total recurring commission owed to this referee across all referred owners' forecasts (AED) */
+  totalCommissionOwed?: number;
   createdAt: string;
+}
+
+export type RefereeCommissionOwnerBreakdownsItem = {
+  ownerId: number;
+  ownerName: string;
+  ownerEmail: string;
+  /** @nullable */
+  forecastId?: number | null;
+  /** @nullable */
+  forecastStatus?: string | null;
+  grossAnnualRevenue: number;
+  netOwnerIncome: number;
+  managementFeePercent: number;
+  /** Effective commission percentage for this owner (max(0, PM% - 16)) */
+  commissionPercent: number;
+  /** Commission amount owed for this owner's forecast (AED) */
+  commissionAmount: number;
+};
+
+export interface RefereeCommission {
+  refereeId: number;
+  refereeName: string;
+  refereeCode: string;
+  isRecurringEnabled: boolean;
+  /** Sum of grossAnnualRevenue across all referred owners' latest forecasts (AED) */
+  totalGrossRevenue: number;
+  /** Total recurring commission owed to this referee (AED) */
+  totalCommissionOwed: number;
+  ownerBreakdowns: RefereeCommissionOwnerBreakdownsItem[];
 }
 
 export type RefereeDetailReferredOwnersItem = {

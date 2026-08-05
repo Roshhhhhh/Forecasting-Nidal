@@ -1,14 +1,19 @@
-import { useGetReferee } from "@workspace/api-client-react";
+import { useGetReferee, useGetRefereeCommission } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, UserCheck, Phone, Mail, Users, RefreshCw, Home } from "lucide-react";
+import { ArrowLeft, UserCheck, Phone, Mail, Users, RefreshCw, Home, TrendingUp, DollarSign } from "lucide-react";
+
+function fmtAED(val: number) {
+  return val.toLocaleString("en-AE", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
 
 export default function RefereeDetail() {
   const { id } = useParams<{ id: string }>();
   const refereeId = parseInt(id || "0", 10);
   const { data: referee, isLoading } = useGetReferee(refereeId);
+  const { data: commission, isLoading: commissionLoading } = useGetRefereeCommission(refereeId);
 
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading...</div>;
   if (!referee) return <div className="p-8 text-center text-red-500">Referee not found.</div>;
@@ -22,6 +27,10 @@ export default function RefereeDetail() {
     { label: "3 Bedrooms", value: referee.referralFee3br },
     { label: "4+ Bedrooms", value: referee.referralFee4brPlus },
   ];
+
+  // Build a lookup from ownerId → commission breakdown
+  const commissionMap = new Map<number, NonNullable<typeof commission>["ownerBreakdowns"][number]>();
+  commission?.ownerBreakdowns.forEach((b) => commissionMap.set(b.ownerId, b));
 
   return (
     <div className="p-8 max-w-[900px] mx-auto space-y-6">
@@ -85,6 +94,41 @@ export default function RefereeDetail() {
           </Card>
         )}
       </div>
+
+      {/* Commission Summary — only shown when recurring enabled */}
+      {referee.isRecurringEnabled && (
+        <Card className="border-emerald-200 bg-emerald-50/40 shadow-sm">
+          <CardHeader className="bg-emerald-50 border-b border-emerald-200 py-3 px-5">
+            <CardTitle className="font-serif text-base flex items-center gap-2 text-emerald-800">
+              <DollarSign className="h-4 w-4" />
+              Commission Summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-5">
+            {commissionLoading ? (
+              <div className="text-sm text-muted-foreground">Calculating commission...</div>
+            ) : commission ? (
+              <div className="grid grid-cols-3 gap-4 text-center">
+                <div className="rounded-lg bg-white border border-emerald-100 p-4">
+                  <p className="text-xs text-muted-foreground mb-1">Total Gross Revenue</p>
+                  <p className="text-xl font-bold text-foreground">{fmtAED(commission.totalGrossRevenue)}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">AED (across all forecasts)</p>
+                </div>
+                <div className="rounded-lg bg-white border border-emerald-100 p-4">
+                  <p className="text-xs text-muted-foreground mb-1">Commission Model</p>
+                  <p className="text-xl font-bold text-emerald-700">PM% − 16%</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Recurring, per property</p>
+                </div>
+                <div className="rounded-lg bg-emerald-100 border border-emerald-300 p-4">
+                  <p className="text-xs text-emerald-700 mb-1 font-medium">Total Owed</p>
+                  <p className="text-xl font-bold text-emerald-800">{fmtAED(commission.totalCommissionOwed)}</p>
+                  <p className="text-[10px] text-emerald-600 mt-0.5">AED</p>
+                </div>
+              </div>
+            ) : null}
+          </CardContent>
+        </Card>
+      )}
 
       {/* One-time referral fees */}
       <Card className="border-border/50 shadow-sm">
@@ -170,27 +214,70 @@ export default function RefereeDetail() {
                   <th className="px-4 py-3 text-left font-medium">Owner</th>
                   <th className="px-4 py-3 text-left font-medium">Email</th>
                   <th className="px-4 py-3 text-left font-medium">Phone</th>
+                  {referee.isRecurringEnabled && (
+                    <>
+                      <th className="px-4 py-3 text-right font-medium">Net Owner Income</th>
+                      <th className="px-4 py-3 text-right font-medium">Commission %</th>
+                      <th className="px-4 py-3 text-right font-medium text-emerald-700">Commission (AED)</th>
+                    </>
+                  )}
                   <th className="px-4 py-3 text-left font-medium">Added</th>
                   <th className="px-4 py-3 text-left font-medium"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {owners.map((owner: any) => (
-                  <tr key={owner.id} className="hover:bg-muted/20">
-                    <td className="px-4 py-3 font-medium">{owner.firstName} {owner.lastName}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{owner.email}</td>
-                    <td className="px-4 py-3 text-muted-foreground">{owner.phone ?? "—"}</td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">
-                      {new Date(owner.createdAt).toLocaleDateString("en-AE")}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link href={`/owners/${owner.id}`}>
-                        <Button variant="ghost" size="sm" className="text-xs">View</Button>
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {owners.map((owner: any) => {
+                  const breakdown = commissionMap.get(owner.id);
+                  return (
+                    <tr key={owner.id} className="hover:bg-muted/20">
+                      <td className="px-4 py-3 font-medium">{owner.firstName} {owner.lastName}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{owner.email}</td>
+                      <td className="px-4 py-3 text-muted-foreground">{owner.phone ?? "—"}</td>
+                      {referee.isRecurringEnabled && (
+                        <>
+                          <td className="px-4 py-3 text-right text-muted-foreground">
+                            {breakdown && breakdown.netOwnerIncome > 0
+                              ? <span>{fmtAED(breakdown.netOwnerIncome)} <span className="text-xs">AED</span></span>
+                              : <span className="text-muted-foreground/50">—</span>}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {breakdown && breakdown.commissionPercent > 0
+                              ? <Badge variant="outline" className="text-emerald-700 border-emerald-300 bg-emerald-50">{breakdown.commissionPercent}%</Badge>
+                              : <span className="text-muted-foreground/50 text-xs">—</span>}
+                          </td>
+                          <td className="px-4 py-3 text-right font-semibold text-emerald-700">
+                            {breakdown && breakdown.commissionAmount > 0
+                              ? <span>{fmtAED(breakdown.commissionAmount)} <span className="text-xs font-normal">AED</span></span>
+                              : <span className="text-muted-foreground/50 text-xs font-normal">No forecast</span>}
+                          </td>
+                        </>
+                      )}
+                      <td className="px-4 py-3 text-muted-foreground text-xs">
+                        {new Date(owner.createdAt).toLocaleDateString("en-AE")}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Link href={`/owners/${owner.id}`}>
+                          <Button variant="ghost" size="sm" className="text-xs">View</Button>
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
+              {referee.isRecurringEnabled && commission && commission.totalCommissionOwed > 0 && (
+                <tfoot className="bg-emerald-50 border-t-2 border-emerald-200">
+                  <tr>
+                    <td colSpan={5} className="px-4 py-3 text-sm font-semibold text-emerald-800">
+                      <TrendingUp className="h-4 w-4 inline mr-1" />
+                      Total Commission Owed
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-emerald-800 text-base">
+                      {fmtAED(commission.totalCommissionOwed)} <span className="text-sm font-normal">AED</span>
+                    </td>
+                    <td colSpan={2} />
+                  </tr>
+                </tfoot>
+              )}
             </table>
           )}
         </CardContent>

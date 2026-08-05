@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, sql } from "drizzle-orm";
-import { db, refereesTable, ownersTable } from "@workspace/db";
+import { eq, desc, sql, and, isNotNull } from "drizzle-orm";
+import { db, refereesTable, ownersTable, forecastsTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 import { z } from "zod";
 
@@ -73,6 +73,41 @@ const UpdateRefereeBody = z.object({
   isActive: z.boolean().optional(),
 });
 
+// Helper: compute total commission owed for a referee across all referred owners' forecasts
+async function computeTotalCommissionOwed(refereeId: number, isRecurringEnabled: boolean): Promise<number> {
+  if (!isRecurringEnabled) return 0;
+  // Get all owners referred by this referee
+  const owners = await db
+    .select({ id: ownersTable.id })
+    .from(ownersTable)
+    .where(eq(ownersTable.refereeId, refereeId));
+  if (owners.length === 0) return 0;
+  // For each owner, get their latest non-archived forecast with revenue data
+  let total = 0;
+  for (const owner of owners) {
+    const [forecast] = await db
+      .select({
+        grossAnnualRevenue: forecastsTable.grossAnnualRevenue,
+        managementFeePercent: forecastsTable.managementFeePercent,
+      })
+      .from(forecastsTable)
+      .where(
+        and(
+          eq(forecastsTable.ownerId, owner.id),
+          isNotNull(forecastsTable.grossAnnualRevenue),
+          eq(forecastsTable.isArchived, false)
+        )
+      )
+      .orderBy(desc(forecastsTable.createdAt))
+      .limit(1);
+    if (forecast?.grossAnnualRevenue && forecast?.managementFeePercent) {
+      const commissionPct = Math.max(0, forecast.managementFeePercent - 16);
+      total += (forecast.grossAnnualRevenue * commissionPct) / 100;
+    }
+  }
+  return Math.round(total);
+}
+
 // List all referees
 router.get("/referees", requireAuth, async (_req, res): Promise<void> => {
   const rows = await db.select().from(refereesTable).orderBy(desc(refereesTable.createdAt));
@@ -82,7 +117,8 @@ router.get("/referees", requireAuth, async (_req, res): Promise<void> => {
         .select({ count: sql<number>`count(*)::int` })
         .from(ownersTable)
         .where(eq(ownersTable.refereeId, r.id));
-      return { ...formatReferee(r), referredCount: cnt?.count ?? 0 };
+      const totalCommissionOwed = await computeTotalCommissionOwed(r.id, r.isRecurringEnabled);
+      return { ...formatReferee(r), referredCount: cnt?.count ?? 0, totalCommissionOwed };
     })
   );
   res.json(withCounts);
@@ -120,6 +156,81 @@ router.get("/referees/:id", requireAuth, async (req, res): Promise<void> => {
     .from(ownersTable)
     .where(eq(ownersTable.refereeId, id));
   res.json(formatReferee(referee, owners));
+});
+
+// Commission summary for a referee
+router.get("/referees/:id/commission", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
+  const [referee] = await db.select().from(refereesTable).where(eq(refereesTable.id, id));
+  if (!referee) { res.status(404).json({ error: "Referee not found" }); return; }
+
+  const owners = await db
+    .select({
+      id: ownersTable.id,
+      firstName: ownersTable.firstName,
+      lastName: ownersTable.lastName,
+      email: ownersTable.email,
+    })
+    .from(ownersTable)
+    .where(eq(ownersTable.refereeId, id));
+
+  const ownerBreakdowns = await Promise.all(
+    owners.map(async (owner) => {
+      const [forecast] = await db
+        .select({
+          id: forecastsTable.id,
+          grossAnnualRevenue: forecastsTable.grossAnnualRevenue,
+          netOwnerIncome: forecastsTable.netOwnerIncome,
+          managementFeePercent: forecastsTable.managementFeePercent,
+          status: forecastsTable.status,
+        })
+        .from(forecastsTable)
+        .where(
+          and(
+            eq(forecastsTable.ownerId, owner.id),
+            isNotNull(forecastsTable.grossAnnualRevenue),
+            eq(forecastsTable.isArchived, false)
+          )
+        )
+        .orderBy(desc(forecastsTable.createdAt))
+        .limit(1);
+
+      const grossAnnualRevenue = forecast?.grossAnnualRevenue ?? 0;
+      const netOwnerIncome = forecast?.netOwnerIncome ?? 0;
+      const managementFeePercent = forecast?.managementFeePercent ?? 0;
+      const commissionPercent = referee.isRecurringEnabled
+        ? Math.max(0, managementFeePercent - 16)
+        : 0;
+      const commissionAmount = Math.round((grossAnnualRevenue * commissionPercent) / 100);
+
+      return {
+        ownerId: owner.id,
+        ownerName: `${owner.firstName} ${owner.lastName}`,
+        ownerEmail: owner.email,
+        forecastId: forecast?.id ?? null,
+        forecastStatus: forecast?.status ?? null,
+        grossAnnualRevenue,
+        netOwnerIncome,
+        managementFeePercent,
+        commissionPercent,
+        commissionAmount,
+      };
+    })
+  );
+
+  const totalGrossRevenue = ownerBreakdowns.reduce((s, o) => s + o.grossAnnualRevenue, 0);
+  const totalCommissionOwed = ownerBreakdowns.reduce((s, o) => s + o.commissionAmount, 0);
+
+  res.json({
+    refereeId: referee.id,
+    refereeName: referee.name,
+    refereeCode: referee.refereeCode,
+    isRecurringEnabled: referee.isRecurringEnabled,
+    totalGrossRevenue,
+    totalCommissionOwed,
+    ownerBreakdowns,
+  });
 });
 
 // Update referee

@@ -368,6 +368,25 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+  /referees/{id}/commission:
+    get:
+      operationId: getRefereeCommission
+      tags: [referees]
+      summary: Get commission summary for a referee across all referred owners' forecasts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Commission summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RefereeCommission"
+
   # PROPERTIES
   /properties:
     get:
@@ -1465,9 +1484,59 @@ components:
           type: boolean
         referredCount:
           type: number
+        totalCommissionOwed:
+          type: number
+          description: Total recurring commission owed to this referee across all referred owners' forecasts (AED)
         createdAt:
           type: string
           format: date-time
+
+    RefereeCommission:
+      type: object
+      required: [refereeId, refereeName, refereeCode, isRecurringEnabled, totalGrossRevenue, totalCommissionOwed, ownerBreakdowns]
+      properties:
+        refereeId:
+          type: number
+        refereeName:
+          type: string
+        refereeCode:
+          type: string
+        isRecurringEnabled:
+          type: boolean
+        totalGrossRevenue:
+          type: number
+          description: Sum of grossAnnualRevenue across all referred owners' latest forecasts (AED)
+        totalCommissionOwed:
+          type: number
+          description: Total recurring commission owed to this referee (AED)
+        ownerBreakdowns:
+          type: array
+          items:
+            type: object
+            required: [ownerId, ownerName, ownerEmail, grossAnnualRevenue, netOwnerIncome, managementFeePercent, commissionPercent, commissionAmount]
+            properties:
+              ownerId:
+                type: number
+              ownerName:
+                type: string
+              ownerEmail:
+                type: string
+              forecastId:
+                type: ["number", "null"]
+              forecastStatus:
+                type: ["string", "null"]
+              grossAnnualRevenue:
+                type: number
+              netOwnerIncome:
+                type: number
+              managementFeePercent:
+                type: number
+              commissionPercent:
+                type: number
+                description: Effective commission percentage for this owner (max(0, PM% - 16))
+              commissionAmount:
+                type: number
+                description: Commission amount owed for this owner's forecast (AED)
 
     RefereeDetail:
       type: object

@@ -32,5 +32,7 @@ export interface Referee {
   notes?: string | null;
   isActive: boolean;
   referredCount?: number;
+  /** Total recurring commission owed to this referee across all referred owners' forecasts (AED) */
+  totalCommissionOwed?: number;
   createdAt: Date;
 }

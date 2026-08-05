@@ -342,6 +342,7 @@ export const ListRefereesResponseItem = zod.object({
   "notes": zod.string().nullish(),
   "isActive": zod.boolean(),
   "referredCount": zod.number().optional(),
+  "totalCommissionOwed": zod.number().optional().describe('Total recurring commission owed to this referee across all referred owners\' forecasts (AED)'),
   "createdAt": zod.coerce.date()
 })
 export const ListRefereesResponse = zod.array(ListRefereesResponseItem)
@@ -380,6 +381,7 @@ export const CreateRefereeResponse = zod.object({
   "notes": zod.string().nullish(),
   "isActive": zod.boolean(),
   "referredCount": zod.number().optional(),
+  "totalCommissionOwed": zod.number().optional().describe('Total recurring commission owed to this referee across all referred owners\' forecasts (AED)'),
   "createdAt": zod.coerce.date()
 })
 
@@ -457,6 +459,7 @@ export const UpdateRefereeResponse = zod.object({
   "notes": zod.string().nullish(),
   "isActive": zod.boolean(),
   "referredCount": zod.number().optional(),
+  "totalCommissionOwed": zod.number().optional().describe('Total recurring commission owed to this referee across all referred owners\' forecasts (AED)'),
   "createdAt": zod.coerce.date()
 })
 
@@ -470,6 +473,35 @@ export const DeleteRefereeParams = zod.object({
 
 export const DeleteRefereeResponse = zod.object({
   "message": zod.string()
+})
+
+
+/**
+ * @summary Get commission summary for a referee across all referred owners' forecasts
+ */
+export const GetRefereeCommissionParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetRefereeCommissionResponse = zod.object({
+  "refereeId": zod.number(),
+  "refereeName": zod.string(),
+  "refereeCode": zod.string(),
+  "isRecurringEnabled": zod.boolean(),
+  "totalGrossRevenue": zod.number().describe('Sum of grossAnnualRevenue across all referred owners\' latest forecasts (AED)'),
+  "totalCommissionOwed": zod.number().describe('Total recurring commission owed to this referee (AED)'),
+  "ownerBreakdowns": zod.array(zod.object({
+  "ownerId": zod.number(),
+  "ownerName": zod.string(),
+  "ownerEmail": zod.string(),
+  "forecastId": zod.number().nullish(),
+  "forecastStatus": zod.string().nullish(),
+  "grossAnnualRevenue": zod.number(),
+  "netOwnerIncome": zod.number(),
+  "managementFeePercent": zod.number(),
+  "commissionPercent": zod.number().describe('Effective commission percentage for this owner (max(0, PM% - 16))'),
+  "commissionAmount": zod.number().describe('Commission amount owed for this owner\'s forecast (AED)')
+}))
 })
 
 

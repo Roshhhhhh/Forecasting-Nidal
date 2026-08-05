@@ -235,6 +235,16 @@ export default function RefereesList() {
                     </div>
                   )}
                 </div>
+                {referee.isRecurringEnabled && (
+                  <div className="flex items-center justify-between rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2">
+                    <span className="text-xs text-emerald-700 font-medium">Total Owed</span>
+                    <span className="text-sm font-bold text-emerald-800">
+                      {((referee as any).totalCommissionOwed ?? 0) > 0
+                        ? `${Number((referee as any).totalCommissionOwed).toLocaleString("en-AE")} AED`
+                        : "—"}
+                    </span>
+                  </div>
+                )}
                 <Link href={`/referees/${referee.id}`}>
                   <Button variant="outline" size="sm" className="w-full text-xs gap-1.5">
                     <Users className="h-3.5 w-3.5" /> View Referred Owners

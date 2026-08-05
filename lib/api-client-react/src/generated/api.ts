@@ -59,6 +59,7 @@ import type {
   PublicProposal,
   PublishInput,
   Referee,
+  RefereeCommission,
   RefereeDetail,
   RefereeInput,
   RefereeUpdate,
@@ -1499,6 +1500,83 @@ export const useDeleteReferee = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getDeleteRefereeMutationOptions(options));
     }
+
+export const getGetRefereeCommissionUrl = (id: number,) => {
+
+
+
+
+  return `/api/referees/${id}/commission`
+}
+
+/**
+ * @summary Get commission summary for a referee across all referred owners' forecasts
+ */
+export const getRefereeCommission = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<RefereeCommission> => {
+
+  return customFetch<RefereeCommission>(getGetRefereeCommissionUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetRefereeCommissionQueryKey = (id: number,) => {
+    return [
+    `/api/referees/${id}/commission`
+    ] as const;
+    }
+
+
+export const getGetRefereeCommissionQueryOptions = <TData = Awaited<ReturnType<typeof getRefereeCommission>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRefereeCommission>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetRefereeCommissionQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRefereeCommission>>> = ({ signal }) => getRefereeCommission(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRefereeCommission>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetRefereeCommissionQueryResult = NonNullable<Awaited<ReturnType<typeof getRefereeCommission>>>
+export type GetRefereeCommissionQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get commission summary for a referee across all referred owners' forecasts
+ */
+
+export function useGetRefereeCommission<TData = Awaited<ReturnType<typeof getRefereeCommission>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRefereeCommission>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetRefereeCommissionQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListPropertiesUrl = () => {
 

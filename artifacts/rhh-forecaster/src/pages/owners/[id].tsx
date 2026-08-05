@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -25,6 +25,31 @@ import {
   UserCheck, UserPlus, Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+const LEAD_SOURCE_LABELS: Record<string, string> = {
+  direct_call: "Direct Call",
+  website: "Website Inquiry",
+  google_search: "Google Search",
+  walk_in: "Walk-In",
+  social_media_instagram: "Social Media — Instagram",
+  social_media_facebook: "Social Media — Facebook",
+  social_media_x: "Social Media — X (Twitter)",
+  social_media_linkedin: "Social Media — LinkedIn",
+  social_media_snapchat: "Social Media — Snapchat",
+  social_media_tiktok: "Social Media — TikTok",
+  referral: "Referred by a Referee",
+  existing_owner: "Existing RHH Owner",
+  agent: "Real Estate Agent",
+  cold_outreach: "Cold Outreach",
+  guest_staying: "Guest Staying With Us",
+  ai_suggested: "AI Suggested",
+  other: "Other",
+};
+
+function formatLeadSource(value?: string | null) {
+  if (!value) return "—";
+  return LEAD_SOURCE_LABELS[value] ?? value.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
 
 const editSchema = z.object({
   ownerType: z.enum(["individual", "company"]),
@@ -219,7 +244,7 @@ export default function OwnerDetail() {
                 )}
 
                 <div className="text-muted-foreground">Lead Source</div>
-                <div className="font-medium capitalize">{(owner as any).leadSource?.replace("_", " ") || "—"}</div>
+                <div className="font-medium">{formatLeadSource((owner as any).leadSource)}</div>
 
                 {(owner as any).assignedToName && (
                   <>
@@ -455,11 +480,35 @@ export default function OwnerDetail() {
                       <Select onValueChange={field.onChange} value={field.value ?? ""}>
                         <FormControl><SelectTrigger><SelectValue placeholder="Where did they come from?" /></SelectTrigger></FormControl>
                         <SelectContent>
-                          <SelectItem value="website">Website Inquiry</SelectItem>
-                          <SelectItem value="referral">Referral</SelectItem>
-                          <SelectItem value="cold_outreach">Cold Outreach</SelectItem>
-                          <SelectItem value="agent">Real Estate Agent</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
+                          <SelectGroup>
+                            <SelectLabel>Direct</SelectLabel>
+                            <SelectItem value="direct_call">Direct Call</SelectItem>
+                            <SelectItem value="website">Website Inquiry</SelectItem>
+                            <SelectItem value="google_search">Google Search</SelectItem>
+                            <SelectItem value="walk_in">Walk-In</SelectItem>
+                          </SelectGroup>
+                          <SelectGroup>
+                            <SelectLabel>Social Media</SelectLabel>
+                            <SelectItem value="social_media_instagram">Instagram</SelectItem>
+                            <SelectItem value="social_media_facebook">Facebook</SelectItem>
+                            <SelectItem value="social_media_x">X (Twitter)</SelectItem>
+                            <SelectItem value="social_media_linkedin">LinkedIn</SelectItem>
+                            <SelectItem value="social_media_snapchat">Snapchat</SelectItem>
+                            <SelectItem value="social_media_tiktok">TikTok</SelectItem>
+                          </SelectGroup>
+                          <SelectGroup>
+                            <SelectLabel>Referrals</SelectLabel>
+                            <SelectItem value="referral">Referred by a Referee</SelectItem>
+                            <SelectItem value="existing_owner">Existing RHH Owner</SelectItem>
+                          </SelectGroup>
+                          <SelectGroup>
+                            <SelectLabel>Other</SelectLabel>
+                            <SelectItem value="agent">Real Estate Agent</SelectItem>
+                            <SelectItem value="cold_outreach">Cold Outreach</SelectItem>
+                            <SelectItem value="guest_staying">Guest Staying With Us</SelectItem>
+                            <SelectItem value="ai_suggested">AI Suggested</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectGroup>
                         </SelectContent>
                       </Select>
                     </FormItem>

@@ -10,7 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation, Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
@@ -334,11 +334,35 @@ export default function OwnerNew() {
                         <SelectTrigger><SelectValue placeholder="Where did they come from?" /></SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="website">Website Inquiry</SelectItem>
-                        <SelectItem value="referral">Referral</SelectItem>
-                        <SelectItem value="cold_outreach">Cold Outreach</SelectItem>
-                        <SelectItem value="agent">Real Estate Agent</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
+                        <SelectGroup>
+                          <SelectLabel>Direct</SelectLabel>
+                          <SelectItem value="direct_call">Direct Call</SelectItem>
+                          <SelectItem value="website">Website Inquiry</SelectItem>
+                          <SelectItem value="google_search">Google Search</SelectItem>
+                          <SelectItem value="walk_in">Walk-In</SelectItem>
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Social Media</SelectLabel>
+                          <SelectItem value="social_media_instagram">Instagram</SelectItem>
+                          <SelectItem value="social_media_facebook">Facebook</SelectItem>
+                          <SelectItem value="social_media_x">X (Twitter)</SelectItem>
+                          <SelectItem value="social_media_linkedin">LinkedIn</SelectItem>
+                          <SelectItem value="social_media_snapchat">Snapchat</SelectItem>
+                          <SelectItem value="social_media_tiktok">TikTok</SelectItem>
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Referrals</SelectLabel>
+                          <SelectItem value="referral">Referred by a Referee</SelectItem>
+                          <SelectItem value="existing_owner">Existing RHH Owner</SelectItem>
+                        </SelectGroup>
+                        <SelectGroup>
+                          <SelectLabel>Other</SelectLabel>
+                          <SelectItem value="agent">Real Estate Agent</SelectItem>
+                          <SelectItem value="cold_outreach">Cold Outreach</SelectItem>
+                          <SelectItem value="guest_staying">Guest Staying With Us</SelectItem>
+                          <SelectItem value="ai_suggested">AI Suggested</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
+                        </SelectGroup>
                       </SelectContent>
                     </Select>
                     <FormMessage />

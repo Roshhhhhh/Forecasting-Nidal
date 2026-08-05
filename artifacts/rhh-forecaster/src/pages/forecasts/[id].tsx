@@ -8,6 +8,7 @@ import {
 import { useParams, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
+import ProposalCoverPreview from "@/components/ProposalCoverPreview";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1124,6 +1125,38 @@ export default function ForecastDetail() {
                     Run <strong>Save &amp; Calculate</strong> then <strong>Generate Proposal</strong> to create a proposal record before saving the narrative.
                   </p>
                 )}
+              </CardContent>
+            </Card>
+
+            {/* ── Live Cover Preview ── */}
+            <Card className="border-border/50 shadow-sm overflow-hidden">
+              <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-primary" />
+                  <CardTitle className="font-serif text-base">Cover Preview</CardTitle>
+                  <span className="ml-auto text-xs text-muted-foreground">Updates live as you type</span>
+                </div>
+              </CardHeader>
+              <CardContent className="p-4">
+                <ProposalCoverPreview
+                  ownerName={(forecast as any).ownerName}
+                  ownerTitle={(forecast as any).ownerTitle}
+                  propertyAddress={(forecast as any).propertyAddress}
+                  propertyType={(forecast as any).propertyType}
+                  bedrooms={(forecast as any).bedrooms}
+                  bathrooms={(forecast as any).bathrooms}
+                  internalArea={(forecast as any).internalArea}
+                  view={(forecast as any).view}
+                  netOwnerIncome={forecast.netOwnerIncome}
+                  monthlyPayout={forecast.netOwnerIncome != null ? forecast.netOwnerIncome / 12 : null}
+                  recommendedOccupancy={forecast.recommendedOccupancy as number | null}
+                  increaseVsLtrPct={forecast.increaseVsLtrPct}
+                  grossAnnualRevenue={forecast.grossAnnualRevenue}
+                  netLtrIncome={(forecast as any).annualLtr}
+                  advisorName={(proposal as any)?.advisorName ?? null}
+                  narrativeText={narrativeText}
+                  referenceNumber={forecast.referenceNumber}
+                />
               </CardContent>
             </Card>
 

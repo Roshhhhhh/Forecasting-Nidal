@@ -1129,12 +1129,12 @@ export default function ForecastDetail() {
                     <tr className="bg-muted/40 border-b border-border">
                       <th className="px-5 py-3 text-left font-semibold text-muted-foreground">Metric</th>
                       {OCC_LEVELS.map(occ => (
-                        <th key={occ} className={`px-5 py-3 text-right font-semibold ${occ === 0.85 ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}>
+                        <th key={occ} className={`px-5 py-3 text-right font-semibold ${occ === 0.80 ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}>
                           {Math.round(occ * 100)}%
                           {occ === 0.95 && <div className="text-[10px] font-normal mt-0.5">Optimistic</div>}
                           {occ === 0.85 && <div className="text-[10px] font-normal mt-0.5">Confident</div>}
-                          {occ === 0.80 && <div className="text-[10px] font-normal mt-0.5">Realistic</div>}
-                          {occ === 0.75 && <div className="text-[10px] font-normal mt-0.5">Reference</div>}
+                          {occ === 0.80 && <div className="text-[10px] font-bold mt-0.5">★ Realistic</div>}
+                          {occ === 0.75 && <div className="text-[10px] font-normal mt-0.5">Realistic</div>}
                           {occ === 0.70 && <div className="text-[10px] font-normal mt-0.5">Conservative</div>}
                         </th>
                       ))}
@@ -1149,7 +1149,7 @@ export default function ForecastDetail() {
                       {OCC_LEVELS.map(occ => {
                         const s = computeScenario(occ);
                         return (
-                          <td key={occ} className={`px-5 py-3 text-right font-semibold tabular-nums ${occ === 0.85 ? "bg-primary/5 text-primary" : ""}`}>
+                          <td key={occ} className={`px-5 py-3 text-right font-semibold tabular-nums ${occ === 0.80 ? "bg-primary/5 text-primary" : ""}`}>
                             {baseAdrVal > 0 ? Math.round(s.gross).toLocaleString() : "—"}
                           </td>
                         );
@@ -1168,7 +1168,7 @@ export default function ForecastDetail() {
                       <tr key={label} className="hover:bg-muted/20 transition-colors text-muted-foreground">
                         <td className="px-5 py-3">{label}</td>
                         {OCC_LEVELS.map(occ => (
-                          <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.85 ? "bg-primary/5" : ""}`}>
+                          <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
                             {val > 0 ? val.toLocaleString() : "—"}
                           </td>
                         ))}
@@ -1183,7 +1183,7 @@ export default function ForecastDetail() {
                       {OCC_LEVELS.map(occ => {
                         const s = computeScenario(occ);
                         return (
-                          <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.85 ? "bg-primary/5" : ""}`}>
+                          <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
                             {baseAdrVal > 0 ? Math.round(s.mgmtFee).toLocaleString() : "—"}
                           </td>
                         );
@@ -1198,7 +1198,7 @@ export default function ForecastDetail() {
                       {OCC_LEVELS.map(occ => {
                         const s = computeScenario(occ);
                         return (
-                          <td key={occ} className={`px-5 py-3 text-right tabular-nums font-bold ${occ === 0.85 ? "bg-primary/10 text-primary" : "text-foreground"}`}>
+                          <td key={occ} className={`px-5 py-3 text-right tabular-nums font-bold ${occ === 0.80 ? "bg-primary/10 text-primary" : "text-foreground"}`}>
                             {baseAdrVal > 0 ? Math.round(s.net).toLocaleString() : "—"}
                           </td>
                         );
@@ -1209,7 +1209,7 @@ export default function ForecastDetail() {
                       {OCC_LEVELS.map(occ => {
                         const s = computeScenario(occ);
                         return (
-                          <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.85 ? "bg-primary/5" : ""}`}>
+                          <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.80 ? "bg-primary/5" : ""}`}>
                             {baseAdrVal > 0 ? Math.round(s.monthly).toLocaleString() : "—"}
                           </td>
                         );
@@ -1227,7 +1227,7 @@ export default function ForecastDetail() {
                             const s = computeScenario(occ);
                             const positive = s.vsLtr != null && s.vsLtr > 0;
                             return (
-                              <td key={occ} className={`px-5 py-3 text-right tabular-nums font-bold ${occ === 0.85 ? "bg-primary/5" : ""} ${positive ? "text-green-600" : "text-red-500"}`}>
+                              <td key={occ} className={`px-5 py-3 text-right tabular-nums font-bold ${occ === 0.80 ? "bg-primary/5" : ""} ${positive ? "text-green-600" : "text-red-500"}`}>
                                 {s.vsLtr != null ? `${positive ? "+" : ""}${Math.round(s.vsLtr)}%` : "—"}
                               </td>
                             );

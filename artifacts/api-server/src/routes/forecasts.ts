@@ -99,10 +99,11 @@ router.post("/forecasts", requireAuth, async (req, res): Promise<void> => {
 
   // Create default scenarios
   const scenarioDefs = [
-    { name: "Conservative", occupancyRate: 0.75, adrMultiplier: 1.0, isRecommended: false },
-    { name: "Realistic", occupancyRate: 0.80, adrMultiplier: 1.0, isRecommended: false },
-    { name: "Confident", occupancyRate: 0.85, adrMultiplier: 1.0, isRecommended: true },
-    { name: "Optimistic", occupancyRate: 0.90, adrMultiplier: 1.0, isRecommended: false },
+    { name: "Conservative", occupancyRate: 0.70, adrMultiplier: 1.0, isRecommended: false },
+    { name: "Realistic",    occupancyRate: 0.75, adrMultiplier: 1.0, isRecommended: false },
+    { name: "Realistic",    occupancyRate: 0.80, adrMultiplier: 1.0, isRecommended: true  },
+    { name: "Confident",    occupancyRate: 0.85, adrMultiplier: 1.0, isRecommended: false },
+    { name: "Optimistic",   occupancyRate: 0.90, adrMultiplier: 1.0, isRecommended: false },
   ];
   await db.insert(forecastScenariosTable).values(scenarioDefs.map(s => ({ ...s, forecastId: forecast.id })));
 
@@ -213,8 +214,11 @@ router.post("/forecasts/:id/calculate", requireAuth, async (req, res): Promise<v
     await db.update(forecastScenariosTable).set(sc).where(eq(forecastScenariosTable.id, scenario.id));
   }
 
-  // Find recommended scenario
-  const recScenario = scenarios.find(s => s.isRecommended) ?? scenarios[1];
+  // Find recommended scenario — prefer explicit isRecommended flag, then name "Realistic" at 80%, then mid-list
+  const recScenario = scenarios.find(s => s.isRecommended)
+    ?? scenarios.find(s => s.name === "Realistic" && Math.abs(s.occupancyRate - 0.80) < 0.01)
+    ?? scenarios.find(s => Math.abs(s.occupancyRate - 0.80) < 0.01)
+    ?? scenarios[Math.floor(scenarios.length / 2)];
   const recommendedOccupancy = recScenario?.occupancyRate ?? inputs.referenceOccupancy ?? REFERENCE_OCCUPANCY;
 
   // Update forecast with calculated values

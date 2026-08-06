@@ -1,4 +1,5 @@
 import { useGetPublicProposal, useSubmitProposalAction } from "@workspace/api-client-react";
+import { parseNarrative } from "@/lib/narrative";
 import { useParams } from "wouter";
 import {
   FileText, Printer, Phone, CheckCircle2, ArrowRight, MapPin,
@@ -490,10 +491,10 @@ export default function PublicProposal() {
                 <div style={{ position:"absolute", top:0, left:0, width:4, height:"100%", background:`linear-gradient(180deg, ${GOLD} 0%, ${GOLD2} 100%)` }} />
                 <div style={{ fontSize:10, fontWeight:700, letterSpacing:3, textTransform:"uppercase", color:MUTED, marginBottom:16 }}>Personal Cover Note</div>
                 <div style={{ fontSize:isMobile?14:15, color:"#3a3228", lineHeight:1.9, fontStyle:"italic" }}>
-                  {(proposal as any).narrativeText.split(/\*\*([^*]+)\*\*/g).map((part: string, i: number) =>
-                    i % 2 === 1
-                      ? <strong key={i} style={{ fontWeight: 700, color: "#1a1410", fontStyle: "normal" }}>{part}</strong>
-                      : part
+                  {parseNarrative((proposal as any).narrativeText).map((seg, i) =>
+                    seg.type === "bold"
+                      ? <strong key={i} style={{ fontWeight:700, color:"#1a1410", fontStyle:"normal" }}>{seg.content}</strong>
+                      : seg.content
                   )}
                 </div>
               </div>

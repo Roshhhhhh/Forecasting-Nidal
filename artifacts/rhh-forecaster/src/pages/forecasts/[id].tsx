@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { parseNarrative } from "@/lib/narrative";
 import {
   useGetForecast, useUpdateForecast, useCalculateForecast,
   useListForecastScenarios, useGetForecastMonthly, useUpdateMonthlyOverride,
@@ -1618,17 +1619,17 @@ export default function ForecastDetail() {
                   </div>
                 </div>
 
-                {/* Live bold preview — shown when narrative contains **markers** */}
-                {narrativeText.includes("**") && (
+                {/* Live preview — always shown when narrative has content */}
+                {narrativeText.trim().length > 0 && (
                   <div className="rounded-lg border border-amber-200/60 bg-amber-50/40 dark:bg-amber-950/10 dark:border-amber-800/40 p-4">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-1.5">
                       <Eye className="h-3 w-3" /> Proposal Preview
                     </p>
-                    <p className="text-sm leading-relaxed text-foreground font-serif">
-                      {narrativeText.split(/\*\*([^*]+)\*\*/g).map((part, i) =>
-                        i % 2 === 1
-                          ? <strong key={i} className="font-bold text-foreground">{part}</strong>
-                          : part
+                    <p className="text-sm leading-relaxed text-foreground font-serif italic">
+                      {parseNarrative(narrativeText).map((seg, i) =>
+                        seg.type === "bold"
+                          ? <strong key={i} className="font-bold not-italic text-foreground">{seg.content}</strong>
+                          : seg.content
                       )}
                     </p>
                   </div>

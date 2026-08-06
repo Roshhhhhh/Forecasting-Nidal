@@ -1,4 +1,5 @@
 import { MapPin } from "lucide-react";
+import { parseNarrative } from "@/lib/narrative";
 
 // ── Brand tokens (mirrors public/proposal.tsx) ────────────────────────────────
 const GOLD   = "#C9A84C";
@@ -92,13 +93,13 @@ export default function ProposalCoverPreview({
 
   const displayNarrative = narrativeText.trim() || fallbackNarrative;
 
-  /** Render **bold** markdown as <strong> inline elements */
+  /** Render narrative with bold — supports both **markers** and auto-bold of AED/% */
   function renderBold(text: string): React.ReactNode {
-    const parts = text.split(/\*\*([^*]+)\*\*/g);
-    return parts.map((part, i) =>
-      i % 2 === 1
-        ? <strong key={i} style={{ fontWeight: 700, color: "#1a1410" }}>{part}</strong>
-        : part
+    const segs = parseNarrative(text);
+    return segs.map((seg, i) =>
+      seg.type === "bold"
+        ? <strong key={i} style={{ fontWeight: 700, color: "#1a1410" }}>{seg.content}</strong>
+        : seg.content
     );
   }
 

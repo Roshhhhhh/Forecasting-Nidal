@@ -347,6 +347,8 @@ export default function ForecastDetail() {
   const [proposalTab, setProposalTab] = useState<"share" | null>(null);
   const [activeTab, setActiveTab] = useState("inputs");
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Banner shown on Monthly tab after a recalculate that found active overrides
+  const [overrideBannerCount, setOverrideBannerCount] = useState<number | null>(null);
 
   const updateForecast = useUpdateForecast();
   const calculateForecast = useCalculateForecast();
@@ -496,7 +498,7 @@ export default function ForecastDetail() {
       // First save inputs
       await updateForecast.mutateAsync({ id: forecastId, data: buildUpdatePayload() });
       // Then calculate
-      await calculateForecast.mutateAsync({ id: forecastId });
+      const calcResult: any = await calculateForecast.mutateAsync({ id: forecastId });
       setIsDirty(false);
       setLastSaved(new Date());
       // Refresh all forecast data
@@ -505,6 +507,12 @@ export default function ForecastDetail() {
       queryClient.invalidateQueries({ queryKey: [`/api/forecasts/${forecastId}/monthly`] });
       // grossAnnualRevenue changed — commission figures for referees are now stale
       invalidateCommissionQueries();
+      // Surface a banner on the Monthly tab if overrides were active during this recalculate
+      if (calcResult?.hadOverrides && calcResult?.overrideCount > 0) {
+        setOverrideBannerCount(calcResult.overrideCount);
+      } else {
+        setOverrideBannerCount(null);
+      }
       toast({ title: "Calculation complete", description: "Revenue projections and scenarios have been updated." });
     } catch (e: any) {
       const msg = e?.data?.error ?? "Calculation failed. Ensure all ADR values are filled in.";
@@ -628,6 +636,7 @@ export default function ForecastDetail() {
             onClick={handleCalculate}
             disabled={isCalculating}
             className="gap-2"
+            title="Saves inputs and recalculates all projections. Manual month overrides (if any) take priority over the new inputs."
           >
             {isCalculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
             Save & Calculate
@@ -1306,7 +1315,22 @@ export default function ForecastDetail() {
           </TabsContent>
 
           {/* ── MONTHLY ── */}
-          <TabsContent value="monthly" className="p-6 max-w-[1400px] mx-auto">
+          <TabsContent value="monthly" className="p-6 max-w-[1400px] mx-auto space-y-4">
+            {overrideBannerCount != null && (
+              <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
+                <div className="flex items-start gap-2">
+                  <span className="mt-0.5 text-amber-500 shrink-0">⚠</span>
+                  <span>
+                    <strong>{overrideBannerCount} {overrideBannerCount === 1 ? "month has" : "months have"} manual overrides</strong> that take priority over the updated inputs. The override values are kept as-is — reset individual months to apply the new inputs to those months.
+                  </span>
+                </div>
+                <button
+                  onClick={() => setOverrideBannerCount(null)}
+                  aria-label="Dismiss"
+                  className="shrink-0 text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-200 transition-colors text-base leading-none"
+                >✕</button>
+              </div>
+            )}
             <MonthlyProjectionsTab forecastId={forecastId} monthly={monthly ?? []} />
           </TabsContent>
 

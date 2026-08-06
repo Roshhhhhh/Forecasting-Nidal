@@ -256,6 +256,9 @@ router.post("/forecasts/:id/calculate", requireAuth, async (req, res): Promise<v
     }
   }
 
+  const overrideCount = Object.keys(overrides).length;
+  const hadOverrides = overrideCount > 0;
+
   const result = calculateMonthlyProjections(inputs, 2025, overrides);
 
   // Save monthly projections
@@ -288,7 +291,7 @@ router.post("/forecasts/:id/calculate", requireAuth, async (req, res): Promise<v
   // Bust commission cache for the owner's referee so the next fetch reflects updated revenue
   await bustCacheForForecast(f.ownerId);
 
-  res.json({ status: "calculated", ...result });
+  res.json({ status: "calculated", hadOverrides, overrideCount, ...result });
 });
 
 router.post("/forecasts/:id/approve", requireAuth, async (req, res): Promise<void> => {

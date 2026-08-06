@@ -807,8 +807,6 @@ export const UpdatePropertyBody = zod.object({
   "propertyType": zod.string().optional(),
   "bedrooms": zod.number().optional(),
   "bathrooms": zod.number().optional(),
-  "hasMainRoom": zod.boolean().optional(),
-  "hasStudy": zod.boolean().optional(),
   "internalArea": zod.number().optional(),
   "furnishingStatus": zod.string().optional(),
   "propertyCondition": zod.string().optional(),
@@ -836,7 +834,6 @@ export const UpdatePropertyResponse = zod.object({
   "bedrooms": zod.number(),
   "bathrooms": zod.number(),
   "hasMaidsRoom": zod.boolean().optional(),
-  "hasMainRoom": zod.boolean().optional(),
   "hasStudy": zod.boolean().optional(),
   "balconies": zod.number().nullish(),
   "parkingSpaces": zod.number().nullish(),
@@ -1159,6 +1156,7 @@ export const GetForecastResponse = zod.object({
   "utilityCost": zod.number().nullish(),
   "maintenanceCost": zod.number().nullish(),
   "miscCost": zod.number().nullish(),
+  "baseAdr": zod.number().nullish(),
   "lowSeasonAdr": zod.number().nullish(),
   "shoulderSeasonAdr": zod.number().nullish(),
   "peakSeasonAdr": zod.number().nullish(),
@@ -1197,7 +1195,6 @@ export const UpdateForecastBody = zod.object({
   "utilityCost": zod.number().optional(),
   "maintenanceCost": zod.number().optional(),
   "miscCost": zod.number().optional(),
-  "baseAdr": zod.number().optional(),
   "lowSeasonAdr": zod.number().optional(),
   "shoulderSeasonAdr": zod.number().optional(),
   "peakSeasonAdr": zod.number().optional(),
@@ -1224,6 +1221,7 @@ export const UpdateForecastResponse = zod.object({
   "utilityCost": zod.number().nullish(),
   "maintenanceCost": zod.number().nullish(),
   "miscCost": zod.number().nullish(),
+  "baseAdr": zod.number().nullish(),
   "lowSeasonAdr": zod.number().nullish(),
   "shoulderSeasonAdr": zod.number().nullish(),
   "peakSeasonAdr": zod.number().nullish(),
@@ -1421,9 +1419,107 @@ export const GetForecastMonthlyResponseItem = zod.object({
   "grossRevenue": zod.number(),
   "netOwnerIncome": zod.number().optional(),
   "ltrBenchmark": zod.number().nullish(),
-  "seasonType": zod.string().optional()
+  "seasonType": zod.string().optional(),
+  "occupancyOverride": zod.number().nullish(),
+  "adrOverride": zod.number().nullish()
 })
 export const GetForecastMonthlyResponse = zod.array(GetForecastMonthlyResponseItem)
+
+
+/**
+ * @summary Save per-month occupancy/ADR override and recalculate
+ */
+export const UpdateMonthlyOverrideParams = zod.object({
+  "id": zod.coerce.number(),
+  "monthNum": zod.coerce.number()
+})
+
+export const UpdateMonthlyOverrideBody = zod.object({
+  "occupancyOverride": zod.number().nullish(),
+  "adrOverride": zod.number().nullish()
+})
+
+export const UpdateMonthlyOverrideResponseItem = zod.object({
+  "month": zod.number(),
+  "year": zod.number(),
+  "monthName": zod.string().optional(),
+  "availableNights": zod.number(),
+  "occupiedNights": zod.number(),
+  "occupancyRate": zod.number().optional(),
+  "adr": zod.number().optional(),
+  "grossRevenue": zod.number(),
+  "netOwnerIncome": zod.number().optional(),
+  "ltrBenchmark": zod.number().nullish(),
+  "seasonType": zod.string().optional(),
+  "occupancyOverride": zod.number().nullish(),
+  "adrOverride": zod.number().nullish()
+})
+export const UpdateMonthlyOverrideResponse = zod.array(UpdateMonthlyOverrideResponseItem)
+
+
+/**
+ * @summary List comparable properties for a forecast
+ */
+export const ListForecastComparablesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListForecastComparablesResponseItem = zod.object({
+  "id": zod.number(),
+  "forecastId": zod.number(),
+  "listingName": zod.string(),
+  "listingUrl": zod.string().nullish(),
+  "nightlyRate": zod.number(),
+  "occupancyPct": zod.number(),
+  "bedrooms": zod.number().nullish(),
+  "area": zod.string().nullish(),
+  "sortOrder": zod.number().optional(),
+  "createdAt": zod.string().optional()
+})
+export const ListForecastComparablesResponse = zod.array(ListForecastComparablesResponseItem)
+
+
+/**
+ * @summary Add a comparable property to a forecast
+ */
+export const CreateForecastComparableParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CreateForecastComparableBody = zod.object({
+  "listingName": zod.string(),
+  "listingUrl": zod.string().optional(),
+  "nightlyRate": zod.number(),
+  "occupancyPct": zod.number(),
+  "bedrooms": zod.number().optional(),
+  "area": zod.string().optional()
+})
+
+export const CreateForecastComparableResponse = zod.object({
+  "id": zod.number(),
+  "forecastId": zod.number(),
+  "listingName": zod.string(),
+  "listingUrl": zod.string().nullish(),
+  "nightlyRate": zod.number(),
+  "occupancyPct": zod.number(),
+  "bedrooms": zod.number().nullish(),
+  "area": zod.string().nullish(),
+  "sortOrder": zod.number().optional(),
+  "createdAt": zod.string().optional()
+})
+
+
+/**
+ * @summary Delete a comparable property
+ */
+export const DeleteForecastComparableParams = zod.object({
+  "id": zod.coerce.number(),
+  "compId": zod.coerce.number()
+})
+
+export const DeleteForecastComparableResponse = zod.object({
+  "message": zod.string()
+})
 
 
 /**
@@ -1679,7 +1775,9 @@ export const GetPublicProposalResponse = zod.object({
   "grossRevenue": zod.number(),
   "netOwnerIncome": zod.number().optional(),
   "ltrBenchmark": zod.number().nullish(),
-  "seasonType": zod.string().optional()
+  "seasonType": zod.string().optional(),
+  "occupancyOverride": zod.number().nullish(),
+  "adrOverride": zod.number().nullish()
 })).optional(),
   "proposalDate": zod.string().optional(),
   "expiresAt": zod.string(),
@@ -1687,7 +1785,19 @@ export const GetPublicProposalResponse = zod.object({
   "companyPhone": zod.string().nullish(),
   "companyEmail": zod.string().nullish(),
   "disclaimer": zod.string().optional(),
-  "ownerAction": zod.string().nullish()
+  "ownerAction": zod.string().nullish(),
+  "comparables": zod.array(zod.object({
+  "id": zod.number(),
+  "forecastId": zod.number(),
+  "listingName": zod.string(),
+  "listingUrl": zod.string().nullish(),
+  "nightlyRate": zod.number(),
+  "occupancyPct": zod.number(),
+  "bedrooms": zod.number().nullish(),
+  "area": zod.string().nullish(),
+  "sortOrder": zod.number().optional(),
+  "createdAt": zod.string().optional()
+})).optional()
 })
 
 

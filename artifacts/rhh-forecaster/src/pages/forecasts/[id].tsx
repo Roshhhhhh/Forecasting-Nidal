@@ -4,7 +4,7 @@ import {
   useGetForecast, useUpdateForecast, useCalculateForecast,
   useListForecastScenarios, useGetForecastMonthly, useUpdateMonthlyOverride,
   useGenerateAiRecommendation, useGenerateNarrativeDraft, useListProposals, usePublishProposal,
-  useUpdateProposal,
+  useUpdateProposal, useListForecastComparables, useCreateForecastComparable, useDeleteForecastComparable,
 } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -22,7 +22,7 @@ import {
   ArrowLeft, Save, Share, Copy, TrendingUp, DollarSign, Target,
   Building, Calendar, Sparkles, Calculator, Loader2, CheckCircle2,
   Send, FileText, Globe, Eye, Printer, User, MapPin, Ruler, Home,
-  Sofa, Wind,
+  Sofa, Wind, Plus, Trash2, ExternalLink, BarChart2,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useToast } from "@/hooks/use-toast";
@@ -369,6 +369,13 @@ export default function ForecastDetail() {
   const calculateForecast = useCalculateForecast();
   const aiRecommend = useGenerateAiRecommendation();
   const publishProposal = usePublishProposal();
+  const { data: comparables, refetch: refetchComparables } = useListForecastComparables(forecastId);
+  const createComparable = useCreateForecastComparable();
+  const deleteComparable = useDeleteForecastComparable();
+
+  // Comparable form state
+  const [compForm, setCompForm] = useState({ listingName: "", listingUrl: "", nightlyRate: "", occupancyPct: "", bedrooms: "", area: "" });
+  const [compFormOpen, setCompFormOpen] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: proposals } = useListProposals({
     query: { refetchInterval: activeTab === "proposal" ? 30_000 : false } as any,
@@ -573,6 +580,44 @@ export default function ForecastDetail() {
       toast({ title: "AI suggestions applied", description: "Fields pre-filled from comparable properties. Review and calculate." });
     } catch {
       toast({ title: "AI optimizer failed", variant: "destructive" });
+    }
+  }
+
+  async function handleAddComparable() {
+    const nightlyRate = parseFloat(compForm.nightlyRate);
+    const occupancyPct = parseFloat(compForm.occupancyPct);
+    const bedrooms = compForm.bedrooms ? parseInt(compForm.bedrooms) : undefined;
+    if (!compForm.listingName.trim()) { toast({ title: "Listing name required", variant: "destructive" }); return; }
+    if (isNaN(nightlyRate) || nightlyRate <= 0) { toast({ title: "Valid nightly rate required", variant: "destructive" }); return; }
+    if (isNaN(occupancyPct) || occupancyPct < 0 || occupancyPct > 100) { toast({ title: "Occupancy must be 0–100", variant: "destructive" }); return; }
+    try {
+      await createComparable.mutateAsync({
+        id: forecastId,
+        data: {
+          listingName: compForm.listingName.trim(),
+          listingUrl: compForm.listingUrl.trim() || undefined,
+          nightlyRate,
+          occupancyPct,
+          bedrooms: isNaN(bedrooms as number) ? undefined : bedrooms,
+          area: compForm.area.trim() || undefined,
+        },
+      });
+      setCompForm({ listingName: "", listingUrl: "", nightlyRate: "", occupancyPct: "", bedrooms: "", area: "" });
+      setCompFormOpen(false);
+      refetchComparables();
+      toast({ title: "Comparable added" });
+    } catch (e: any) {
+      toast({ title: "Failed to add", description: e?.data?.error ?? "An error occurred", variant: "destructive" });
+    }
+  }
+
+  async function handleDeleteComparable(compId: number) {
+    try {
+      await deleteComparable.mutateAsync({ id: forecastId, compId });
+      refetchComparables();
+      toast({ title: "Comparable removed" });
+    } catch {
+      toast({ title: "Failed to remove", variant: "destructive" });
     }
   }
 
@@ -1314,6 +1359,121 @@ export default function ForecastDetail() {
                   </CardContent>
                 </Card>
               </div>
+
+              {/* ── Comparable Properties ─────────────────────────────────────── */}
+              <Card className="border-border/50 shadow-sm">
+                <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="font-serif text-base flex items-center gap-2">
+                      <BarChart2 className="h-4 w-4 text-primary" />
+                      Market Comparable Properties
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">{comparables?.length ?? 0}/5 added</span>
+                      {(comparables?.length ?? 0) < 5 && (
+                        <Button size="sm" variant="outline" className="gap-1.5 h-7 px-3 text-xs" onClick={() => setCompFormOpen(v => !v)}>
+                          <Plus className="h-3 w-3" /> Add Comparable
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">Real comparable listings that anchor the ADR and occupancy figures. Shown to owners in the Market Evidence section of their proposal.</p>
+                </CardHeader>
+                <CardContent className="p-0">
+                  {/* Add form */}
+                  {compFormOpen && (
+                    <div className="p-5 border-b border-border bg-muted/10 space-y-4">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">New Comparable</p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Listing Name *</Label>
+                          <Input placeholder="e.g. Corniche Tower 2BR" className="h-9 text-sm" value={compForm.listingName} onChange={e => setCompForm(p => ({ ...p, listingName: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Listing URL</Label>
+                          <Input placeholder="https://airbnb.com/…" className="h-9 text-sm" value={compForm.listingUrl} onChange={e => setCompForm(p => ({ ...p, listingUrl: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Area / Location</Label>
+                          <Input placeholder="e.g. Al Reem Island" className="h-9 text-sm" value={compForm.area} onChange={e => setCompForm(p => ({ ...p, area: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Nightly Rate (AED) *</Label>
+                          <Input type="number" min="0" placeholder="0" className="h-9 text-sm" value={compForm.nightlyRate} onChange={e => setCompForm(p => ({ ...p, nightlyRate: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Occupancy % *</Label>
+                          <Input type="number" min="0" max="100" placeholder="0" className="h-9 text-sm" value={compForm.occupancyPct} onChange={e => setCompForm(p => ({ ...p, occupancyPct: e.target.value }))} />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs">Bedrooms</Label>
+                          <Input type="number" min="0" placeholder="—" className="h-9 text-sm" value={compForm.bedrooms} onChange={e => setCompForm(p => ({ ...p, bedrooms: e.target.value }))} />
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" onClick={handleAddComparable} disabled={createComparable.isPending} className="gap-1.5">
+                          {createComparable.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                          Add
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setCompFormOpen(false)}>Cancel</Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Comparables table */}
+                  {!comparables || comparables.length === 0 ? (
+                    <div className="p-8 text-center text-muted-foreground">
+                      <BarChart2 className="h-8 w-8 mx-auto mb-2 text-muted-foreground/30" />
+                      <p className="text-sm font-medium">No comparables added yet</p>
+                      <p className="text-xs mt-1">Add up to 5 real listings to anchor the revenue forecast for the owner</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-auto">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/30 border-b border-border">
+                          <tr>
+                            <th className="px-4 py-2.5 text-left font-medium text-xs text-muted-foreground">Listing</th>
+                            <th className="px-4 py-2.5 text-right font-medium text-xs text-muted-foreground">Nightly Rate</th>
+                            <th className="px-4 py-2.5 text-right font-medium text-xs text-muted-foreground">Occupancy</th>
+                            <th className="px-4 py-2.5 text-right font-medium text-xs text-muted-foreground">Beds</th>
+                            <th className="px-4 py-2.5 text-left font-medium text-xs text-muted-foreground">Area</th>
+                            <th className="px-4 py-2.5 w-10" />
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {comparables.map((c: any) => (
+                            <tr key={c.id} className="hover:bg-muted/10 transition-colors">
+                              <td className="px-4 py-2.5">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-medium">{c.listingName}</span>
+                                  {c.listingUrl && (
+                                    <a href={c.listingUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-primary transition-colors">
+                                      <ExternalLink className="h-3 w-3" />
+                                    </a>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-2.5 text-right font-medium">AED {Math.round(c.nightlyRate).toLocaleString()}</td>
+                              <td className="px-4 py-2.5 text-right font-medium">{Math.round(c.occupancyPct)}%</td>
+                              <td className="px-4 py-2.5 text-right text-muted-foreground">{c.bedrooms ?? "—"}</td>
+                              <td className="px-4 py-2.5 text-muted-foreground text-xs">{c.area ?? "—"}</td>
+                              <td className="px-4 py-2.5 text-right">
+                                <button
+                                  onClick={() => handleDeleteComparable(c.id)}
+                                  className="text-muted-foreground hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50 dark:hover:bg-red-900/10"
+                                  title="Remove comparable"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Action bar */}
               <div className="flex items-center justify-between p-4 bg-muted/20 rounded-lg border border-border/50">

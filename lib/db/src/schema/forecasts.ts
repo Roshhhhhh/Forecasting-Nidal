@@ -151,6 +151,19 @@ export const aiRecommendationsTable = pgTable("ai_recommendations", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const forecastComparablesTable = pgTable("forecast_comparables", {
+  id: serial("id").primaryKey(),
+  forecastId: integer("forecast_id").notNull(),
+  listingName: text("listing_name").notNull(),
+  listingUrl: text("listing_url"),
+  nightlyRate: real("nightly_rate").notNull(),
+  occupancyPct: real("occupancy_pct").notNull(),
+  bedrooms: integer("bedrooms"),
+  area: text("area"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const insertForecastSchema = createInsertSchema(forecastsTable).omit({
   id: true,
   createdAt: true,

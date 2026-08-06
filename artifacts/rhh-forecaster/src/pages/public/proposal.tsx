@@ -1004,6 +1004,152 @@ export default function PublicProposal() {
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════
+          MARKET EVIDENCE — Comparable Properties
+      ══════════════════════════════════════════════════════════════════════ */}
+      {(() => {
+        const comps: any[] = (proposal as any).comparables ?? [];
+        if (!comps.length) return null;
+        const avgRate = Math.round(comps.reduce((s: number, c: any) => s + (c.nightlyRate ?? 0), 0) / comps.length);
+        const avgOcc  = Math.round(comps.reduce((s: number, c: any) => s + (c.occupancyPct ?? 0), 0) / comps.length);
+        return (
+          <section style={{ background:CREAM, padding:isMobile?"56px 16px":"80px 48px" }}>
+            <div style={{ maxWidth:1200, margin:"0 auto" }}>
+              <SectionHeading
+                eyebrow="Market Evidence"
+                title="Real Comparable Properties"
+                subtitle="The revenue projection is benchmarked against active comparable listings in the same area. The nightly rates and occupancy figures below come from properties currently operating in this market."
+              />
+
+              {/* Summary strip */}
+              <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3, 1fr)", gap:16, marginBottom:40 }}>
+                {[
+                  { label:"Comparable Listings",  value:`${comps.length} Properties`,    sub:"Used to benchmark this forecast" },
+                  { label:"Market Avg. ADR",       value:`AED ${fmt(avgRate)}/night`,    sub:"Across comparable listings" },
+                  { label:"Market Avg. Occupancy", value:`${avgOcc}%`,                   sub:"Average comparable occupancy" },
+                ].map(({ label, value, sub }) => (
+                  <div key={label} style={{ padding:"20px 24px", borderRadius:12, background:WHITE, border:`1px solid ${BORDER}`, display:"flex", flexDirection:"column", gap:6 }}>
+                    <div style={{ fontSize:10, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", color:MUTED }}>{label}</div>
+                    <div style={{ fontSize:isMobile?20:24, fontWeight:900, fontFamily:"serif", color:DARK }}>{value}</div>
+                    <div style={{ fontSize:11, color:MUTED }}>{sub}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Comparables table */}
+              {isMobile ? (
+                <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+                  {comps.map((c: any, i: number) => (
+                    <div key={c.id ?? i} style={{ borderRadius:14, border:`1px solid ${BORDER}`, background:WHITE, overflow:"hidden" }}>
+                      <div style={{ padding:"16px 18px 12px", borderBottom:`1px solid ${BORDER}`, display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                        <div>
+                          <div style={{ fontSize:11, color:MUTED, letterSpacing:1.5, textTransform:"uppercase", marginBottom:4 }}>Comparable {i + 1}</div>
+                          <div style={{ fontSize:14, fontWeight:700, color:DARK }}>{c.listingName}</div>
+                          {c.area && <div style={{ fontSize:12, color:MUTED, marginTop:2 }}>{c.area}</div>}
+                        </div>
+                        {c.bedrooms != null && (
+                          <div style={{ padding:"4px 10px", borderRadius:20, background:CREAM, border:`1px solid ${BORDER}`, fontSize:11, fontWeight:600, color:DARK, whiteSpace:"nowrap" }}>
+                            {c.bedrooms} Bed
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", padding:"12px 18px", gap:12 }}>
+                        <div>
+                          <div style={{ fontSize:10, color:MUTED, marginBottom:3 }}>NIGHTLY RATE</div>
+                          <div style={{ fontSize:16, fontWeight:800, color:DARK }}>AED {fmt(c.nightlyRate)}</div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize:10, color:MUTED, marginBottom:3 }}>OCCUPANCY</div>
+                          <div style={{ fontSize:16, fontWeight:800, color:DARK }}>{Math.round(c.occupancyPct)}%</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {/* RHH property row */}
+                  <div style={{ borderRadius:14, border:`2px solid ${GOLD}`, background:`linear-gradient(135deg, #1c1709 0%, #201c11 100%)`, overflow:"hidden" }}>
+                    <div style={{ padding:"16px 18px 12px", borderBottom:`1px solid rgba(201,168,76,0.2)`, display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                      <div>
+                        <div style={{ fontSize:11, color:GOLD, letterSpacing:1.5, textTransform:"uppercase", marginBottom:4 }}>★ RHH Projection</div>
+                        <div style={{ fontSize:14, fontWeight:700, color:WHITE }}>Your Property</div>
+                        {(proposal as any).area && <div style={{ fontSize:12, color:"#9a8c78", marginTop:2 }}>{(proposal as any).area}</div>}
+                      </div>
+                      {(proposal as any).bedrooms != null && (
+                        <div style={{ padding:"4px 10px", borderRadius:20, background:`${GOLD}20`, border:`1px solid ${GOLD}40`, fontSize:11, fontWeight:600, color:GOLD, whiteSpace:"nowrap" }}>
+                          {(proposal as any).bedrooms} Bed
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", padding:"12px 18px", gap:12 }}>
+                      <div>
+                        <div style={{ fontSize:10, color:"#665", marginBottom:3 }}>WEIGHTED ADR</div>
+                        <div style={{ fontSize:16, fontWeight:800, color:GOLD }}>AED {fmt(weightedAdr)}</div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize:10, color:"#665", marginBottom:3 }}>PROJECTED OCC.</div>
+                        <div style={{ fontSize:16, fontWeight:800, color:GOLD }}>{recOccPct}%</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{ overflowX:"auto" }}>
+                  <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+                    <thead>
+                      <tr style={{ background:DARK }}>
+                        {["Property / Listing", "Area", "Bedrooms", "Nightly Rate", "Occupancy"].map((h, i) => (
+                          <th key={h} style={{ padding:"12px 20px", textAlign:i < 2 ? "left" : "center", color:"#888", fontSize:11, fontWeight:700, letterSpacing:1.5, textTransform:"uppercase", borderRight:`1px solid rgba(255,255,255,0.05)` }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {comps.map((c: any, i: number) => (
+                        <tr key={c.id ?? i} style={{ borderBottom:`1px solid ${BORDER}`, background:WHITE }}>
+                          <td style={{ padding:"14px 20px" }}>
+                            <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                              <div style={{ width:24, height:24, borderRadius:"50%", background:CREAM, border:`1px solid ${BORDER}`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:MUTED, flexShrink:0 }}>{i + 1}</div>
+                              <div>
+                                <div style={{ fontWeight:600, color:DARK }}>{c.listingName}</div>
+                                {c.listingUrl && (
+                                  <a href={c.listingUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize:11, color:GOLD, textDecoration:"none", opacity:0.8 }}>View listing →</a>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td style={{ padding:"14px 20px", color:MUTED }}>{c.area ?? "—"}</td>
+                          <td style={{ padding:"14px 20px", textAlign:"center", color:DARK }}>{c.bedrooms != null ? `${c.bedrooms} bed` : "—"}</td>
+                          <td style={{ padding:"14px 20px", textAlign:"center", fontWeight:700, color:DARK }}>AED {fmt(c.nightlyRate)}</td>
+                          <td style={{ padding:"14px 20px", textAlign:"center", fontWeight:700, color:DARK }}>{Math.round(c.occupancyPct)}%</td>
+                        </tr>
+                      ))}
+                      {/* RHH projection row */}
+                      <tr style={{ background:`linear-gradient(90deg, #1c1709, #201c11)`, borderTop:`2px solid ${GOLD}` }}>
+                        <td style={{ padding:"14px 20px" }}>
+                          <div style={{ display:"flex", alignItems:"center", gap:8 }}>
+                            <div style={{ width:24, height:24, borderRadius:"50%", background:`${GOLD}20`, border:`1px solid ${GOLD}40`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:GOLD, flexShrink:0 }}>★</div>
+                            <div>
+                              <div style={{ fontWeight:700, color:WHITE }}>Your Property</div>
+                              <div style={{ fontSize:11, color:GOLD, opacity:0.8 }}>RHH Projection</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td style={{ padding:"14px 20px", color:"#9a8c78" }}>{(proposal as any).area ?? "—"}</td>
+                        <td style={{ padding:"14px 20px", textAlign:"center", color:"#9a8c78" }}>{(proposal as any).bedrooms != null ? `${(proposal as any).bedrooms} bed` : "—"}</td>
+                        <td style={{ padding:"14px 20px", textAlign:"center", fontWeight:700, color:GOLD }}>AED {fmt(weightedAdr)}<br/><span style={{ fontSize:10, color:"#665", fontWeight:400 }}>weighted avg.</span></td>
+                        <td style={{ padding:"14px 20px", textAlign:"center", fontWeight:700, color:GOLD }}>{recOccPct}%<br/><span style={{ fontSize:10, color:"#665", fontWeight:400 }}>projected</span></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              <p style={{ fontSize:12, color:MUTED, marginTop:24, lineHeight:1.7, fontStyle:"italic", textAlign:"center" }}>
+                Comparable data is based on active listings observed in the Abu Dhabi STR market at the time of proposal preparation. Actual rates and occupancy may vary.
+              </p>
+            </div>
+          </section>
+        );
+      })()}
+
+      {/* ══════════════════════════════════════════════════════════════════════
           SECTION 3 — WHY STR?
       ══════════════════════════════════════════════════════════════════════ */}
       <section id="why-str" style={{ background:DARK2, padding:isMobile?"56px 16px":"80px 48px" }}>

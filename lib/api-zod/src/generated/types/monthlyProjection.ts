@@ -19,4 +19,8 @@ export interface MonthlyProjection {
   /** @nullable */
   ltrBenchmark?: number | null;
   seasonType?: string;
+  /** @nullable */
+  occupancyOverride?: number | null;
+  /** @nullable */
+  adrOverride?: number | null;
 }

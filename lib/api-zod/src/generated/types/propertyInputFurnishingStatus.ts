@@ -15,4 +15,5 @@ export const PropertyInputFurnishingStatus = {
   fully_furnished: 'fully_furnished',
   premium_furnished: 'premium_furnished',
   hotel_grade: 'hotel_grade',
+  previously_holiday_home: 'previously_holiday_home',
 } as const;

@@ -29,6 +29,8 @@ export interface ForecastDetail {
   /** @nullable */
   miscCost?: number | null;
   /** @nullable */
+  baseAdr?: number | null;
+  /** @nullable */
   lowSeasonAdr?: number | null;
   /** @nullable */
   shoulderSeasonAdr?: number | null;

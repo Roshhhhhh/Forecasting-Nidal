@@ -368,6 +368,7 @@ export const PropertyFurnishingStatus = {
   fully_furnished: 'fully_furnished',
   premium_furnished: 'premium_furnished',
   hotel_grade: 'hotel_grade',
+  previously_holiday_home: 'previously_holiday_home',
 } as const;
 
 export type PropertyPropertyCondition = typeof PropertyPropertyCondition[keyof typeof PropertyPropertyCondition];
@@ -456,6 +457,7 @@ export const PropertyInputFurnishingStatus = {
   fully_furnished: 'fully_furnished',
   premium_furnished: 'premium_furnished',
   hotel_grade: 'hotel_grade',
+  previously_holiday_home: 'previously_holiday_home',
 } as const;
 
 export type PropertyInputPropertyCondition = typeof PropertyInputPropertyCondition[keyof typeof PropertyInputPropertyCondition];
@@ -666,8 +668,6 @@ export interface Forecast {
   bedrooms?: number | null;
   status: ForecastStatus;
   /** @nullable */
-  baseAdr?: number | null;
-  /** @nullable */
   recommendedOccupancy?: number | null;
   /** @nullable */
   weightedAdr?: number | null;
@@ -774,7 +774,6 @@ export interface ForecastUpdate {
   utilityCost?: number;
   maintenanceCost?: number;
   miscCost?: number;
-  baseAdr?: number;
   lowSeasonAdr?: number;
   shoulderSeasonAdr?: number;
   peakSeasonAdr?: number;
@@ -822,16 +821,43 @@ export interface Scenario {
   isActive?: boolean;
 }
 
+export interface ForecastComparable {
+  id: number;
+  forecastId: number;
+  listingName: string;
+  /** @nullable */
+  listingUrl?: string | null;
+  nightlyRate: number;
+  occupancyPct: number;
+  /** @nullable */
+  bedrooms?: number | null;
+  /** @nullable */
+  area?: string | null;
+  sortOrder?: number;
+  createdAt?: string;
+}
+
+export interface ForecastComparableInput {
+  listingName: string;
+  listingUrl?: string;
+  nightlyRate: number;
+  occupancyPct: number;
+  bedrooms?: number;
+  area?: string;
+}
+
+export interface MonthlyOverrideInput {
+  /** @nullable */
+  occupancyOverride?: number | null;
+  /** @nullable */
+  adrOverride?: number | null;
+}
+
 export interface ScenarioInput {
   name: string;
   occupancyRate: number;
   adrMultiplier?: number;
   isRecommended?: boolean;
-}
-
-export interface MonthlyProjectionOverrideBody {
-  occupancyOverride?: number | null;
-  adrOverride?: number | null;
 }
 
 export interface MonthlyProjection {
@@ -1013,6 +1039,7 @@ export interface PublicProposal {
   disclaimer?: string;
   /** @nullable */
   ownerAction?: string | null;
+  comparables?: ForecastComparable[];
 }
 
 export type ProposalActionInputActionType = typeof ProposalActionInputActionType[keyof typeof ProposalActionInputActionType];

@@ -4,7 +4,7 @@ import crypto from "crypto";
 import {
   db, proposalsTable, proposalViewEventsTable, forecastsTable,
   forecastScenariosTable, monthlyProjectionsTable, ownersTable, propertiesTable, usersTable, companySettingsTable,
-  amenitiesTable, propertyAmenitiesTable,
+  amenitiesTable, propertyAmenitiesTable, forecastComparablesTable,
 } from "@workspace/db";
 import {
   UpdateProposalBody,
@@ -91,21 +91,21 @@ router.get("/proposals", requireAuth, async (_req, res): Promise<void> => {
 });
 
 router.get("/proposals/:id", requireAuth, async (req, res): Promise<void> => {
-  const params = GetProposalParams.safeParse(req.params);
+  const params = GetProposalActivityParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
-  const [p] = await db.select().from(proposalsTable).where(eq(proposalsTable.id, params.data.id));
+    const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, forecast.propertyId));
   if (!p) { res.status(404).json({ error: "Proposal not found" }); return; }
   res.json(formatProposal(p));
 });
 
 router.patch("/proposals/:id", requireAuth, async (req, res): Promise<void> => {
-  const params = UpdateProposalParams.safeParse(req.params);
+  const params = GetProposalActivityParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
-  const parsed = UpdateProposalBody.safeParse(req.body);
+  const parsed = SubmitProposalActionBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const updateData: any = { ...parsed.data };
   if (parsed.data.expiresAt) updateData.expiresAt = new Date(parsed.data.expiresAt);
-  const [p] = await db.update(proposalsTable).set(updateData).where(eq(proposalsTable.id, params.data.id)).returning();
+    const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, forecast.propertyId));
   if (!p) { res.status(404).json({ error: "Proposal not found" }); return; }
   res.json(formatProposal(p));
 });
@@ -113,13 +113,13 @@ router.patch("/proposals/:id", requireAuth, async (req, res): Promise<void> => {
 router.post("/proposals/:id/publish", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const parsed = PublishProposalBody.safeParse(req.body);
+  const parsed = SubmitProposalActionBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const [proposal] = await db.select().from(proposalsTable).where(eq(proposalsTable.id, id));
+  const [proposal] = await db.select().from(proposalsTable).where(eq(proposalsTable.shareToken, token));
   if (!proposal) { res.status(404).json({ error: "Proposal not found" }); return; }
 
-  const token = crypto.randomBytes(16).toString("hex");
+  const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
   const expiresInDays = parsed.data.expiresInDays ?? 30;
   const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000);
   const shareUrl = `/p/${token}`;
@@ -197,6 +197,10 @@ router.get("/p/:token", async (req, res): Promise<void> => {
   const monthlyProjections = await db.select().from(monthlyProjectionsTable)
     .where(eq(monthlyProjectionsTable.forecastId, forecast.id))
     .orderBy(monthlyProjectionsTable.month);
+
+  const comparables = await db.select().from(forecastComparablesTable)
+    .where(eq(forecastComparablesTable.forecastId, forecast.id))
+    .orderBy(forecastComparablesTable.sortOrder, forecastComparablesTable.createdAt);
   const settings = await db.query.companySettingsTable.findFirst();
 
   let advisorName: string | null = null;
@@ -287,6 +291,7 @@ router.get("/p/:token", async (req, res): Promise<void> => {
     disclaimer: settings?.disclaimer ?? "This forecast is an estimate prepared using available property information, Royal Holiday Homes' internal market benchmarks and current conditions. Actual occupancy, ADR, expenses, gross revenue and net owner income may differ. This proposal does not represent a guarantee of future rental income.",
     ownerAction: proposal.ownerAction ?? null,
     amenities: propertyAmenities,
+    comparables,
   });
 });
 

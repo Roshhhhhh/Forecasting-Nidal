@@ -5,6 +5,7 @@
  * RHH Property Revenue Forecaster API
  * OpenAPI spec version: 0.1.0
  */
+import type { ForecastComparable } from './forecastComparable';
 import type { MonthlyProjection } from './monthlyProjection';
 import type { Scenario } from './scenario';
 
@@ -51,4 +52,5 @@ export interface PublicProposal {
   disclaimer?: string;
   /** @nullable */
   ownerAction?: string | null;
+  comparables?: ForecastComparable[];
 }

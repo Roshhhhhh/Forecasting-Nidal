@@ -952,6 +952,106 @@ paths:
                 items:
                   $ref: "#/components/schemas/MonthlyProjection"
 
+  /forecasts/{id}/monthly/{monthNum}:
+    patch:
+      operationId: updateMonthlyOverride
+      tags: [forecasts]
+      summary: Save per-month occupancy/ADR override and recalculate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: monthNum
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MonthlyOverrideInput"
+      responses:
+        "200":
+          description: Updated monthly projections
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MonthlyProjection"
+
+  /forecasts/{id}/comparables:
+    get:
+      operationId: listForecastComparables
+      tags: [forecasts]
+      summary: List comparable properties for a forecast
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Comparables
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ForecastComparable"
+    post:
+      operationId: createForecastComparable
+      tags: [forecasts]
+      summary: Add a comparable property to a forecast
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForecastComparableInput"
+      responses:
+        "201":
+          description: Created comparable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForecastComparable"
+
+  /forecasts/{id}/comparables/{compId}:
+    delete:
+      operationId: deleteForecastComparable
+      tags: [forecasts]
+      summary: Delete a comparable property
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: compId
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
   /forecasts/{id}/ai-recommend:
     post:
       operationId: generateAiRecommendation
@@ -2485,6 +2585,56 @@ components:
         isActive:
           type: boolean
 
+    ForecastComparable:
+      type: object
+      required: [id, forecastId, listingName, nightlyRate, occupancyPct]
+      properties:
+        id:
+          type: number
+        forecastId:
+          type: number
+        listingName:
+          type: string
+        listingUrl:
+          type: ["string", "null"]
+        nightlyRate:
+          type: number
+        occupancyPct:
+          type: number
+        bedrooms:
+          type: ["number", "null"]
+        area:
+          type: ["string", "null"]
+        sortOrder:
+          type: number
+        createdAt:
+          type: string
+
+    ForecastComparableInput:
+      type: object
+      required: [listingName, nightlyRate, occupancyPct]
+      properties:
+        listingName:
+          type: string
+        listingUrl:
+          type: string
+        nightlyRate:
+          type: number
+        occupancyPct:
+          type: number
+        bedrooms:
+          type: number
+        area:
+          type: string
+
+    MonthlyOverrideInput:
+      type: object
+      properties:
+        occupancyOverride:
+          type: ["number", "null"]
+        adrOverride:
+          type: ["number", "null"]
+
     ScenarioInput:
       type: object
       required: [name, occupancyRate]
@@ -2753,6 +2903,10 @@ components:
           type: string
         ownerAction:
           type: ["string", "null"]
+        comparables:
+          type: array
+          items:
+            $ref: "#/components/schemas/ForecastComparable"
 
     ProposalActionInput:
       type: object

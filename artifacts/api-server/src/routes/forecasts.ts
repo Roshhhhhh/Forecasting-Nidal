@@ -3,7 +3,7 @@ import { eq, desc, and } from "drizzle-orm";
 import {
   db, forecastsTable, forecastScenariosTable, monthlyProjectionsTable,
   aiRecommendationsTable, ownersTable, propertiesTable, usersTable, proposalsTable,
-  amenitiesTable, propertyAmenitiesTable,
+  amenitiesTable, propertyAmenitiesTable, forecastComparablesTable,
 } from "@workspace/db";
 import {
   CreateForecastBody, UpdateForecastBody, GetForecastParams,
@@ -476,6 +476,55 @@ router.post("/forecasts/:id/ai-recommend", requireAuth, async (req, res): Promis
   res.json(rec);
 });
 
+// ── Comparables CRUD ──────────────────────────────────────────────────────────
+router.get("/forecasts/:id/comparables", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const rows = await db.select().from(forecastComparablesTable)
+    .where(eq(forecastComparablesTable.forecastId, id))
+    .orderBy(forecastComparablesTable.sortOrder, forecastComparablesTable.createdAt);
+  res.json(rows);
+});
+
+router.post("/forecasts/:id/comparables", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  const { listingName, listingUrl, nightlyRate, occupancyPct, bedrooms, area } = req.body as {
+    listingName: string;
+    listingUrl?: string;
+    nightlyRate: number;
+    occupancyPct: number;
+    bedrooms?: number;
+    area?: string;
+  };
+  if (!listingName || nightlyRate == null || occupancyPct == null) {
+    res.status(400).json({ error: "listingName, nightlyRate and occupancyPct are required" });
+    return;
+  }
+  // Enforce 5-comparable limit per forecast
+  const existing = await db.select({ id: forecastComparablesTable.id }).from(forecastComparablesTable)
+    .where(eq(forecastComparablesTable.forecastId, id));
+  if (existing.length >= 5) {
+    res.status(400).json({ error: "Maximum of 5 comparable properties per forecast" });
+    return;
+  }
+  const [row] = await db.insert(forecastComparablesTable).values({
+    forecastId: id,
+    listingName,
+    listingUrl: listingUrl || null,
+    nightlyRate,
+    occupancyPct,
+    bedrooms: bedrooms ?? null,
+    area: area || null,
+    sortOrder: existing.length,
+  }).returning();
+  res.status(201).json(row);
+});
+
+router.delete("/forecasts/:id/comparables/:compId", requireAuth, async (req, res): Promise<void> => {
+  const compId = parseInt(req.params.compId, 10);
+  await db.delete(forecastComparablesTable).where(eq(forecastComparablesTable.id, compId));
+  res.json({ message: "Comparable deleted" });
+});
+
 router.post("/forecasts/:id/ai-recommend/accept", requireAuth, async (req, res): Promise<void> => {
   res.json({ message: "AI recommendation fields processed" });
 });
@@ -494,6 +543,9 @@ router.post("/forecasts/:id/narrative-draft", requireAuth, async (req, res): Pro
   let propertyInfo: any = null;
   let ownerInfo: any = null;
   let propertyAmenities: any[] = [];
+  const comparables = await db.select().from(forecastComparablesTable)
+    .where(eq(forecastComparablesTable.forecastId, id))
+    .orderBy(forecastComparablesTable.sortOrder);
   if (f.propertyId) {
     const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, f.propertyId));
     propertyInfo = p;
@@ -614,6 +666,11 @@ router.post("/forecasts/:id/narrative-draft", requireAuth, async (req, res): Pro
         `LTR adjusted for ${ltrVacPct}% vacancy: ${ltrAdjStr ?? "N/A"}`,
         `STR uplift vs LTR: ${upliftStr ?? "N/A"}`,
         `Property amenities: ${amenityLine}`,
+        comparables.length > 0
+          ? `Comparable properties (${comparables.length}):\n${comparables.map((c: any, i: number) =>
+              `  ${i + 1}. ${c.listingName}${c.area ? ` (${c.area})` : ""}: AED ${Math.round(c.nightlyRate)}/night, ${Math.round(c.occupancyPct)}% occupancy${c.bedrooms != null ? `, ${c.bedrooms} bed` : ""}`
+            ).join("\n")}`
+          : `Comparable properties: N/A`,
       ].join("\n");
 
       const systemPrompt = `You are a senior property consultant at Royal Holiday Homes (RHH), Abu Dhabi's premium short-term rental management company. Write a concise, personalised cover narrative for an owner revenue forecast proposal.

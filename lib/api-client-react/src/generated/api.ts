@@ -34,6 +34,8 @@ import type {
   DashboardKpis,
   FileImport,
   Forecast,
+  ForecastComparable,
+  ForecastComparableInput,
   ForecastDetail,
   ForecastInput,
   ForecastUpdate,
@@ -46,6 +48,7 @@ import type {
   MarketAreaInput,
   MarketAreaUpdate,
   MessageResponse,
+  MonthlyOverrideInput,
   MonthlyProjection,
   NarrativeDraftResponse,
   Owner,
@@ -3711,44 +3714,301 @@ export function useGetForecastMonthly<TData = Awaited<ReturnType<typeof getForec
 
 
 
-// ── PATCH /forecasts/:id/monthly/:monthId ──────────────────────────────────
+export const getUpdateMonthlyOverrideUrl = (id: number,
+    monthNum: number,) => {
 
-/** monthNum is 1–12; this is stable across recalculations unlike the row id */
-export const updateMonthlyOverride = async (
-  forecastId: number,
-  monthNum: number,
-  data: import('./api.schemas').MonthlyProjectionOverrideBody,
-  options?: Parameters<typeof customFetch>[1],
-): Promise<import('./api.schemas').MonthlyProjection[]> => {
-  return customFetch<import('./api.schemas').MonthlyProjection[]>(
-    `/api/forecasts/${forecastId}/monthly/${monthNum}`,
-    { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data), ...options },
-  );
-};
 
-export const useUpdateMonthlyOverride = <TError = ErrorType<unknown>, TContext = unknown>(
-  options?: {
-    mutation?: UseMutationOptions<
-      Awaited<ReturnType<typeof updateMonthlyOverride>>,
-      TError,
-      { forecastId: number; monthNum: number; data: import('./api.schemas').MonthlyProjectionOverrideBody },
-      TContext
-    >;
-  },
+
+
+  return `/api/forecasts/${id}/monthly/${monthNum}`
+}
+
+/**
+ * @summary Save per-month occupancy/ADR override and recalculate
+ */
+export const updateMonthlyOverride = async (id: number,
+    monthNum: number,
+    monthlyOverrideInput: MonthlyOverrideInput, options?: Parameters<typeof customFetch>[1]): Promise<MonthlyProjection[]> => {
+
+  return customFetch<MonthlyProjection[]>(getUpdateMonthlyOverrideUrl(id,monthNum),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(monthlyOverrideInput)
+  }
+);}
+
+
+
+
+
+export const getUpdateMonthlyOverrideMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMonthlyOverride>>, TError,{id: number;monthNum: number;data: BodyType<MonthlyOverrideInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateMonthlyOverride>>, TError,{id: number;monthNum: number;data: BodyType<MonthlyOverrideInput>}, TContext> => {
+
+const mutationKey = ['updateMonthlyOverride'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateMonthlyOverride>>, {id: number;monthNum: number;data: BodyType<MonthlyOverrideInput>}> = (props) => {
+          const {id,monthNum,data} = props ?? {};
+
+          return  updateMonthlyOverride(id,monthNum,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateMonthlyOverrideMutationResult = NonNullable<Awaited<ReturnType<typeof updateMonthlyOverride>>>
+    export type UpdateMonthlyOverrideMutationBody = BodyType<MonthlyOverrideInput>
+    export type UpdateMonthlyOverrideMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Save per-month occupancy/ADR override and recalculate
+ */
+export const useUpdateMonthlyOverride = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateMonthlyOverride>>, TError,{id: number;monthNum: number;data: BodyType<MonthlyOverrideInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateMonthlyOverride>>,
+        TError,
+        {id: number;monthNum: number;data: BodyType<MonthlyOverrideInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateMonthlyOverrideMutationOptions(options));
+    }
+
+export const getListForecastComparablesUrl = (id: number,) => {
+
+
+
+
+  return `/api/forecasts/${id}/comparables`
+}
+
+/**
+ * @summary List comparable properties for a forecast
+ */
+export const listForecastComparables = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ForecastComparable[]> => {
+
+  return customFetch<ForecastComparable[]>(getListForecastComparablesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListForecastComparablesQueryKey = (id: number,) => {
+    return [
+    `/api/forecasts/${id}/comparables`
+    ] as const;
+    }
+
+
+export const getListForecastComparablesQueryOptions = <TData = Awaited<ReturnType<typeof listForecastComparables>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listForecastComparables>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
-  const mutationKey = ['updateMonthlyOverride'];
-  const { mutation: mutationOptions } = options ?? {};
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof updateMonthlyOverride>>,
-    { forecastId: number; monthNum: number; data: import('./api.schemas').MonthlyProjectionOverrideBody }
-  > = ({ forecastId, monthNum, data }) => updateMonthlyOverride(forecastId, monthNum, data);
-  return useMutation<
-    Awaited<ReturnType<typeof updateMonthlyOverride>>,
-    TError,
-    { forecastId: number; monthNum: number; data: import('./api.schemas').MonthlyProjectionOverrideBody },
-    TContext
-  >({ mutationKey, mutationFn, ...mutationOptions });
-};
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListForecastComparablesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listForecastComparables>>> = ({ signal }) => listForecastComparables(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listForecastComparables>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListForecastComparablesQueryResult = NonNullable<Awaited<ReturnType<typeof listForecastComparables>>>
+export type ListForecastComparablesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List comparable properties for a forecast
+ */
+
+export function useListForecastComparables<TData = Awaited<ReturnType<typeof listForecastComparables>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listForecastComparables>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListForecastComparablesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateForecastComparableUrl = (id: number,) => {
+
+
+
+
+  return `/api/forecasts/${id}/comparables`
+}
+
+/**
+ * @summary Add a comparable property to a forecast
+ */
+export const createForecastComparable = async (id: number,
+    forecastComparableInput: ForecastComparableInput, options?: Parameters<typeof customFetch>[1]): Promise<ForecastComparable> => {
+
+  return customFetch<ForecastComparable>(getCreateForecastComparableUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(forecastComparableInput)
+  }
+);}
+
+
+
+
+
+export const getCreateForecastComparableMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createForecastComparable>>, TError,{id: number;data: BodyType<ForecastComparableInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createForecastComparable>>, TError,{id: number;data: BodyType<ForecastComparableInput>}, TContext> => {
+
+const mutationKey = ['createForecastComparable'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createForecastComparable>>, {id: number;data: BodyType<ForecastComparableInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createForecastComparable(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateForecastComparableMutationResult = NonNullable<Awaited<ReturnType<typeof createForecastComparable>>>
+    export type CreateForecastComparableMutationBody = BodyType<ForecastComparableInput>
+    export type CreateForecastComparableMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Add a comparable property to a forecast
+ */
+export const useCreateForecastComparable = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createForecastComparable>>, TError,{id: number;data: BodyType<ForecastComparableInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createForecastComparable>>,
+        TError,
+        {id: number;data: BodyType<ForecastComparableInput>},
+        TContext
+      > => {
+      return useMutation(getCreateForecastComparableMutationOptions(options));
+    }
+
+export const getDeleteForecastComparableUrl = (id: number,
+    compId: number,) => {
+
+
+
+
+  return `/api/forecasts/${id}/comparables/${compId}`
+}
+
+/**
+ * @summary Delete a comparable property
+ */
+export const deleteForecastComparable = async (id: number,
+    compId: number, options?: Parameters<typeof customFetch>[1]): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getDeleteForecastComparableUrl(id,compId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteForecastComparableMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteForecastComparable>>, TError,{id: number;compId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteForecastComparable>>, TError,{id: number;compId: number}, TContext> => {
+
+const mutationKey = ['deleteForecastComparable'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteForecastComparable>>, {id: number;compId: number}> = (props) => {
+          const {id,compId} = props ?? {};
+
+          return  deleteForecastComparable(id,compId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteForecastComparableMutationResult = NonNullable<Awaited<ReturnType<typeof deleteForecastComparable>>>
+
+    export type DeleteForecastComparableMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete a comparable property
+ */
+export const useDeleteForecastComparable = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteForecastComparable>>, TError,{id: number;compId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteForecastComparable>>,
+        TError,
+        {id: number;compId: number},
+        TContext
+      > => {
+      return useMutation(getDeleteForecastComparableMutationOptions(options));
+    }
 
 export const getGenerateAiRecommendationUrl = (id: number,) => {
 

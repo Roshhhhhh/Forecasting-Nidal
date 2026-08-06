@@ -329,7 +329,16 @@ export default function ForecastDetail() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: forecast, isLoading } = useGetForecast(forecastId);
+  const { data: forecast, isLoading, refetch: refetchForecast } = useGetForecast(forecastId, {
+    query: {
+      // Always treat forecast data as stale so owner/property fields are re-fetched
+      // whenever the component mounts or the browser window regains focus.
+      // This prevents the proposal preview from showing stale owner details when
+      // the owner profile is edited between visits to this page.
+      staleTime: 0,
+      refetchOnWindowFocus: true,
+    },
+  });
   const { data: scenarios } = useListForecastScenarios(forecastId);
   const { data: monthly } = useGetForecastMonthly(forecastId);
 
@@ -637,7 +646,16 @@ export default function ForecastDetail() {
 
       {/* Tabs */}
       <div className="flex-1 overflow-auto">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full h-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={(tab) => {
+            setActiveTab(tab);
+            // Re-fetch the forecast when entering the proposal tab so the
+            // cover preview always reflects the latest owner profile data.
+            if (tab === "proposal") refetchForecast();
+          }}
+          className="w-full h-full"
+        >
           <div className="px-6 pt-4 border-b border-border bg-background sticky top-0 z-10">
             <TabsList className="grid grid-cols-5 max-w-[700px]">
               <TabsTrigger value="summary">Summary</TabsTrigger>

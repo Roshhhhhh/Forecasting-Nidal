@@ -1,9 +1,10 @@
-import { FC, ReactNode } from "react";
+import { FC, ReactNode, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarProvider } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, UserCheck, ShieldCheck, LayoutGrid } from "lucide-react";
-import { useLogout, useGetMe } from "@workspace/api-client-react";
+import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, UserCheck, ShieldCheck, LayoutGrid, Eye } from "lucide-react";
+import { useLogout, useGetMe, useListProposals } from "@workspace/api-client-react";
 import { usePermission } from "@/hooks/usePermission";
+import { useToast } from "@/hooks/use-toast";
 
 const NAV_ITEMS = [
   { label: "Dashboard",  href: "/dashboard", icon: LayoutDashboard },
@@ -106,11 +107,66 @@ export const AppSidebar: FC = () => {
   );
 };
 
+/** Polls proposals every 30 s and fires a toast when any proposal receives its first view. */
+const ProposalViewWatcher: FC = () => {
+  const { toast } = useToast();
+  const { data: me } = useGetMe();
+  const prevViews = useRef<Record<number, number>>({});
+  const initialized = useRef(false);
+
+  const { data: proposals } = useListProposals({
+    query: { refetchInterval: 30_000, staleTime: 25_000 } as any,
+  });
+
+  useEffect(() => {
+    if (!proposals || !me) return;
+
+    if (!initialized.current) {
+      // Seed baseline on first load — don't fire toasts for already-viewed proposals
+      for (const p of proposals) {
+        prevViews.current[p.id] = p.totalViews ?? 0;
+      }
+      initialized.current = true;
+      return;
+    }
+
+    for (const p of proposals) {
+      const prev = prevViews.current[p.id] ?? 0;
+      const current = p.totalViews ?? 0;
+      if (prev === 0 && current > 0) {
+        toast({
+          title: "Proposal opened!",
+          description: (
+            <span>
+              <strong>{p.referenceNumber}</strong> was just opened by the owner for the first time.{" "}
+              <a
+                href={`/proposals/${p.id}`}
+                className="underline font-medium text-primary"
+                onClick={(e) => {
+                  e.preventDefault();
+                  window.location.href = `/proposals/${p.id}`;
+                }}
+              >
+                View activity →
+              </a>
+            </span>
+          ) as any,
+          duration: 8000,
+        });
+      }
+      prevViews.current[p.id] = current;
+    }
+  }, [proposals, me, toast]);
+
+  return null;
+};
+
 export const AppLayout: FC<{ children: ReactNode }> = ({ children }) => {
   return (
     <SidebarProvider>
       <div className="flex min-h-[100dvh] w-full bg-background">
         <AppSidebar />
+        <ProposalViewWatcher />
         <main className="flex-1 overflow-auto flex flex-col">
           <div className="flex-1 w-full mx-auto">
             {children}

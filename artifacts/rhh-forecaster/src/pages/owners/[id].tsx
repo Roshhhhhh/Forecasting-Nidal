@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   useGetOwner, useUpdateOwner, useListProperties, useListForecasts,
   useListUsers, useListReferees, useCreateReferee, useCreateUser,
+  useListProposals, useGetProposalActivity,
 } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,9 +24,69 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Plus, Mail, Phone, MapPin, FileText, Pencil, Home, Globe,
-  UserCheck, UserPlus, Loader2, Search,
+  UserCheck, UserPlus, Loader2, Search, Eye, Clock, Download,
+  MessageSquare, Activity,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+function formatRelativeTime(dateStr: string | null | undefined): string {
+  if (!dateStr) return "Never";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 2) return "Just now";
+  if (mins < 60) return `${mins} minutes ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} hour${hours !== 1 ? "s" : ""} ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days} day${days !== 1 ? "s" : ""} ago`;
+  return new Date(dateStr).toLocaleDateString();
+}
+
+function ProposalActivityTimeline({ proposalId }: { proposalId: number }) {
+  const { data: activity, isLoading } = useGetProposalActivity(proposalId);
+
+  return (
+    <Card className="shadow-sm border-border/50">
+      <CardHeader className="bg-muted/20 border-b border-border pb-4">
+        <CardTitle className="text-base">Activity Timeline</CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        {isLoading ? (
+          <div className="p-8 text-center text-muted-foreground">Loading activity...</div>
+        ) : !activity || activity.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground">No activity recorded yet.</div>
+        ) : (
+          <div className="divide-y divide-border max-h-80 overflow-y-auto">
+            {activity.map((event: any) => (
+              <div key={event.id} className="p-4 flex items-start gap-3">
+                <div className="h-8 w-8 rounded-full bg-secondary/10 flex items-center justify-center mt-0.5 shrink-0">
+                  {event.eventType === "view" ? (
+                    <Eye className="h-4 w-4 text-secondary" />
+                  ) : event.eventType === "download" ? (
+                    <Download className="h-4 w-4 text-primary" />
+                  ) : event.eventType === "accept" ? (
+                    <Activity className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <MessageSquare className="h-4 w-4 text-orange-500" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-medium text-sm capitalize">{event.eventType.replace(/_/g, " ")}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {formatRelativeTime(event.createdAt)} · {event.deviceType || "Unknown device"}
+                  </div>
+                </div>
+                <div className="ml-auto text-xs text-muted-foreground whitespace-nowrap">
+                  {new Date(event.createdAt).toLocaleString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 const LEAD_SOURCE_LABELS: Record<string, string> = {
   direct_call: "Direct Call",
@@ -102,6 +163,7 @@ export default function OwnerDetail() {
   const { data: owner, isLoading: isOwnerLoading } = useGetOwner(ownerId);
   const { data: properties, isLoading: isPropsLoading } = useListProperties();
   const { data: forecasts, isLoading: isForecastsLoading } = useListForecasts();
+  const { data: allProposals } = useListProposals({ query: { refetchInterval: 60_000 } as any });
   const { data: users } = useListUsers();
   const { data: referees } = useListReferees();
 
@@ -213,6 +275,18 @@ export default function OwnerDetail() {
   const ownerProperties = properties?.filter(p => p.ownerId === ownerId) || [];
   const ownerForecasts = forecasts?.filter(f => f.ownerId === ownerId) || [];
 
+  // Proposals linked to this owner's forecasts
+  const ownerForecastIds = new Set(ownerForecasts.map(f => f.id));
+  const ownerProposals = (allProposals ?? []).filter(p => ownerForecastIds.has(p.forecastId));
+  // The "primary" engagement proposal: most recently viewed, or most recently created published one
+  const engagementProposal = [...ownerProposals]
+    .sort((a, b) => {
+      if (a.lastViewedAt && b.lastViewedAt) return new Date(b.lastViewedAt).getTime() - new Date(a.lastViewedAt).getTime();
+      if (a.lastViewedAt) return -1;
+      if (b.lastViewedAt) return 1;
+      return 0;
+    })[0] ?? null;
+
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-6">
       <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
@@ -294,6 +368,17 @@ export default function OwnerDetail() {
 
                 <div className="text-muted-foreground">Added On</div>
                 <div className="font-medium">{new Date(owner.createdAt).toLocaleDateString()}</div>
+
+                {engagementProposal && (engagementProposal.totalViews ?? 0) > 0 && (
+                  <>
+                    <div className="text-muted-foreground flex items-center gap-1">
+                      <Eye className="h-3.5 w-3.5" /> Proposal
+                    </div>
+                    <div className="font-medium text-primary text-xs">
+                      Last viewed {formatRelativeTime(engagementProposal.lastViewedAt)} · {engagementProposal.totalViews} view{(engagementProposal.totalViews ?? 0) !== 1 ? "s" : ""}
+                    </div>
+                  </>
+                )}
               </div>
 
               {(owner as any).notes && (
@@ -308,9 +393,18 @@ export default function OwnerDetail() {
 
         <div className="md:col-span-2">
           <Tabs defaultValue="properties" className="w-full">
-            <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
+            <TabsList className="grid w-full grid-cols-3 max-w-[560px]">
               <TabsTrigger value="properties">Properties ({ownerProperties.length})</TabsTrigger>
               <TabsTrigger value="forecasts">Forecasts ({ownerForecasts.length})</TabsTrigger>
+              <TabsTrigger value="engagement" className="flex items-center gap-1.5">
+                <Eye className="h-3.5 w-3.5" />
+                Engagement
+                {engagementProposal && (engagementProposal.totalViews ?? 0) > 0 && (
+                  <span className="ml-1 h-4 min-w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-1">
+                    {engagementProposal.totalViews}
+                  </span>
+                )}
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="properties" className="mt-6">
@@ -402,6 +496,71 @@ export default function OwnerDetail() {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            {/* ── Engagement Tab ── */}
+            <TabsContent value="engagement" className="mt-6 space-y-6">
+              {!engagementProposal ? (
+                <Card className="shadow-sm border-border/50">
+                  <CardContent className="p-12 text-center">
+                    <Eye className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+                    <h3 className="text-lg font-medium text-foreground mb-1">No proposals sent yet</h3>
+                    <p className="text-muted-foreground">Once a proposal link is published, engagement data will appear here.</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <>
+                  {/* Engagement summary stats */}
+                  <Card className="shadow-sm border-border/50">
+                    <CardHeader className="bg-muted/20 border-b border-border pb-4">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base">Proposal Engagement</CardTitle>
+                        <Link href={`/proposals/${engagementProposal.id}`}
+                          className="text-xs text-primary hover:underline flex items-center gap-1">
+                          View full report →
+                        </Link>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <div className="grid grid-cols-3 gap-4 mb-6">
+                        <div className="text-center p-4 bg-muted/10 rounded-lg">
+                          <div className="text-sm text-muted-foreground mb-1">Total Views</div>
+                          <div className="text-3xl font-bold">{engagementProposal.totalViews ?? 0}</div>
+                        </div>
+                        <div className="text-center p-4 bg-muted/10 rounded-lg">
+                          <div className="text-sm text-muted-foreground mb-1">Unique Visitors</div>
+                          <div className="text-3xl font-bold">{engagementProposal.uniqueViews ?? 0}</div>
+                        </div>
+                        <div className="text-center p-4 bg-muted/10 rounded-lg">
+                          <div className="text-sm text-muted-foreground mb-1">Owner Action</div>
+                          <div className="text-sm font-semibold capitalize mt-1">
+                            {engagementProposal.ownerAction
+                              ? engagementProposal.ownerAction.replace(/_/g, " ")
+                              : (engagementProposal.totalViews ?? 0) > 0 ? "Viewed" : "—"}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Last viewed row */}
+                      {engagementProposal.lastViewedAt && (
+                        <div className="flex items-center gap-2 p-3 rounded-lg bg-primary/5 border border-primary/15 text-sm">
+                          <Clock className="h-4 w-4 text-primary shrink-0" />
+                          <span className="text-muted-foreground">Last viewed</span>
+                          <span className="font-semibold text-foreground">
+                            {formatRelativeTime(engagementProposal.lastViewedAt)}
+                          </span>
+                          <span className="text-muted-foreground ml-1">
+                            ({new Date(engagementProposal.lastViewedAt).toLocaleString()})
+                          </span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Activity timeline */}
+                  <ProposalActivityTimeline proposalId={engagementProposal.id} />
+                </>
+              )}
             </TabsContent>
           </Tabs>
         </div>

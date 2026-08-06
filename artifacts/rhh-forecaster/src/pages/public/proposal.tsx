@@ -141,6 +141,7 @@ export default function PublicProposal() {
   // Monthly chart view
   const [chartView, setChartView] = useState<"net" | "gross" | "occ" | "adr">("net");
   const [mobileScenarioIndex, setMobileScenarioIndex] = useState(0);
+  const [showAllAmenities, setShowAllAmenities] = useState(false);
 
   // Pin mobile scenario selector to the recommended (80%) scenario on load
   useEffect(() => {
@@ -561,12 +562,12 @@ export default function PublicProposal() {
           if (!amenities.length) return null;
           const highlights = amenities.filter((a: any) => a.isProposalHighlight);
           const rest       = amenities.filter((a: any) => !a.isProposalHighlight);
-          // Group rest by category
           const grouped: Record<string, any[]> = {};
           rest.forEach((a: any) => {
             if (!grouped[a.category]) grouped[a.category] = [];
             grouped[a.category].push(a);
           });
+          const totalRest = rest.length;
           return (
             <div style={{ maxWidth:1200, margin:"0 auto", padding:isMobile?"32px 16px 0":"40px 48px 0" }}>
               <div style={{ border:`1px solid ${BORDER}`, borderRadius:16, padding:isMobile?"24px 20px":"36px 40px", background:WHITE, position:"relative", overflow:"hidden" }}>
@@ -574,9 +575,9 @@ export default function PublicProposal() {
                 <div style={{ position:"absolute", top:0, left:0, width:4, height:"100%", background:`linear-gradient(180deg, ${GOLD} 0%, ${GOLD2} 100%)` }} />
                 <div style={{ fontSize:10, fontWeight:700, letterSpacing:3, textTransform:"uppercase", color:MUTED, marginBottom:20 }}>Property Highlights</div>
 
-                {/* Proposal-highlight features — prominent pills */}
+                {/* Top-featured amenity pills — always visible */}
                 {highlights.length > 0 && (
-                  <div style={{ marginBottom:rest.length ? 24 : 0 }}>
+                  <div style={{ marginBottom: totalRest ? 20 : 0 }}>
                     <div style={{ fontSize:11, fontWeight:700, color:GOLD, letterSpacing:1.5, textTransform:"uppercase", marginBottom:12 }}>
                       Top Features
                     </div>
@@ -591,12 +592,30 @@ export default function PublicProposal() {
                   </div>
                 )}
 
-                {/* Remaining amenities grouped by category */}
-                {Object.keys(grouped).length > 0 && (
-                  <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
-                    {highlights.length > 0 && (
-                      <div style={{ height:1, background:BORDER }} />
-                    )}
+                {/* Toggle button — only shown when there are additional features */}
+                {totalRest > 0 && (
+                  <button
+                    onClick={() => setShowAllAmenities(v => !v)}
+                    style={{
+                      display:"inline-flex", alignItems:"center", gap:6,
+                      marginTop: highlights.length ? 4 : 0,
+                      padding:"8px 16px", borderRadius:20,
+                      border:`1px solid ${GOLD}60`, background:"transparent",
+                      color:GOLD, fontSize:12, fontWeight:700, cursor:"pointer",
+                      transition:"all 0.2s",
+                    }}
+                  >
+                    <span style={{ fontSize:14 }}>{showAllAmenities ? "▲" : "▼"}</span>
+                    {showAllAmenities
+                      ? "Hide features"
+                      : `View all ${totalRest + highlights.length} property features`}
+                  </button>
+                )}
+
+                {/* Full grouped list — collapsible */}
+                {showAllAmenities && Object.keys(grouped).length > 0 && (
+                  <div style={{ display:"flex", flexDirection:"column", gap:16, marginTop:24 }}>
+                    <div style={{ height:1, background:BORDER }} />
                     {Object.entries(grouped).map(([cat, items]: [string, any[]]) => (
                       <div key={cat}>
                         <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:MUTED, marginBottom:8 }}>{cat}</div>

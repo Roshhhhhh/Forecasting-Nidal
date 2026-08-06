@@ -217,9 +217,10 @@ export default function PublicProposal() {
   const scenarios = ([...(proposal.scenarios ?? [])] as any[]).sort((a,b) => a.occupancyRate - b.occupancyRate);
   const monthly   = ([...(proposal.monthlyProjections ?? [])] as any[]).sort((a,b) => a.month - b.month);
 
-  // Recommended scenario: "Realistic" → closest to 80%
+  // Primary scenario: always the isRecommended flag → explicit 80% → closest to 80%
   const recScenario: any =
-    scenarios.find(s => s.name === "Realistic") ??
+    scenarios.find((s: any) => s.isRecommended) ??
+    scenarios.find((s: any) => Math.abs((s.occupancyRate ?? 0) - 0.80) < 0.01) ??
     (scenarios.length
       ? scenarios.reduce((best: any, s: any) =>
           Math.abs(s.occupancyRate - 0.80) < Math.abs(best.occupancyRate - 0.80) ? s : best,
@@ -447,10 +448,10 @@ export default function PublicProposal() {
               <span style={{ fontSize:13, color:"#c8bfa8" }}>{(proposal as any).propertyAddress}</span>
             </div>
 
-            {/* Recommended badge */}
+            {/* Primary forecast badge */}
             <div style={{ fontSize:11, color:GOLD, letterSpacing:2, textTransform:"uppercase", marginBottom:14, fontWeight:700, display:"flex", alignItems:"center", gap:8 }}>
               <div style={{ width:20, height:1, background:GOLD }} />
-              Recommended Forecast — Realistic Scenario at {recOccPct}% Occupancy
+              RHH Projected Forecast — Realistic Scenario at {recOccPct}% Occupancy
               <div style={{ width:20, height:1, background:GOLD }} />
             </div>
 
@@ -459,7 +460,7 @@ export default function PublicProposal() {
               {[
                 { label:"Annual Net Owner Income",  value:`AED ${fmt(recNet)}`,        accent:true },
                 { label:"Average Monthly Payout",   value:`AED ${fmt(recMonthly)}`,    accent:false },
-                { label:"Recommended Occupancy",    value:`${recOccPct}%`,             accent:false },
+                { label:"Projected Occupancy",      value:`${recOccPct}%`,             accent:false },
                 { label:"Weighted Avg. Daily Rate", value:`AED ${fmt(weightedAdr)}`,   accent:false },
                 ...(hasLtr ? [{ label:"vs. Long-Term Rental", value:`+${recUpliftPct ?? 0}%`, accent:false, green:true }] : []),
               ].map(({ label, value, accent, green }: any) => (
@@ -548,7 +549,7 @@ export default function PublicProposal() {
         <SectionHeading
           eyebrow="Executive Financial Summary"
           title="Your Projected Returns"
-          subtitle={`Based on the Realistic scenario at ${recOccPct}% recommended occupancy.`}
+          subtitle={`Based on the Realistic ${recOccPct}% occupancy scenario — RHH's primary planning projection for this property.`}
         />
 
         {/* Main KPI cards */}
@@ -621,12 +622,12 @@ export default function PublicProposal() {
             <div style={{ marginBottom:20 }}>
               <h3 style={{ fontSize:isMobile?18:22, fontWeight:800, color:DARK, fontFamily:"serif" }}>Scenario Comparison</h3>
               <p style={{ fontSize:13, color:MUTED, marginTop:6, lineHeight:1.6, maxWidth:720 }}>
-                The scenarios below illustrate potential performance at different occupancy levels. The Realistic 80% scenario is Royal Holiday Homes' recommended planning forecast for this proposal.
+                The scenarios below illustrate potential performance at different occupancy levels. The Realistic 80% scenario is RHH's primary planning projection for this proposal.
               </p>
             </div>
             <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":`repeat(${Math.min(scenarios.length,4)}, 1fr)`, gap:12 }}>
               {scenarios.map((s: any) => {
-                const isRec = s.id === recScenario?.id || s.name === "Realistic" || (recScenario && s.occupancyRate === recScenario.occupancyRate);
+                const isRec = recScenario && (s.id === recScenario.id || s.occupancyRate === recScenario.occupancyRate);
                 const occ = Math.round((s.occupancyRate ?? 0) * 100);
                 return (
                   <div key={s.id ?? s.occupancyRate} style={{ borderRadius:14, overflow:"hidden", border:isRec?`2px solid ${GOLD}`:`1px solid ${BORDER}`, background:isRec?`linear-gradient(160deg,#1c1709 0%,#201c11 100%)`:WHITE, position:"relative" }}>
@@ -634,7 +635,7 @@ export default function PublicProposal() {
                     <div style={{ padding:isMobile?"16px 14px":"20px 20px" }}>
                       {isRec && (
                         <div style={{ display:"inline-block", padding:"3px 10px", background:GOLD, borderRadius:20, fontSize:9, fontWeight:800, letterSpacing:1.5, textTransform:"uppercase", color:DARK, marginBottom:10 }}>
-                          ★ Recommended
+                          ★ RHH Projected
                         </div>
                       )}
                       <div style={{ fontSize:isMobile?10:11, fontWeight:700, letterSpacing:1, textTransform:"uppercase", color:isRec?GOLD:MUTED, marginBottom:4 }}>{s.name ?? "Scenario"}</div>
@@ -666,7 +667,7 @@ export default function PublicProposal() {
             <div style={{ marginBottom:20 }}>
               <h3 style={{ fontSize:isMobile?18:22, fontWeight:800, color:DARK, fontFamily:"serif" }}>Detailed Income Calculator</h3>
               <p style={{ fontSize:13, color:MUTED, marginTop:6, lineHeight:1.6 }}>
-                Illustrative comparison across occupancy scenarios. The Realistic 80% scenario is highlighted.
+                Illustrative comparison across occupancy scenarios. The RHH Projected 80% scenario is highlighted.
               </p>
             </div>
 
@@ -679,7 +680,7 @@ export default function PublicProposal() {
                     return (
                       <button key={i} onClick={() => setMobileScenarioIndex(i)}
                         style={{ flexShrink:0, padding:"8px 16px", borderRadius:20, border:mobileScenarioIndex===i?`2px solid ${GOLD}`:`1px solid ${BORDER}`, background:mobileScenarioIndex===i?(isRec?DARK:CREAM):WHITE, color:mobileScenarioIndex===i?(isRec?GOLD:DARK):MUTED, fontSize:12, fontWeight:700, cursor:"pointer" }}>
-                        {Math.round((s.occupancyRate??0)*100)}% {isRec?"★":""}
+                        {Math.round((s.occupancyRate??0)*100)}% {isRec ? "★" : ""}
                       </button>
                     );
                   })}
@@ -736,7 +737,7 @@ export default function PublicProposal() {
                         const isRec = recScenario && s.occupancyRate === recScenario.occupancyRate;
                         return (
                           <th key={s.id ?? s.occupancyRate} style={{ padding:"14px 16px", textAlign:"center", background:isRec?`rgba(201,168,76,0.12)`:"transparent", borderRight:`1px solid rgba(255,255,255,0.05)`, borderTop:isRec?`3px solid ${GOLD}`:"none" }}>
-                            {isRec && <div style={{ fontSize:9, color:GOLD, fontWeight:800, letterSpacing:1.5, textTransform:"uppercase", marginBottom:4 }}>★ Recommended</div>}
+                            {isRec && <div style={{ fontSize:9, color:GOLD, fontWeight:800, letterSpacing:1.5, textTransform:"uppercase", marginBottom:4 }}>★ RHH Projected</div>}
                             <div style={{ fontSize:12, fontWeight:700, color:isRec?GOLD:WHITE }}>{s.name}</div>
                             <div style={{ fontSize:11, color:isRec?GOLD2:"#666" }}>{Math.round((s.occupancyRate??0)*100)}% Occ.</div>
                           </th>
@@ -923,7 +924,7 @@ export default function PublicProposal() {
             <div style={{ borderRadius:16, overflow:"hidden", border:`2px solid ${GOLD}` }}>
               <div style={{ padding:"20px 28px", background:`linear-gradient(135deg, #1c1709 0%, #201c11 100%)`, borderBottom:`2px solid ${GOLD}40` }}>
                 <div style={{ fontSize:11, color:GOLD, fontWeight:700, letterSpacing:2, textTransform:"uppercase", marginBottom:6 }}>Holiday Home (Short-Term Rental)</div>
-                <div style={{ fontSize:22, fontWeight:900, fontFamily:"serif", color:WHITE }}>Recommended Model</div>
+                <div style={{ fontSize:22, fontWeight:900, fontFamily:"serif", color:WHITE }}>RHH Managed STR</div>
               </div>
               <div style={{ background:"#111" }}>
                 {[
@@ -1198,7 +1199,7 @@ export default function PublicProposal() {
                   { label:"Reference",       value:(proposal as any).referenceNumber },
                   { label:"Prepared For",    value:displayName },
                   { label:"Property",        value:(proposal as any).propertyAddress },
-                  { label:"Recommended",     value:`${recScenario?.name ?? "Realistic"} at ${recOccPct}% Occupancy` },
+                  { label:"Forecast Scenario", value:`${recScenario?.name ?? "Realistic"} at ${recOccPct}% Occupancy` },
                   { label:"Issue Date",      value:propDate },
                   ...(expiryDate ? [{ label:"Valid Until", value:expiryDate }] : []),
                   ...((proposal as any).advisorName ? [{ label:"Representative", value:(proposal as any).advisorName }] : []),
@@ -1243,7 +1244,7 @@ export default function PublicProposal() {
                 {[
                   { label:"Reference",          value:(proposal as any).referenceNumber },
                   { label:"Property",           value:(proposal as any).propertyAddress },
-                  { label:"Recommended",        value:`${recScenario?.name ?? "Realistic"}, ${recOccPct}% Occupancy` },
+                  { label:"Forecast Scenario",   value:`${recScenario?.name ?? "Realistic"}, ${recOccPct}% Occupancy` },
                   { label:"Gross Annual Revenue",value:`AED ${fmt(recGross)}` },
                   { label:"Net Annual Income",  value:`AED ${fmt(recNet)}` },
                   { label:"Avg. Monthly Payout",value:`AED ${fmt(recMonthly)}` },

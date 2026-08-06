@@ -80,7 +80,13 @@ export async function runStartupMigration() {
       )
     `);
 
-    // 6. Add per-month override columns to monthly_projections if they don't exist
+    // 6. Add baseAdr to forecasts (single-ADR model, March = multiplier 1.0)
+    await db.execute(sql`
+      ALTER TABLE forecasts
+        ADD COLUMN IF NOT EXISTS base_adr REAL
+    `);
+
+    // 7. Add per-month override columns to monthly_projections if they don't exist
     await db.execute(sql`
       ALTER TABLE monthly_projections
         ADD COLUMN IF NOT EXISTS occupancy_override REAL,

@@ -48,10 +48,13 @@ export const forecastsTable = pgTable("forecasts", {
   ownerBlockedNights: integer("owner_blocked_nights").default(0),
 
   // ADR inputs
+  // Legacy 4-season ADR fields — kept for backward compat; new forecasts use baseAdr
   lowSeasonAdr: real("low_season_adr"),
   shoulderSeasonAdr: real("shoulder_season_adr"),
   peakSeasonAdr: real("peak_season_adr"),
   eventAdr: real("event_adr"),
+  // Single base ADR (March shoulder reference, multiplier 1.0)
+  baseAdr: real("base_adr"),
 
   // Calculated outputs
   weightedAdr: real("weighted_adr"),

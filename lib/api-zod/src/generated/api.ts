@@ -1194,6 +1194,7 @@ export const UpdateForecastBody = zod.object({
   "utilityCost": zod.number().optional(),
   "maintenanceCost": zod.number().optional(),
   "miscCost": zod.number().optional(),
+  "baseAdr": zod.number().optional(),
   "lowSeasonAdr": zod.number().optional(),
   "shoulderSeasonAdr": zod.number().optional(),
   "peakSeasonAdr": zod.number().optional(),

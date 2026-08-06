@@ -24,30 +24,28 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 
-// Abu Dhabi seasonal weights (months per season out of 12)
-const SEASON_WEIGHTS = { low: 3, shoulder: 4, peak: 4, event: 1 }; // Jun-Aug | Apr,May,Sep,Oct | Nov,Jan,Feb,Mar | Dec
+// ── Per-month constants (matching calculate.ts) ──────────────────────────────
+// ADR multipliers: baseAdr × MULTIPLIER[i] = that month's ADR (March = 1.0 reference)
+const MONTH_ADR_MULT  = [1.75, 1.5, 1.0, 1.0625, 1.0625, 0.75, 0.75, 0.8125, 1.3125, 1.5, 1.875, 2.125];
+const MONTH_BASE_OCC  = [0.90, 0.85, 0.75, 0.78, 0.77, 0.65, 0.65, 0.65, 0.75, 0.85, 0.90, 0.95];
+const MONTH_DAYS_ARR  = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+const MONTH_SHORT     = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTH_SEASON_LABEL = ["peak","peak","shoulder","shoulder","shoulder","low","low","low","shoulder","peak","event","event"];
+const REFERENCE_OCC   = 0.75; // March shoulder = scale reference
 
-function computeWeightedAdr(low: number, shoulder: number, peak: number, event: number): number {
-  const total = SEASON_WEIGHTS.low + SEASON_WEIGHTS.shoulder + SEASON_WEIGHTS.peak + SEASON_WEIGHTS.event;
-  return Math.round((low * SEASON_WEIGHTS.low + shoulder * SEASON_WEIGHTS.shoulder + peak * SEASON_WEIGHTS.peak + event * SEASON_WEIGHTS.event) / total);
-}
-
-const OCCUPANCY_LEVELS = [1.0, 0.95, 0.90, 0.85, 0.80, 0.75, 0.70];
+// Sensitivity table columns: reference occupancy levels
+const OCC_LEVELS = [0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65];
 
 interface FormValues {
   annualLtr: number;
   ltrVacancyPercent: number;
-  lowSeasonAdr: number;
-  shoulderSeasonAdr: number;
-  peakSeasonAdr: number;
-  eventAdr: number;
+  baseAdr: number;
   utilityCost: number;
   internetCost: number;
   maintenanceCost: number;
   miscCost: number;
   managementFeePercent: number;
   ownerBlockedNights: number;
-  recommendedOccupancy: number;
 }
 
 function fmt(val?: number | null, opts?: { digits?: number }) {
@@ -381,9 +379,9 @@ export default function ForecastDetail() {
   const form = useForm<FormValues>({
     defaultValues: {
       annualLtr: 0, ltrVacancyPercent: 10,
-      lowSeasonAdr: 0, shoulderSeasonAdr: 0, peakSeasonAdr: 0, eventAdr: 0,
+      baseAdr: 0,
       utilityCost: 0, internetCost: 0, maintenanceCost: 0, miscCost: 0,
-      managementFeePercent: 17, ownerBlockedNights: 0, recommendedOccupancy: 80,
+      managementFeePercent: 17, ownerBlockedNights: 0,
     },
   });
 
@@ -395,19 +393,14 @@ export default function ForecastDetail() {
       form.reset({
         annualLtr: forecast.annualLtr ?? 0,
         ltrVacancyPercent: forecast.ltrVacancyPercent ?? 10,
-        lowSeasonAdr: forecast.lowSeasonAdr ?? 0,
-        shoulderSeasonAdr: forecast.shoulderSeasonAdr ?? 0,
-        peakSeasonAdr: forecast.peakSeasonAdr ?? 0,
-        eventAdr: forecast.eventAdr ?? 0,
+        // Use new baseAdr if stored; fall back to shoulderSeasonAdr for existing forecasts
+        baseAdr: (forecast as any).baseAdr ?? forecast.shoulderSeasonAdr ?? 0,
         utilityCost: forecast.utilityCost ?? 0,
         internetCost: forecast.internetCost ?? 0,
         maintenanceCost: forecast.maintenanceCost ?? 0,
         miscCost: forecast.miscCost ?? 0,
         managementFeePercent: forecast.managementFeePercent ?? 17,
         ownerBlockedNights: forecast.ownerBlockedNights ?? 0,
-        recommendedOccupancy: forecast.recommendedOccupancy != null
-          ? Math.round((forecast.recommendedOccupancy as number) * 100)
-          : 80,
       });
       setIsDirty(false);
     }
@@ -420,16 +413,28 @@ export default function ForecastDetail() {
   }, [form]);
 
   // Derived live calculations
-  const weightedAdr = computeWeightedAdr(values.lowSeasonAdr, values.shoulderSeasonAdr, values.peakSeasonAdr, values.eventAdr);
+  const baseAdrVal = values.baseAdr || 0;
+  // weightedAdr = total_revenue / total_occupied_nights at reference occupancy
+  const _annualRevUnit = MONTH_ADR_MULT.reduce((s, m, i) => s + MONTH_DAYS_ARR[i] * MONTH_BASE_OCC[i] * m, 0);
+  const _totalOccNights = MONTH_DAYS_ARR.reduce((s, d, i) => s + d * MONTH_BASE_OCC[i], 0);
+  const weightedAdr = baseAdrVal > 0 ? Math.round(baseAdrVal * _annualRevUnit / _totalOccNights) : 0;
+
   const ltrMonthly = values.annualLtr / 12;
   const ltrEffective = values.annualLtr * (1 - (values.ltrVacancyPercent ?? 10) / 100);
   const ltrMonthlyEffective = ltrEffective / 12;
   const totalAnnualExpenses = values.utilityCost + values.internetCost + values.maintenanceCost + values.miscCost;
   const totalMonthlyExpenses = totalAnnualExpenses / 12;
 
-  // Scenario computations
-  function computeScenario(occ: number) {
-    const gross = weightedAdr * 365 * occ;
+  // Scenario computations — refOcc scales all monthly base occupancies proportionally
+  function computeScenario(refOcc: number) {
+    const scale = refOcc / REFERENCE_OCC;
+    const blockedPerMonth = Math.round((values.ownerBlockedNights || 0) / 12);
+    let gross = 0;
+    for (let i = 0; i < 12; i++) {
+      const available = Math.max(0, MONTH_DAYS_ARR[i] - blockedPerMonth);
+      const occ = Math.min(0.98, MONTH_BASE_OCC[i] * scale);
+      gross += available * occ * baseAdrVal * MONTH_ADR_MULT[i];
+    }
     const mgmtFee = gross * (values.managementFeePercent / 100);
     const net = gross - mgmtFee - totalAnnualExpenses;
     const monthly = net / 12;
@@ -441,17 +446,14 @@ export default function ForecastDetail() {
     return {
       annualLtr: values.annualLtr || undefined,
       ltrVacancyPercent: values.ltrVacancyPercent,
-      lowSeasonAdr: values.lowSeasonAdr || undefined,
-      shoulderSeasonAdr: values.shoulderSeasonAdr || undefined,
-      peakSeasonAdr: values.peakSeasonAdr || undefined,
-      eventAdr: values.eventAdr || undefined,
+      baseAdr: values.baseAdr || undefined,
       utilityCost: values.utilityCost || undefined,
       internetCost: values.internetCost || undefined,
       maintenanceCost: values.maintenanceCost || undefined,
       miscCost: values.miscCost || undefined,
       managementFeePercent: values.managementFeePercent,
       ownerBlockedNights: values.ownerBlockedNights,
-      recommendedOccupancy: (values.recommendedOccupancy ?? 80) / 100,
+      recommendedOccupancy: REFERENCE_OCC,
     };
   }
 
@@ -526,11 +528,8 @@ export default function ForecastDetail() {
     try {
       const rec = await aiRecommend.mutateAsync({ id: forecastId });
       // Pre-fill form with AI suggested values
-      if (rec.lowSeasonAdrSuggested != null)      form.setValue("lowSeasonAdr", rec.lowSeasonAdrSuggested);
-      if (rec.shoulderSeasonAdrSuggested != null)  form.setValue("shoulderSeasonAdr", rec.shoulderSeasonAdrSuggested);
-      if (rec.peakSeasonAdrSuggested != null)      form.setValue("peakSeasonAdr", rec.peakSeasonAdrSuggested);
-      if (rec.eventAdrSuggested != null)           form.setValue("eventAdr", rec.eventAdrSuggested);
-      if (rec.occupancySuggested != null)          form.setValue("recommendedOccupancy", Math.round(rec.occupancySuggested * 100));
+      // shoulderSeasonAdrSuggested = March reference ADR (multiplier 1.0) — maps directly to baseAdr
+      if (rec.shoulderSeasonAdrSuggested != null)  form.setValue("baseAdr", rec.shoulderSeasonAdrSuggested);
       if (rec.internetCostSuggested != null)       form.setValue("internetCost", rec.internetCostSuggested);
       if (rec.utilityCostSuggested != null)        form.setValue("utilityCost", rec.utilityCostSuggested);
       if (rec.maintenanceCostSuggested != null)    form.setValue("maintenanceCost", rec.maintenanceCostSuggested);
@@ -854,50 +853,82 @@ export default function ForecastDetail() {
                 </CardContent>
               </Card>
 
-              {/* ADR Section */}
+              {/* ADR Section — single Base ADR + per-month breakdown */}
               <Card className="border-border/50 shadow-sm">
                 <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
                   <CardTitle className="font-serif text-base flex items-center gap-2">
                     <DollarSign className="h-4 w-4 text-primary" />
-                    Average Daily Rate (ADR) by Season
+                    Average Daily Rate (ADR)
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-6">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                    {[
-                      { label: "Low Season", key: "lowSeasonAdr" as const, hint: "Jun · Jul · Aug", color: "bg-blue-50 border-blue-200 dark:bg-blue-900/10" },
-                      { label: "Shoulder Season", key: "shoulderSeasonAdr" as const, hint: "Apr · May · Sep · Oct", color: "bg-yellow-50 border-yellow-200 dark:bg-yellow-900/10" },
-                      { label: "Peak Season", key: "peakSeasonAdr" as const, hint: "Nov · Jan · Feb · Mar", color: "bg-orange-50 border-orange-200 dark:bg-orange-900/10" },
-                      { label: "Events / Special", key: "eventAdr" as const, hint: "Dec (F1 · NYE)", color: "bg-red-50 border-red-200 dark:bg-red-900/10" },
-                    ].map(({ label, key, hint, color }) => (
-                      <div key={key} className={`p-4 rounded-lg border ${color} space-y-2`}>
-                        <Label className="text-xs font-semibold uppercase tracking-wide">{label}</Label>
-                        <div className="relative">
-                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">AED</span>
-                          <Input
-                            type="number"
-                            min="0"
-                            placeholder="0"
-                            {...form.register(key, { valueAsNumber: true })}
-                            className="pl-12 h-11 text-base font-semibold bg-background"
-                          />
+                <CardContent className="p-6 space-y-6">
+                  {/* Single base ADR input */}
+                  <div className="flex flex-col md:flex-row md:items-end gap-6">
+                    <div className="flex-1 space-y-2">
+                      <Label className="text-sm font-medium">Base ADR — March / Shoulder Reference</Label>
+                      <div className="relative max-w-xs">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground font-medium">AED</span>
+                        <Input
+                          type="number"
+                          min="0"
+                          placeholder="0"
+                          {...form.register("baseAdr", { valueAsNumber: true })}
+                          className="pl-12 h-12 text-lg font-semibold bg-background"
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        March rate = 1.0× reference. All other months are derived automatically using RHH seasonal multipliers.
+                      </p>
+                    </div>
+                    <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 flex items-center justify-between gap-8 md:min-w-[260px]">
+                      <div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Weighted Average ADR</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">Across all 12 months</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <div className="text-3xl font-bold text-primary">
+                          {baseAdrVal > 0 ? `AED ${weightedAdr.toLocaleString()}` : "—"}
                         </div>
-                        <p className="text-xs text-muted-foreground">{hint}</p>
+                        {baseAdrVal > 0 && <p className="text-xs text-muted-foreground">per occupied night</p>}
                       </div>
-                    ))}
-                  </div>
-                  <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Estimated Weighted Average ADR</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">Weighted by Abu Dhabi seasonal calendar (3/4/4/1 months)</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-3xl font-bold text-primary">
-                        {weightedAdr > 0 ? `AED ${weightedAdr.toLocaleString()}` : "—"}
-                      </div>
-                      {weightedAdr > 0 && <p className="text-xs text-muted-foreground">per occupied night</p>}
                     </div>
                   </div>
+
+                  {/* Per-month ADR breakdown table */}
+                  {baseAdrVal > 0 && (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm border border-border/50 rounded-lg overflow-hidden">
+                        <thead>
+                          <tr className="bg-muted/40 border-b border-border">
+                            {MONTH_SHORT.map((m, i) => (
+                              <th key={m} className={`px-3 py-2 text-center font-semibold text-xs tabular-nums
+                                ${MONTH_SEASON_LABEL[i] === "low"      ? "text-blue-600 dark:text-blue-400"   : ""}
+                                ${MONTH_SEASON_LABEL[i] === "shoulder" ? "text-yellow-700 dark:text-yellow-400" : ""}
+                                ${MONTH_SEASON_LABEL[i] === "peak"     ? "text-orange-600 dark:text-orange-400" : ""}
+                                ${MONTH_SEASON_LABEL[i] === "event"    ? "text-red-600 dark:text-red-400"     : ""}
+                              `}>{m}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="divide-x divide-border/30 bg-background">
+                            {MONTH_ADR_MULT.map((mult, i) => (
+                              <td key={i} className="px-2 py-2.5 text-center tabular-nums text-sm font-semibold">
+                                {Math.round(baseAdrVal * mult).toLocaleString()}
+                              </td>
+                            ))}
+                          </tr>
+                          <tr className="divide-x divide-border/30 bg-muted/20 text-[10px] text-muted-foreground">
+                            {MONTH_ADR_MULT.map((mult, i) => (
+                              <td key={i} className="px-2 py-1 text-center">
+                                ×{mult}
+                              </td>
+                            ))}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
 
@@ -969,17 +1000,21 @@ export default function ForecastDetail() {
                       </div>
                       <p className="text-xs text-muted-foreground">Charged on gross STR revenue</p>
                     </div>
-                    {weightedAdr > 0 && (
+                    {baseAdrVal > 0 && (
                       <div className="p-3 bg-muted/30 rounded-md text-sm space-y-1">
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">At 80% occupancy preview</p>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Gross Revenue</span>
-                          <span className="font-medium">{fmt(weightedAdr * 365 * 0.8)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Management Fee</span>
-                          <span className="font-medium text-red-600">-{fmt(weightedAdr * 365 * 0.8 * values.managementFeePercent / 100)}</span>
-                        </div>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">At reference occupancy (75%) preview</p>
+                        {(() => { const s = computeScenario(0.75); return (
+                          <>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Gross Revenue</span>
+                              <span className="font-medium">{fmt(s.gross)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Management Fee</span>
+                              <span className="font-medium text-red-600">-{fmt(s.mgmtFee)}</span>
+                            </div>
+                          </>
+                        ); })()}
                       </div>
                     )}
                   </CardContent>
@@ -1002,20 +1037,9 @@ export default function ForecastDetail() {
                       />
                       <p className="text-xs text-muted-foreground">Nights reserved for owner use (reduces available inventory)</p>
                     </div>
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">Target Occupancy Rate (%)</Label>
-                      <div className="relative">
-                        <Input
-                          type="number"
-                          min="0"
-                          max="100"
-                          placeholder="80"
-                          {...form.register("recommendedOccupancy", { valueAsNumber: true })}
-                          className="h-11 pr-8"
-                        />
-                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">%</span>
-                      </div>
-                      <p className="text-xs text-muted-foreground">Used as the base occupancy rate for calculations</p>
+                    <div className="p-3 bg-muted/20 rounded-md border border-border/40">
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Occupancy model</p>
+                      <p className="text-xs text-muted-foreground">Fixed per-month rates from the RHH seasonal table (Mar 75% → Dec 95%). Enter owner blocked nights above to reduce inventory.</p>
                     </div>
                   </CardContent>
                 </Card>
@@ -1067,7 +1091,7 @@ export default function ForecastDetail() {
               <div>
                 <p className="text-sm font-medium text-blue-800 dark:text-blue-400">Live preview</p>
                 <p className="text-xs text-blue-700 dark:text-blue-500 mt-0.5">
-                  This table is computed in real time from your current inputs using the weighted average ADR (AED {weightedAdr > 0 ? weightedAdr.toLocaleString() : "—"}). Click <strong>Save & Calculate</strong> to store the official results and generate monthly projections.
+                  This table is computed in real time using Base ADR <strong>{baseAdrVal > 0 ? `AED ${baseAdrVal.toLocaleString()}` : "—"}</strong> with RHH seasonal multipliers. Columns show different reference occupancy levels (scales all months proportionally). Click <strong>Save & Calculate</strong> to store official results.
                 </p>
               </div>
             </div>
@@ -1104,35 +1128,37 @@ export default function ForecastDetail() {
                   <thead>
                     <tr className="bg-muted/40 border-b border-border">
                       <th className="px-5 py-3 text-left font-semibold text-muted-foreground">Metric</th>
-                      {OCCUPANCY_LEVELS.map(occ => (
+                      {OCC_LEVELS.map(occ => (
                         <th key={occ} className={`px-5 py-3 text-right font-semibold ${occ === 0.85 ? "bg-primary/10 text-primary" : "text-muted-foreground"}`}>
                           {Math.round(occ * 100)}%
+                          {occ === 0.95 && <div className="text-[10px] font-normal mt-0.5">Optimistic</div>}
                           {occ === 0.85 && <div className="text-[10px] font-normal mt-0.5">Confident</div>}
                           {occ === 0.80 && <div className="text-[10px] font-normal mt-0.5">Realistic</div>}
-                          {occ === 0.75 && <div className="text-[10px] font-normal mt-0.5">Conservative</div>}
-                          {occ === 0.90 && <div className="text-[10px] font-normal mt-0.5">Optimistic</div>}
+                          {occ === 0.75 && <div className="text-[10px] font-normal mt-0.5">Reference</div>}
+                          {occ === 0.70 && <div className="text-[10px] font-normal mt-0.5">Cautious</div>}
+                          {occ === 0.65 && <div className="text-[10px] font-normal mt-0.5">Conservative</div>}
                         </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     <tr className="bg-muted/20">
-                      <td colSpan={OCCUPANCY_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">INCOME</td>
+                      <td colSpan={OCC_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">INCOME</td>
                     </tr>
                     <tr className="hover:bg-muted/20 transition-colors">
                       <td className="px-5 py-3 font-medium">Gross Annual Revenue (AED)</td>
-                      {OCCUPANCY_LEVELS.map(occ => {
+                      {OCC_LEVELS.map(occ => {
                         const s = computeScenario(occ);
                         return (
                           <td key={occ} className={`px-5 py-3 text-right font-semibold tabular-nums ${occ === 0.85 ? "bg-primary/5 text-primary" : ""}`}>
-                            {weightedAdr > 0 ? Math.round(s.gross).toLocaleString() : "—"}
+                            {baseAdrVal > 0 ? Math.round(s.gross).toLocaleString() : "—"}
                           </td>
                         );
                       })}
                     </tr>
 
                     <tr className="bg-muted/20">
-                      <td colSpan={OCCUPANCY_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">COSTS</td>
+                      <td colSpan={OCC_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">COSTS</td>
                     </tr>
                     {[
                       { label: "Utility Bills", val: values.utilityCost },
@@ -1142,7 +1168,7 @@ export default function ForecastDetail() {
                     ].map(({ label, val }) => (
                       <tr key={label} className="hover:bg-muted/20 transition-colors text-muted-foreground">
                         <td className="px-5 py-3">{label}</td>
-                        {OCCUPANCY_LEVELS.map(occ => (
+                        {OCC_LEVELS.map(occ => (
                           <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.85 ? "bg-primary/5" : ""}`}>
                             {val > 0 ? val.toLocaleString() : "—"}
                           </td>
@@ -1151,41 +1177,41 @@ export default function ForecastDetail() {
                     ))}
 
                     <tr className="bg-muted/20">
-                      <td colSpan={OCCUPANCY_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">FEES</td>
+                      <td colSpan={OCC_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">FEES</td>
                     </tr>
                     <tr className="hover:bg-muted/20 transition-colors text-muted-foreground">
                       <td className="px-5 py-3">Management Fees ({values.managementFeePercent}%)</td>
-                      {OCCUPANCY_LEVELS.map(occ => {
+                      {OCC_LEVELS.map(occ => {
                         const s = computeScenario(occ);
                         return (
                           <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.85 ? "bg-primary/5" : ""}`}>
-                            {weightedAdr > 0 ? Math.round(s.mgmtFee).toLocaleString() : "—"}
+                            {baseAdrVal > 0 ? Math.round(s.mgmtFee).toLocaleString() : "—"}
                           </td>
                         );
                       })}
                     </tr>
 
                     <tr className="bg-muted/20">
-                      <td colSpan={OCCUPANCY_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">NET OUTCOME</td>
+                      <td colSpan={OCC_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">NET OUTCOME</td>
                     </tr>
                     <tr className="hover:bg-muted/20 transition-colors font-semibold border-t-2 border-primary/20">
                       <td className="px-5 py-3 text-foreground">Net Annual Income (AED)</td>
-                      {OCCUPANCY_LEVELS.map(occ => {
+                      {OCC_LEVELS.map(occ => {
                         const s = computeScenario(occ);
                         return (
                           <td key={occ} className={`px-5 py-3 text-right tabular-nums font-bold ${occ === 0.85 ? "bg-primary/10 text-primary" : "text-foreground"}`}>
-                            {weightedAdr > 0 ? Math.round(s.net).toLocaleString() : "—"}
+                            {baseAdrVal > 0 ? Math.round(s.net).toLocaleString() : "—"}
                           </td>
                         );
                       })}
                     </tr>
                     <tr className="hover:bg-muted/20 transition-colors text-muted-foreground">
                       <td className="px-5 py-3">Monthly Average Payout</td>
-                      {OCCUPANCY_LEVELS.map(occ => {
+                      {OCC_LEVELS.map(occ => {
                         const s = computeScenario(occ);
                         return (
                           <td key={occ} className={`px-5 py-3 text-right tabular-nums ${occ === 0.85 ? "bg-primary/5" : ""}`}>
-                            {weightedAdr > 0 ? Math.round(s.monthly).toLocaleString() : "—"}
+                            {baseAdrVal > 0 ? Math.round(s.monthly).toLocaleString() : "—"}
                           </td>
                         );
                       })}
@@ -1194,11 +1220,11 @@ export default function ForecastDetail() {
                     {values.annualLtr > 0 && (
                       <>
                         <tr className="bg-muted/20">
-                          <td colSpan={OCCUPANCY_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">INCREASE VS LONG-TERM RENTAL</td>
+                          <td colSpan={OCC_LEVELS.length + 1} className="px-5 py-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">INCREASE VS LONG-TERM RENTAL</td>
                         </tr>
                         <tr className="hover:bg-muted/20 transition-colors">
                           <td className="px-5 py-3 font-medium">vs LTR (with vacancy)</td>
-                          {OCCUPANCY_LEVELS.map(occ => {
+                          {OCC_LEVELS.map(occ => {
                             const s = computeScenario(occ);
                             const positive = s.vsLtr != null && s.vsLtr > 0;
                             return (

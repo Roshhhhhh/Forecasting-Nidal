@@ -10,7 +10,7 @@ import {
   ApproveForecastBody, CreateScenarioBody,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
-import { calculateMonthlyProjections, calculateScenario, type MonthlyOverrides } from "../lib/calculate";
+import { calculateMonthlyProjections, calculateScenario, type MonthlyOverrides, REFERENCE_OCCUPANCY } from "../lib/calculate";
 import { bustCommissionCache } from "./referees";
 
 /** Bust the server-side commission cache for whichever referee is linked to this forecast's owner. */
@@ -125,7 +125,8 @@ router.get("/forecasts/:id", requireAuth, async (req, res): Promise<void> => {
     id: f.id, referenceNumber: f.referenceNumber, ownerId: f.ownerId, propertyId: f.propertyId,
     status: f.status, managementFeePercent: f.managementFeePercent, ltrVacancyPercent: f.ltrVacancyPercent,
     annualLtr: f.annualLtr, internetCost: f.internetCost, utilityCost: f.utilityCost,
-    maintenanceCost: f.maintenanceCost, miscCost: f.miscCost, lowSeasonAdr: f.lowSeasonAdr,
+    maintenanceCost: f.maintenanceCost, miscCost: f.miscCost,
+    baseAdr: f.baseAdr, lowSeasonAdr: f.lowSeasonAdr,
     shoulderSeasonAdr: f.shoulderSeasonAdr, peakSeasonAdr: f.peakSeasonAdr, eventAdr: f.eventAdr,
     ownerBlockedNights: f.ownerBlockedNights, narrativeText: f.narrativeText, internalNotes: f.internalNotes,
     reconciliationStatus: f.reconciliationStatus, grossAnnualRevenue: f.grossAnnualRevenue,
@@ -162,16 +163,16 @@ router.post("/forecasts/:id/calculate", requireAuth, async (req, res): Promise<v
   const [f] = await db.select().from(forecastsTable).where(eq(forecastsTable.id, id));
   if (!f) { res.status(404).json({ error: "Forecast not found" }); return; }
 
-  const hasAdr = f.lowSeasonAdr && f.shoulderSeasonAdr && f.peakSeasonAdr && f.eventAdr;
-  if (!hasAdr) {
-    res.status(400).json({ error: "ADR values are required before calculation" });
+  // Support both new single-baseAdr model and legacy 4-season ADR for backward compat
+  const resolvedBaseAdr = f.baseAdr ?? f.shoulderSeasonAdr;
+  if (!resolvedBaseAdr) {
+    res.status(400).json({ error: "Base ADR is required before calculation" });
     return;
   }
 
   const inputs = {
-    lowSeasonAdr: f.lowSeasonAdr!, shoulderSeasonAdr: f.shoulderSeasonAdr!,
-    peakSeasonAdr: f.peakSeasonAdr!, eventAdr: f.eventAdr!,
-    occupancyRate: f.recommendedOccupancy ?? 0.80,
+    baseAdr: resolvedBaseAdr,
+    referenceOccupancy: f.recommendedOccupancy ?? REFERENCE_OCCUPANCY,
     ownerBlockedNights: f.ownerBlockedNights ?? 0,
     managementFeePercent: f.managementFeePercent ?? 20,
     ltrVacancyPercent: f.ltrVacancyPercent ?? 10,
@@ -213,7 +214,7 @@ router.post("/forecasts/:id/calculate", requireAuth, async (req, res): Promise<v
 
   // Find recommended scenario
   const recScenario = scenarios.find(s => s.isRecommended) ?? scenarios[1];
-  const recommendedOccupancy = recScenario?.occupancyRate ?? inputs.occupancyRate;
+  const recommendedOccupancy = recScenario?.occupancyRate ?? inputs.referenceOccupancy ?? REFERENCE_OCCUPANCY;
 
   // Update forecast with calculated values
   await db.update(forecastsTable).set({
@@ -310,9 +311,8 @@ router.patch("/forecasts/:id/monthly/:monthNum", requireAuth, async (req, res): 
 
   // Recalculate the full forecast respecting all overrides
   const inputs = {
-    lowSeasonAdr: f.lowSeasonAdr!, shoulderSeasonAdr: f.shoulderSeasonAdr!,
-    peakSeasonAdr: f.peakSeasonAdr!, eventAdr: f.eventAdr!,
-    occupancyRate: f.recommendedOccupancy ?? 0.80,
+    baseAdr: f.baseAdr ?? f.shoulderSeasonAdr ?? 0,
+    referenceOccupancy: f.recommendedOccupancy ?? REFERENCE_OCCUPANCY,
     ownerBlockedNights: f.ownerBlockedNights ?? 0,
     managementFeePercent: f.managementFeePercent ?? 20,
     ltrVacancyPercent: f.ltrVacancyPercent ?? 10,
@@ -348,7 +348,7 @@ router.patch("/forecasts/:id/monthly/:monthNum", requireAuth, async (req, res): 
     await db.update(forecastScenariosTable).set(sc).where(eq(forecastScenariosTable.id, scenario.id));
   }
   const recScenario = scenarios.find(s => s.isRecommended) ?? scenarios[1];
-  const recommendedOccupancy = recScenario?.occupancyRate ?? inputs.occupancyRate;
+  const recommendedOccupancy = recScenario?.occupancyRate ?? inputs.referenceOccupancy ?? REFERENCE_OCCUPANCY;
   await db.update(forecastsTable).set({ ...result, recommendedOccupancy, monthlyProjections: undefined } as any).where(eq(forecastsTable.id, forecastId));
 
   await bustCacheForForecast(f.ownerId);
@@ -378,16 +378,18 @@ router.post("/forecasts/:id/ai-recommend", requireAuth, async (req, res): Promis
   const baseAdr = bedrooms === 0 ? 350 : bedrooms === 1 ? 500 : bedrooms === 2 ? 700 : bedrooms === 3 ? 1000 : 1400;
   const baseLtr = bedrooms === 0 ? 55000 : bedrooms === 1 ? 80000 : bedrooms === 2 ? 110000 : bedrooms === 3 ? 150000 : 200000;
 
+  // baseAdrSuggested = March shoulder reference (multiplier 1.0)
+  // Use bedroom-based benchmark directly as the March base ADR
   const recommendation = {
     forecastId: id,
     status: "generated",
     annualLtrSuggested: baseLtr,
     annualLtrConfidence: 0.82,
-    lowSeasonAdrSuggested: Math.round(baseAdr * 0.70),
-    shoulderSeasonAdrSuggested: Math.round(baseAdr * 0.90),
-    peakSeasonAdrSuggested: Math.round(baseAdr * 1.15),
-    eventAdrSuggested: Math.round(baseAdr * 1.45),
-    occupancySuggested: 0.80,
+    lowSeasonAdrSuggested: Math.round(baseAdr * 0.75),    // June–Aug (multiplier 0.75)
+    shoulderSeasonAdrSuggested: baseAdr,                   // March reference (multiplier 1.0)
+    peakSeasonAdrSuggested: Math.round(baseAdr * 1.75),   // January (multiplier 1.75)
+    eventAdrSuggested: Math.round(baseAdr * 2.125),       // December (multiplier 2.125)
+    occupancySuggested: REFERENCE_OCCUPANCY,
     internetCostSuggested: 7200,
     utilityCostSuggested: 15000,
     maintenanceCostSuggested: 8000,

@@ -2324,6 +2324,8 @@ components:
           type: ["number", "null"]
         miscCost:
           type: ["number", "null"]
+        baseAdr:
+          type: ["number", "null"]
         lowSeasonAdr:
           type: ["number", "null"]
         shoulderSeasonAdr:

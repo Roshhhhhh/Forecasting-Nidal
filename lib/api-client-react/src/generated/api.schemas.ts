@@ -666,6 +666,8 @@ export interface Forecast {
   bedrooms?: number | null;
   status: ForecastStatus;
   /** @nullable */
+  baseAdr?: number | null;
+  /** @nullable */
   recommendedOccupancy?: number | null;
   /** @nullable */
   weightedAdr?: number | null;
@@ -713,6 +715,8 @@ export interface ForecastDetail {
   maintenanceCost?: number | null;
   /** @nullable */
   miscCost?: number | null;
+  /** @nullable */
+  baseAdr?: number | null;
   /** @nullable */
   lowSeasonAdr?: number | null;
   /** @nullable */
@@ -770,6 +774,7 @@ export interface ForecastUpdate {
   utilityCost?: number;
   maintenanceCost?: number;
   miscCost?: number;
+  baseAdr?: number;
   lowSeasonAdr?: number;
   shoulderSeasonAdr?: number;
   peakSeasonAdr?: number;

@@ -92,6 +92,16 @@ export default function ProposalCoverPreview({
 
   const displayNarrative = narrativeText.trim() || fallbackNarrative;
 
+  /** Render **bold** markdown as <strong> inline elements */
+  function renderBold(text: string): React.ReactNode {
+    const parts = text.split(/\*\*([^*]+)\*\*/g);
+    return parts.map((part, i) =>
+      i % 2 === 1
+        ? <strong key={i} style={{ fontWeight: 700, color: "#1a1410" }}>{part}</strong>
+        : part
+    );
+  }
+
   return (
     /* Outer wrapper — constrains width and clips the scaled content */
     <div
@@ -187,7 +197,7 @@ export default function ProposalCoverPreview({
           <div style={{ border: `1px solid ${BORDER}`, borderRadius: 10, padding: "22px 24px", background: WHITE, display: "flex", flexDirection: "column" }}>
             <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: 2.5, textTransform: "uppercase", color: MUTED, marginBottom: 16 }}>Our Assessment</div>
             <p style={{ fontSize: 14, color: narrativeText.trim() ? "#444" : "#bbb", lineHeight: 1.9, fontFamily: "serif", flex: 1, fontStyle: narrativeText.trim() ? "normal" : "italic" }}>
-              {displayNarrative}
+              {narrativeText.trim() ? renderBold(displayNarrative) : displayNarrative}
             </p>
           </div>
         </div>

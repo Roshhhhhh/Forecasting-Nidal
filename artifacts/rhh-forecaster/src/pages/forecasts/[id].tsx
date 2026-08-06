@@ -1569,6 +1569,22 @@ export default function ForecastDetail() {
                   </div>
                 </div>
 
+                {/* Live bold preview — shown when narrative contains **markers** */}
+                {narrativeText.includes("**") && (
+                  <div className="rounded-lg border border-amber-200/60 bg-amber-50/40 dark:bg-amber-950/10 dark:border-amber-800/40 p-4">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 mb-2 flex items-center gap-1.5">
+                      <Eye className="h-3 w-3" /> Proposal Preview
+                    </p>
+                    <p className="text-sm leading-relaxed text-foreground font-serif">
+                      {narrativeText.split(/\*\*([^*]+)\*\*/g).map((part, i) =>
+                        i % 2 === 1
+                          ? <strong key={i} className="font-bold text-foreground">{part}</strong>
+                          : part
+                      )}
+                    </p>
+                  </div>
+                )}
+
                 {/* Formatting hints */}
                 <div className="p-3 bg-muted/30 rounded-lg border border-border/50 space-y-1.5">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">What works well</p>
@@ -1576,7 +1592,7 @@ export default function ForecastDetail() {
                     <li>✦ Reference the specific area or building to show local expertise</li>
                     <li>✦ Highlight a key data point (e.g. ADR, occupancy) to build confidence</li>
                     <li>✦ Keep it 2–4 sentences — concise and owner-focused</li>
-                    <li>✦ Avoid generic phrases; make it feel written for this owner specifically</li>
+                    <li>✦ Wrap key figures in <code className="bg-muted px-1 rounded text-[10px]">**double asterisks**</code> to bold them in the proposal</li>
                   </ul>
                 </div>
 

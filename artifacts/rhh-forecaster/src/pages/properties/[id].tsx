@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { AmenitiesPicker } from "@/components/AmenitiesPicker";
 import { calculateScores, PropertyScoresPanel, type Amenity } from "@/components/property-scores";
+import { EditPropertySheet } from "@/components/EditPropertySheet";
 
 export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
@@ -39,7 +40,10 @@ export default function PropertyDetail() {
     enabled: !!propertyId,
   });
 
-  // Edit mode state
+  // Edit property sheet state
+  const [editSheetOpen, setEditSheetOpen] = useState(false);
+
+  // Edit amenities mode state
   const [editing, setEditing] = useState(false);
   const [draftIds, setDraftIds] = useState<number[]>([]);
   const [draftTags, setDraftTags] = useState<string[]>([]);
@@ -102,7 +106,7 @@ export default function PropertyDetail() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => setEditSheetOpen(true)}>
             <Pencil className="h-4 w-4" /> Edit Property
           </Button>
           <Link href={`/forecasts/new?propertyId=${property.id}`} className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors">
@@ -305,6 +309,13 @@ export default function PropertyDetail() {
           </Card>
         </div>
       </div>
+
+      {/* Edit Property Sheet */}
+      <EditPropertySheet
+        open={editSheetOpen}
+        onOpenChange={setEditSheetOpen}
+        property={property}
+      />
     </div>
   );
 }

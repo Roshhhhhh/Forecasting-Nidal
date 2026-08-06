@@ -7,13 +7,23 @@ import { requireAuth } from "../middlewares/auth";
 const router: IRouter = Router();
 
 // ── GET /amenities ──────────────────────────────────────────────
-// Returns all active amenities, ordered by category + sortOrder
-router.get("/amenities", requireAuth, async (_req, res): Promise<void> => {
-  const rows = await db
+// Returns amenities ordered by category + sortOrder.
+// Pass ?all=1 to include inactive (admin use).
+router.get("/amenities", requireAuth, async (req, res): Promise<void> => {
+  const includeAll = req.query.all === "1" || req.query.all === "true";
+  const query = db
     .select()
     .from(amenitiesTable)
-    .where(eq(amenitiesTable.isActive, true))
     .orderBy(amenitiesTable.category, amenitiesTable.sortOrder, amenitiesTable.name);
+
+  const rows = includeAll
+    ? await query
+    : await db
+        .select()
+        .from(amenitiesTable)
+        .where(eq(amenitiesTable.isActive, true))
+        .orderBy(amenitiesTable.category, amenitiesTable.sortOrder, amenitiesTable.name);
+
   res.json(rows);
 });
 

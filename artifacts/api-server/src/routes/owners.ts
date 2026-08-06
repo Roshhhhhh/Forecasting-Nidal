@@ -9,6 +9,7 @@ import {
   DeleteOwnerParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
+import { bustCommissionCache } from "./referees";
 
 const router: IRouter = Router();
 
@@ -80,9 +81,27 @@ router.patch("/owners/:id", requireAuth, async (req, res): Promise<void> => {
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
   const parsed = UpdateOwnerBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  // Fetch the current refereeId before updating so we can bust the old cache entry
+  const [existing] = await db
+    .select({ refereeId: ownersTable.refereeId })
+    .from(ownersTable)
+    .where(eq(ownersTable.id, params.data.id));
+
   const [owner] = await db.update(ownersTable).set({ ...parsed.data, updatedById: req.session.userId })
     .where(eq(ownersTable.id, params.data.id)).returning();
   if (!owner) { res.status(404).json({ error: "Owner not found" }); return; }
+
+  // If refereeId changed, bust commission cache for both old and new referee
+  if ("refereeId" in parsed.data) {
+    const oldRefereeId = existing?.refereeId ?? null;
+    const newRefereeId = parsed.data.refereeId ?? null;
+    if (oldRefereeId !== newRefereeId) {
+      if (oldRefereeId !== null) bustCommissionCache(oldRefereeId);
+      if (newRefereeId !== null) bustCommissionCache(newRefereeId);
+    }
+  }
+
   res.json(formatOwner(owner));
 });
 

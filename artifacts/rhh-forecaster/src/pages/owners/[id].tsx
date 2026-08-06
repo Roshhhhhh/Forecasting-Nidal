@@ -152,8 +152,24 @@ export default function OwnerDetail() {
       if (!payload.assignedToId) delete payload.assignedToId;
       if (!payload.refereeId) payload.refereeId = null;
       if (!payload.companyName) delete payload.companyName;
+
+      const oldRefereeId = (owner as any)?.refereeId ?? null;
+      const newRefereeId = payload.refereeId ?? null;
+
       await updateOwner.mutateAsync({ id: ownerId, data: payload });
       queryClient.invalidateQueries({ queryKey: ["getOwner"] });
+
+      // If the referee assignment changed, invalidate all referee-related queries
+      // so commission totals on the referee detail page are immediately fresh.
+      if (oldRefereeId !== newRefereeId) {
+        queryClient.invalidateQueries({
+          predicate: (query) => {
+            const key = query.queryKey[0];
+            return typeof key === "string" && key.toLowerCase().includes("referee");
+          },
+        });
+      }
+
       toast({ title: "Profile updated" });
       setEditOpen(false);
     } catch {

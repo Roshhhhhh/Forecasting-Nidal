@@ -4,6 +4,7 @@ import crypto from "crypto";
 import {
   db, proposalsTable, proposalViewEventsTable, forecastsTable,
   forecastScenariosTable, monthlyProjectionsTable, ownersTable, propertiesTable, usersTable, companySettingsTable,
+  amenitiesTable, propertyAmenitiesTable,
 } from "@workspace/db";
 import {
   UpdateProposalBody,
@@ -117,9 +118,23 @@ router.get("/p/:token", async (req, res): Promise<void> => {
     ownerData = o;
   }
   let propertyData: any = null;
+  let propertyAmenities: any[] = [];
   if (forecast.propertyId) {
     const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, forecast.propertyId));
     propertyData = p;
+    propertyAmenities = await db
+      .select({
+        id: amenitiesTable.id,
+        name: amenitiesTable.name,
+        category: amenitiesTable.category,
+        icon: amenitiesTable.icon,
+        isProposalHighlight: amenitiesTable.isProposalHighlight,
+        sortOrder: amenitiesTable.sortOrder,
+      })
+      .from(propertyAmenitiesTable)
+      .innerJoin(amenitiesTable, eq(amenitiesTable.id, propertyAmenitiesTable.amenityId))
+      .where(eq(propertyAmenitiesTable.propertyId, forecast.propertyId))
+      .orderBy(amenitiesTable.isProposalHighlight, amenitiesTable.category, amenitiesTable.sortOrder);
   }
   const scenarios = await db.select().from(forecastScenariosTable)
     .where(eq(forecastScenariosTable.forecastId, forecast.id))
@@ -216,6 +231,7 @@ router.get("/p/:token", async (req, res): Promise<void> => {
     companyEmail: settings?.ownerEmail ?? null,
     disclaimer: settings?.disclaimer ?? "This forecast is an estimate prepared using available property information, Royal Holiday Homes' internal market benchmarks and current conditions. Actual occupancy, ADR, expenses, gross revenue and net owner income may differ. This proposal does not represent a guarantee of future rental income.",
     ownerAction: proposal.ownerAction ?? null,
+    amenities: propertyAmenities,
   });
 });
 

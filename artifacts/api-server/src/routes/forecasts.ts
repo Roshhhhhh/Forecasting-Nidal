@@ -3,6 +3,7 @@ import { eq, desc, and } from "drizzle-orm";
 import {
   db, forecastsTable, forecastScenariosTable, monthlyProjectionsTable,
   aiRecommendationsTable, ownersTable, propertiesTable, usersTable, proposalsTable,
+  amenitiesTable, propertyAmenitiesTable,
 } from "@workspace/db";
 import {
   CreateForecastBody, UpdateForecastBody, GetForecastParams,
@@ -488,9 +489,16 @@ router.post("/forecasts/:id/narrative-draft", requireAuth, async (req, res): Pro
 
   let propertyInfo: any = null;
   let ownerInfo: any = null;
+  let propertyAmenities: any[] = [];
   if (f.propertyId) {
     const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, f.propertyId));
     propertyInfo = p;
+    propertyAmenities = await db
+      .select({ name: amenitiesTable.name, isProposalHighlight: amenitiesTable.isProposalHighlight })
+      .from(propertyAmenitiesTable)
+      .innerJoin(amenitiesTable, eq(amenitiesTable.id, propertyAmenitiesTable.amenityId))
+      .where(eq(propertyAmenitiesTable.propertyId, f.propertyId))
+      .orderBy(amenitiesTable.isProposalHighlight, amenitiesTable.sortOrder);
   }
   if (f.ownerId) {
     const [o] = await db.select().from(ownersTable).where(eq(ownersTable.id, f.ownerId));
@@ -578,6 +586,15 @@ router.post("/forecasts/:id/narrative-draft", requireAuth, async (req, res): Pro
       const openai = new OpenAI({ apiKey });
 
       // Build a structured data block so the AI has every figure it needs
+      const highlightAmenities = propertyAmenities.filter((a: any) => a.isProposalHighlight).map((a: any) => a.name);
+      const otherAmenities = propertyAmenities.filter((a: any) => !a.isProposalHighlight).map((a: any) => a.name);
+      const amenityLine = propertyAmenities.length > 0
+        ? [
+            highlightAmenities.length ? `Key features: ${highlightAmenities.join(", ")}` : null,
+            otherAmenities.length ? `Additional amenities: ${otherAmenities.join(", ")}` : null,
+          ].filter(Boolean).join("; ")
+        : "N/A";
+
       const dataBlock = [
         `Owner first name: ${ownerFirstName ?? "N/A"}`,
         `Property: ${bedroomLabel} in ${locationStr}`,
@@ -592,13 +609,14 @@ router.post("/forecasts/:id/narrative-draft", requireAuth, async (req, res): Pro
         `LTR annual gross: ${ltrGrossStr ?? "N/A"}`,
         `LTR adjusted for ${ltrVacPct}% vacancy: ${ltrAdjStr ?? "N/A"}`,
         `STR uplift vs LTR: ${upliftStr ?? "N/A"}`,
+        `Property amenities: ${amenityLine}`,
       ].join("\n");
 
       const systemPrompt = `You are a senior property consultant at Royal Holiday Homes (RHH), Abu Dhabi's premium short-term rental management company. Write a concise, personalised cover narrative for an owner revenue forecast proposal.
 
 STRICT FORMAT — follow exactly:
 - Exactly 3 sentences.
-- Sentence 1: Address owner by first name (e.g. "Dear Ahmed,"), reference the specific building/location, and state the property type. Make it feel personally written.
+- Sentence 1: Address owner by first name (e.g. "Dear Ahmed,"), reference the specific building/location, and state the property type. Make it feel personally written. If key property features are provided, briefly mention one or two that strengthen the STR case (e.g. "with its private pool and sea view").
 - Sentence 2: Reference the ${scenarioLabel} projection; include the weighted ADR and gross annual revenue figures.
 - Sentence 3: State the net owner income, monthly payout, and uplift vs LTR (if available). End with confidence in the STR model for this property.
 - Use **double asterisks** to bold ONLY: owner's first name, building/location name, the occupancy %, ADR value, gross revenue amount, net income amount, monthly payout amount, and the uplift %. Nothing else.

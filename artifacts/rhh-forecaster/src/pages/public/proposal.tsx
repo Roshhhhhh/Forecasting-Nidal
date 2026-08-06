@@ -554,6 +554,68 @@ export default function PublicProposal() {
             </div>
           </div>
         </div>
+
+        {/* ── Property Highlights (amenities) ── */}
+        {(() => {
+          const amenities: any[] = (proposal as any).amenities ?? [];
+          if (!amenities.length) return null;
+          const highlights = amenities.filter((a: any) => a.isProposalHighlight);
+          const rest       = amenities.filter((a: any) => !a.isProposalHighlight);
+          // Group rest by category
+          const grouped: Record<string, any[]> = {};
+          rest.forEach((a: any) => {
+            if (!grouped[a.category]) grouped[a.category] = [];
+            grouped[a.category].push(a);
+          });
+          return (
+            <div style={{ maxWidth:1200, margin:"0 auto", padding:isMobile?"32px 16px 0":"40px 48px 0" }}>
+              <div style={{ border:`1px solid ${BORDER}`, borderRadius:16, padding:isMobile?"24px 20px":"36px 40px", background:WHITE, position:"relative", overflow:"hidden" }}>
+                {/* Gold side bar */}
+                <div style={{ position:"absolute", top:0, left:0, width:4, height:"100%", background:`linear-gradient(180deg, ${GOLD} 0%, ${GOLD2} 100%)` }} />
+                <div style={{ fontSize:10, fontWeight:700, letterSpacing:3, textTransform:"uppercase", color:MUTED, marginBottom:20 }}>Property Highlights</div>
+
+                {/* Proposal-highlight features — prominent pills */}
+                {highlights.length > 0 && (
+                  <div style={{ marginBottom:rest.length ? 24 : 0 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:GOLD, letterSpacing:1.5, textTransform:"uppercase", marginBottom:12 }}>
+                      Top Features
+                    </div>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:10 }}>
+                      {highlights.map((a: any) => (
+                        <div key={a.id} style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"10px 16px", borderRadius:30, background:`linear-gradient(135deg, ${GOLD}18, ${GOLD2}0D)`, border:`1px solid ${GOLD}50` }}>
+                          <span style={{ fontSize:15 }}>{a.icon}</span>
+                          <span style={{ fontSize:13, fontWeight:700, color:DARK }}>{a.name}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Remaining amenities grouped by category */}
+                {Object.keys(grouped).length > 0 && (
+                  <div style={{ display:"flex", flexDirection:"column", gap:16 }}>
+                    {highlights.length > 0 && (
+                      <div style={{ height:1, background:BORDER }} />
+                    )}
+                    {Object.entries(grouped).map(([cat, items]: [string, any[]]) => (
+                      <div key={cat}>
+                        <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:MUTED, marginBottom:8 }}>{cat}</div>
+                        <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                          {items.map((a: any) => (
+                            <div key={a.id} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:20, background:CREAM, border:`1px solid ${BORDER}` }}>
+                              <span style={{ fontSize:13 }}>{a.icon}</span>
+                              <span style={{ fontSize:12, color:DARK, fontWeight:500 }}>{a.name}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })()}
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════

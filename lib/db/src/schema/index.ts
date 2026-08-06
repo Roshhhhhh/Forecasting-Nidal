@@ -7,3 +7,4 @@ export * from "./forecasts";
 export * from "./proposals";
 export * from "./settings";
 export * from "./referees";
+export * from "./amenities";

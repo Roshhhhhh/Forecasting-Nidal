@@ -1,0 +1,481 @@
+The current Property Specifications page only contains two checkboxes (Waterfront Property and Private Pool).
+
+This is insufficient for accurate forecasting and proposal generation.
+
+Redesign this entire section into a complete Amenities & Property Features module.
+
+This information will later feed into:
+
+• AI Forecasting Engine
+• ADR Recommendation Engine
+• Occupancy Prediction
+• Proposal Generator
+• AI Narrative
+• Property Quality Score
+• Owner Proposal
+• Listing Generator
+• Airbnb / Booking SEO
+• Dynamic Pricing
+
+==================================================
+PROPERTY FEATURES SECTION
+==================================================
+
+Replace the existing two checkboxes with collapsible categorized sections.
+
+Each category should be displayed as:
+
+▼ Category Name
+
+followed by modern checkbox chips or cards.
+
+Use 3-column layout on desktop.
+
+Responsive 2-column tablet.
+
+Single column on mobile.
+
+Search box at top:
+
+Search Amenities...
+
+Allow selecting unlimited amenities.
+
+Each selected amenity should appear as removable chips.
+
+==================================================
+CATEGORY 1
+Property Features
+==================================================
+
+□ Waterfront
+□ Beachfront
+□ Canal Front
+□ Marina View
+□ Sea View
+□ Ocean View
+□ Mangrove View
+□ Golf View
+□ Yas Waterworld View
+□ Ferrari World View
+□ City Skyline View
+□ Landmark View
+□ Park View
+□ Pool View
+□ Garden View
+□ Corner Unit
+□ High Floor
+□ Low Floor
+□ Penthouse
+□ Duplex
+□ Loft
+□ Smart Home
+□ Newly Renovated
+□ Brand New
+□ Fully Furnished
+□ Luxury Furnished
+□ Designer Interior
+□ Contemporary Design
+□ Minimalist Design
+□ Premium Finishes
+□ Spacious Layout
+□ Open Kitchen
+□ Closed Kitchen
+□ Maid's Room
+□ Study Room
+□ Laundry Room
+□ Storage Room
+□ Walk-in Closet
+□ Built-in Wardrobes
+□ Guest Bathroom
+□ Ensuite Bedrooms
+
+==================================================
+CATEGORY 2
+Outdoor Features
+==================================================
+
+□ Balcony
+□ Large Balcony
+□ Terrace
+□ Rooftop Terrace
+□ Private Garden
+□ Courtyard
+□ BBQ Area
+□ Outdoor Dining
+□ Outdoor Lounge
+□ Outdoor Kitchen
+□ Fire Pit
+□ Private Pool
+□ Infinity Pool
+□ Jacuzzi
+□ Private Jacuzzi
+□ Plunge Pool
+
+==================================================
+CATEGORY 3
+Building Facilities
+==================================================
+
+□ Shared Swimming Pool
+□ Children's Pool
+□ Lap Pool
+□ Indoor Pool
+□ Gym
+□ Shared Gym
+□ Spa
+□ Sauna
+□ Steam Room
+□ Yoga Studio
+□ Tennis Court
+□ Paddle Court
+□ Basketball Court
+□ Football Court
+□ Squash Court
+□ Children's Playground
+□ Kids Club
+□ Cinema
+□ Games Room
+□ Residents Lounge
+□ Business Centre
+□ Coworking Space
+□ Library
+□ Rooftop Lounge
+□ Sky Garden
+
+==================================================
+CATEGORY 4
+Services
+==================================================
+
+□ Concierge
+□ 24/7 Security
+□ CCTV
+□ Smart Access
+□ Reception
+□ Valet Parking
+□ Housekeeping Available
+□ Laundry Service
+□ Room Service
+□ Maintenance Team
+□ Shuttle Service
+
+==================================================
+CATEGORY 5
+Parking
+==================================================
+
+□ Covered Parking
+□ Basement Parking
+□ Private Garage
+□ EV Charging
+□ Visitor Parking
+□ Motorcycle Parking
+
+==================================================
+CATEGORY 6
+Kitchen
+==================================================
+
+□ Fully Equipped Kitchen
+□ Coffee Machine
+□ Dishwasher
+□ Microwave
+□ Oven
+□ Air Fryer
+□ Blender
+□ Toaster
+□ Kettle
+□ Wine Cooler
+□ Ice Maker
+□ Water Dispenser
+□ Breakfast Bar
+
+==================================================
+CATEGORY 7
+Technology
+==================================================
+
+□ High-Speed WiFi
+□ Smart TV
+□ Netflix Ready
+□ Apple TV
+□ Sound System
+□ Home Cinema
+□ Alexa
+□ Google Home
+□ Smart Lighting
+□ Smart Locks
+□ USB Charging Ports
+□ Dedicated Workspace
+
+==================================================
+CATEGORY 8
+Family Friendly
+==================================================
+
+□ Baby Cot
+□ High Chair
+□ Children's Toys
+□ Family Friendly
+□ Stroller Storage
+□ Baby Safety Features
+
+==================================================
+CATEGORY 9
+Accessibility
+==================================================
+
+□ Wheelchair Accessible
+□ Elevator
+□ Step-Free Access
+□ Accessible Bathroom
+□ Accessible Parking
+
+==================================================
+CATEGORY 10
+Pet Friendly
+==================================================
+
+□ Pets Allowed
+□ Dog Friendly
+□ Cat Friendly
+□ Pet Area
+
+==================================================
+CATEGORY 11
+Nearby Attractions
+==================================================
+
+Allow multiple selections.
+
+□ Beach
+□ Yas Marina
+□ Yas Mall
+□ Ferrari World
+□ Warner Bros
+□ SeaWorld
+□ Yas Waterworld
+□ Etihad Arena
+□ Formula 1 Circuit
+□ Golf Club
+□ Airport
+□ Metro
+□ Mosque
+□ Hospital
+□ Shopping Mall
+□ Public Park
+
+==================================================
+CATEGORY 12
+Lifestyle
+==================================================
+
+□ Luxury
+□ Business Friendly
+□ Family Friendly
+□ Romantic
+□ Party Friendly
+□ Corporate Ready
+□ Remote Work Friendly
+□ Long Stay Friendly
+□ Holiday Home Ready
+
+==================================================
+CATEGORY 13
+Property Condition
+==================================================
+
+□ Move-in Ready
+□ Recently Refurbished
+□ Requires Minor Upgrade
+□ Requires Renovation
+□ Premium Condition
+
+==================================================
+CATEGORY 14
+Unique Selling Points
+==================================================
+
+Allow custom tags.
+
+Admin can type:
+
++ Sunset View
++ Formula 1 View
++ Louvre View
++ Mangrove Sunset
++ Smart Curtains
++ Private Elevator
+
+Store as custom tags.
+
+==================================================
+DATABASE
+==================================================
+
+Store amenities as relational table.
+
+Amenity
+
+id
+category
+name
+icon
+description
+forecastWeight
+proposalHighlight
+seoKeyword
+
+PropertyAmenities
+
+propertyId
+amenityId
+
+==================================================
+AI ENGINE
+==================================================
+
+Every amenity should have a hidden forecasting weight.
+
+Example:
+
+Private Pool
+
+ADR +18%
+
+Occupancy +5%
+
+Luxury Score +10
+
+Waterfront
+
+ADR +12%
+
+Occupancy +6%
+
+Proposal Highlight
+
+Yes
+
+SEO Priority
+
+High
+
+High-Speed WiFi
+
+ADR +2%
+
+Corporate Score +5
+
+Business Traveller
+
+Positive
+
+These weights should not directly calculate revenue.
+
+Instead they should increase the AI confidence score when recommending ADR.
+
+==================================================
+PROPOSAL
+==================================================
+
+Selected amenities should automatically appear in:
+
+Property Overview
+
+Top Features
+
+Luxury Highlights
+
+AI Narrative
+
+Why this property stands out
+
+Owner Proposal
+
+PDF
+
+Website
+
+Listing Generator
+
+==================================================
+PROPERTY SCORE
+==================================================
+
+Calculate automatically:
+
+Luxury Score
+100
+
+Guest Appeal Score
+100
+
+Family Score
+100
+
+Corporate Score
+100
+
+Holiday Home Readiness
+100
+
+Market Competitiveness
+100
+
+Display them beautifully using circular gauges.
+
+==================================================
+ADMIN
+==================================================
+
+Super Admin should be able to:
+
+Create amenity
+
+Edit amenity
+
+Disable amenity
+
+Add icon
+
+Assign category
+
+Assign forecast weight
+
+Assign proposal priority
+
+Assign SEO keyword
+
+Reorder amenities
+
+==================================================
+UI
+==================================================
+
+Use premium chips with icons.
+
+Selected chips become Royal Gold.
+
+Hover animations.
+
+Search box.
+
+Collapse categories.
+
+Select All.
+
+Clear All.
+
+Recently Used.
+
+Frequently Selected.
+
+Display total selected amenities.
+
+Example:
+
+Amenities (28 Selected)
+
+The entire module should feel like a premium CRM used by luxury hospitality brands rather than a simple form.

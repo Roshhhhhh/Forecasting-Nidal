@@ -9,9 +9,9 @@ import { z } from "zod";
 import { useLocation, Link, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useState } from "react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
+import { AmenitiesPicker } from "@/components/AmenitiesPicker";
 
 const UAE_EMIRATES = [
   { value: "Abu Dhabi",      group: "Abu Dhabi Emirate" },
@@ -273,6 +273,8 @@ export default function PropertyNew() {
   const [customArea, setCustomArea]             = useState("");
   const [customEmirate, setCustomEmirate]       = useState("");
   const [customCommunity, setCustomCommunity]   = useState("");
+  const [amenityIds, setAmenityIds]             = useState<number[]>([]);
+  const [customTags, setCustomTags]             = useState<string[]>([]);
 
   const watchedCommunity = form.watch("projectBuilding");
   const isOtherCommunity = watchedCommunity === "Other…";
@@ -307,6 +309,21 @@ export default function PropertyNew() {
       delete submitData.buildingNumber;
       
       const result = await createProperty.mutateAsync({ data: submitData });
+
+      // Save amenities (fire-and-forget, don't block navigation on failure)
+      if (amenityIds.length > 0 || customTags.length > 0) {
+        try {
+          await fetch(`/api/properties/${result.id}/amenities`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({ amenityIds }),
+          });
+        } catch {
+          // non-critical — amenities can be edited on the detail page
+        }
+      }
+
       toast({ title: "Property created", description: "The property has been added to the portfolio." });
       setLocation(`/properties/${result.id}`);
     } catch (error) {
@@ -687,33 +704,28 @@ export default function PropertyNew() {
                 )}
               />
 
-              <div className="col-span-1 md:col-span-3 flex gap-6">
-                <FormField
-                  control={form.control}
-                  name="isWaterfront"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <FormLabel className="font-normal">Waterfront Property</FormLabel>
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="hasPrivatePool"
-                  render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                      <FormControl>
-                        <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                      </FormControl>
-                      <FormLabel className="font-normal">Private Pool</FormLabel>
-                    </FormItem>
-                  )}
-                />
+            </CardContent>
+          </Card>
+
+          {/* Amenities & Property Features */}
+          <Card className="border-border/50 shadow-sm">
+            <CardHeader className="border-b border-border bg-muted/20">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">Amenities &amp; Property Features</CardTitle>
+                <span className="text-xs text-muted-foreground">
+                  {amenityIds.length + customTags.length > 0
+                    ? `${amenityIds.length + customTags.length} selected`
+                    : "Optional — improves AI forecasting accuracy"}
+                </span>
               </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              <AmenitiesPicker
+                selectedIds={amenityIds}
+                customTags={customTags}
+                onChange={setAmenityIds}
+                onCustomTagsChange={setCustomTags}
+              />
             </CardContent>
           </Card>
 

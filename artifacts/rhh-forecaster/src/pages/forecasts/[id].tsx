@@ -20,10 +20,24 @@ import { Badge } from "@/components/ui/badge";
 import {
   ArrowLeft, Save, Share, Copy, TrendingUp, DollarSign, Target,
   Building, Calendar, Sparkles, Calculator, Loader2, CheckCircle2,
-  Send, FileText, Globe, Eye, Printer,
+  Send, FileText, Globe, Eye, Printer, User, MapPin, Ruler, Home,
+  Sofa, Wind,
 } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useToast } from "@/hooks/use-toast";
+
+// ── Revenue-yield colour coding ────────────────────────────────────────────────
+function getYieldStyle(pct: number | null) {
+  if (pct === null)
+    return { ring: "border-border/50 bg-muted/30",       value: "text-muted-foreground",  badge: "bg-muted text-muted-foreground",          label: "" };
+  if (pct < 0)
+    return { ring: "border-red-300/70 bg-red-50/60 dark:border-red-800/50 dark:bg-red-950/20",         value: "text-red-600 dark:text-red-400",         badge: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",          label: "Below LTR — raise ADR" };
+  if (pct < 20)
+    return { ring: "border-yellow-300/70 bg-yellow-50/60 dark:border-yellow-800/50 dark:bg-yellow-950/20", value: "text-yellow-700 dark:text-yellow-400",   badge: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400", label: "Marginal uplift" };
+  if (pct < 30)
+    return { ring: "border-green-300/70 bg-green-50/60 dark:border-green-800/50 dark:bg-green-950/20",   value: "text-green-600 dark:text-green-400",     badge: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",    label: "Good yield" };
+  return   { ring: "border-blue-300/70 bg-blue-50/60 dark:border-blue-800/50 dark:bg-blue-950/20",      value: "text-blue-600 dark:text-blue-400",       badge: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",        label: "Strong uplift" };
+}
 
 // ── Per-month constants (matching calculate.ts) ──────────────────────────────
 // ADR multipliers: baseAdr × MULTIPLIER[i] = that month's ADR (March = 1.0 reference)
@@ -867,6 +881,123 @@ export default function ForecastDetail() {
           {/* ── DATA INPUTS ── */}
           <TabsContent value="inputs" className="p-6 max-w-[1200px] mx-auto">
             <div className="space-y-6">
+
+              {/* ── Property & Owner Reference ───────────────────────────── */}
+              {((forecast as any).ownerName || (forecast as any).propertyType) && (
+                <div className="rounded-xl border border-amber-200/70 dark:border-amber-800/40 bg-gradient-to-r from-amber-50/60 to-orange-50/30 dark:from-amber-950/20 dark:to-orange-950/10 p-5 shadow-sm">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="h-5 w-0.5 bg-amber-500 rounded-full" />
+                    <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 uppercase tracking-widest">Property &amp; Owner Reference</p>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+                    {/* Owner column */}
+                    <div className="space-y-2.5">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                        <User className="h-3 w-3" /> Owner
+                      </p>
+                      {(forecast as any).ownerName && (
+                        <Link href={`/owners/${forecast.ownerId}`} className="block group">
+                          <p className="text-base font-semibold text-foreground group-hover:text-primary transition-colors leading-tight">
+                            {(forecast as any).ownerName}
+                          </p>
+                        </Link>
+                      )}
+                      {(forecast as any).advisorName && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-500" />
+                          Advisor: <span className="font-medium text-foreground">{(forecast as any).advisorName}</span>
+                        </div>
+                      )}
+                      {forecast.ownerId && (
+                        <Link
+                          href={`/owners/${forecast.ownerId}`}
+                          className="inline-flex items-center gap-1 text-[11px] text-amber-600 hover:text-amber-700 font-medium transition-colors underline-offset-2 hover:underline"
+                        >
+                          View owner profile →
+                        </Link>
+                      )}
+                    </div>
+
+                    {/* Property specs column */}
+                    <div className="space-y-2.5">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                        <Home className="h-3 w-3" /> Property Specs
+                      </p>
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-sm">
+                        {(forecast as any).propertyType && (
+                          <div className="col-span-2 flex items-center gap-1.5">
+                            <Building className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                            <span className="font-semibold capitalize text-foreground">
+                              {(forecast as any).propertyType?.replace(/_/g, " ")}
+                            </span>
+                          </div>
+                        )}
+                        {(forecast as any).bedrooms != null && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <span className="font-semibold text-foreground">{(forecast as any).bedrooms}</span> Bed
+                            {(forecast as any).bathrooms != null && (
+                              <><span className="mx-0.5 opacity-40">·</span><span className="font-semibold text-foreground">{(forecast as any).bathrooms}</span> Bath</>
+                            )}
+                          </div>
+                        )}
+                        {(forecast as any).internalArea != null && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Ruler className="h-3 w-3" />
+                            <span className="font-semibold text-foreground">{(forecast as any).internalArea?.toLocaleString()}</span> sqft
+                          </div>
+                        )}
+                        {(forecast as any).furnishingStatus && (
+                          <div className="col-span-2 flex items-center gap-1 text-xs text-muted-foreground">
+                            <Sofa className="h-3 w-3 shrink-0" />
+                            <span className="capitalize text-foreground font-medium">
+                              {(forecast as any).furnishingStatus?.replace(/_/g, " ")}
+                            </span>
+                          </div>
+                        )}
+                        {(forecast as any).view && (
+                          <div className="col-span-2 flex items-center gap-1 text-xs text-muted-foreground">
+                            <Wind className="h-3 w-3 shrink-0" />
+                            <span className="text-foreground font-medium">{(forecast as any).view}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Location column */}
+                    <div className="space-y-2.5">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                        <MapPin className="h-3 w-3" /> Location
+                      </p>
+                      <div className="space-y-1.5 text-sm">
+                        {(forecast as any).projectBuilding && (
+                          <p className="font-semibold text-foreground leading-tight">{(forecast as any).projectBuilding}</p>
+                        )}
+                        {(forecast as any).unitNumber && (
+                          <p className="text-xs text-muted-foreground">Unit {(forecast as any).unitNumber}</p>
+                        )}
+                        {(forecast as any).area && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <MapPin className="h-3 w-3" />
+                            <span className="text-foreground font-medium">{(forecast as any).area}</span>
+                          </div>
+                        )}
+                        {forecast.propertyId && (
+                          <Link
+                            href={`/properties/${forecast.propertyId}`}
+                            className="inline-flex items-center gap-1 text-[11px] text-amber-600 hover:text-amber-700 font-medium transition-colors underline-offset-2 hover:underline mt-1"
+                          >
+                            View property page →
+                          </Link>
+                        )}
+                      </div>
+                    </div>
+
+                  </div>
+                </div>
+              )}
+
               {/* LTR Section */}
               <Card className="border-border/50 shadow-sm">
                 <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
@@ -931,7 +1062,7 @@ export default function ForecastDetail() {
                 </CardHeader>
                 <CardContent className="p-6 space-y-6">
                   {/* Single base ADR input */}
-                  <div className="flex flex-col md:flex-row md:items-end gap-6">
+                  <div className="flex flex-col md:flex-row gap-6">
                     <div className="flex-1 space-y-2">
                       <Label className="text-sm font-medium">Base ADR — March / Shoulder Reference</Label>
                       <div className="relative max-w-xs">
@@ -948,17 +1079,73 @@ export default function ForecastDetail() {
                         March rate = 1.0× reference. All other months are derived automatically using RHH seasonal multipliers.
                       </p>
                     </div>
-                    <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 flex items-center justify-between gap-8 md:min-w-[260px]">
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Weighted Average ADR</p>
-                        <p className="text-xs text-muted-foreground mt-0.5">Across all 12 months</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <div className="text-3xl font-bold text-primary">
-                          {baseAdrVal > 0 ? `AED ${weightedAdr.toLocaleString()}` : "—"}
+
+                    {/* Right-side panels stacked */}
+                    <div className="flex flex-col gap-3 md:min-w-[300px]">
+                      {/* Weighted average ADR */}
+                      <div className="p-4 bg-primary/5 rounded-lg border border-primary/20 flex items-center justify-between gap-8">
+                        <div>
+                          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Weighted Average ADR</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">Across all 12 months</p>
                         </div>
-                        {baseAdrVal > 0 && <p className="text-xs text-muted-foreground">per occupied night</p>}
+                        <div className="text-right shrink-0">
+                          <div className="text-3xl font-bold text-primary">
+                            {baseAdrVal > 0 ? `AED ${weightedAdr.toLocaleString()}` : "—"}
+                          </div>
+                          {baseAdrVal > 0 && <p className="text-xs text-muted-foreground">per occupied night</p>}
+                        </div>
                       </div>
+
+                      {/* ── Live Revenue vs LTR preview ── */}
+                      {(() => {
+                        const s80 = baseAdrVal > 0 ? computeScenario(0.80) : null;
+                        const pct = s80?.vsLtr ?? null;
+                        const style = getYieldStyle(pct);
+                        const hasLtr = ltrEffective > 0;
+                        return (
+                          <div className={`rounded-lg border p-4 transition-colors duration-300 ${style.ring}`}>
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="space-y-0.5">
+                                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                  80% Occupancy · Net Owner
+                                </p>
+                                <p className="text-2xl font-bold text-foreground tabular-nums">
+                                  {s80 ? `AED ${Math.round(s80.net).toLocaleString()}` : "—"}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground">Annual net payout</p>
+                              </div>
+                              <div className="text-right shrink-0 space-y-1.5">
+                                {!hasLtr && baseAdrVal > 0 && (
+                                  <span className="text-[10px] text-muted-foreground italic block">
+                                    Add LTR to compare
+                                  </span>
+                                )}
+                                {hasLtr && pct !== null && (
+                                  <>
+                                    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold tabular-nums ${style.badge}`}>
+                                      {pct >= 0 ? "+" : ""}{pct.toFixed(1)}%
+                                    </span>
+                                    <p className={`text-[10px] font-semibold ${style.value}`}>
+                                      vs LTR
+                                    </p>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            {hasLtr && pct !== null && style.label && (
+                              <div className={`mt-3 pt-2.5 border-t border-current/10 flex items-center gap-1.5`}>
+                                <span className={`inline-block w-1.5 h-1.5 rounded-full ${
+                                  pct < 0 ? "bg-red-500" : pct < 20 ? "bg-yellow-500" : pct < 30 ? "bg-green-500" : "bg-blue-500"
+                                }`} />
+                                <p className={`text-[11px] font-semibold ${style.value}`}>{style.label}</p>
+                                <p className="text-[11px] text-muted-foreground ml-auto">
+                                  {pct >= 30 ? "Adjust up if needed" : pct >= 20 ? "Target is met" : pct >= 0 ? "Consider raising ADR" : "ADR too low for STR"}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
 

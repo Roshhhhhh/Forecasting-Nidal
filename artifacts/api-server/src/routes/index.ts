@@ -11,6 +11,7 @@ import dashboardRouter from "./dashboard";
 import settingsRouter from "./settings";
 import refereesRouter from "./referees";
 import rolesRouter from "./roles";
+import amenitiesRouter from "./amenities";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(proposalsRouter);
 router.use(dashboardRouter);
 router.use(settingsRouter);
 router.use(refereesRouter);
+router.use(amenitiesRouter);
 
 export default router;

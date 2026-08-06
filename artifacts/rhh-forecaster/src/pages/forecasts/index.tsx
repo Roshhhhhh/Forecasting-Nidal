@@ -1,11 +1,12 @@
 import { useListForecasts } from "@workspace/api-client-react";
+import type { Forecast } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import {
   Plus, Search, MoreHorizontal, X, TrendingUp, TrendingDown, Eye, Pencil,
-  FileText, CheckCircle,
+  FileText, CheckCircle, Copy,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 import {
@@ -16,6 +17,7 @@ import { usePermission } from "@/hooks/usePermission";
 import { DataTable, ColumnDef } from "@/components/DataTable";
 import { SmartReport } from "@/components/SmartReport";
 import { PageTabs } from "@/components/PageTabs";
+import DuplicateForecastModal from "@/components/DuplicateForecastModal";
 
 const STATUSES = [
   { value: "all",       label: "All" },
@@ -47,7 +49,6 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   );
 }
 
-type ForecastRow = NonNullable<ReturnType<typeof useListForecasts>["data"]>[number];
 
 const fmtAed = (val?: number | null) =>
   val != null ? new Intl.NumberFormat("en-AE", { style: "currency", currency: "AED", maximumFractionDigits: 0 }).format(val) : "—";
@@ -62,7 +63,7 @@ const getStatusColor = (s: string) => {
   }
 };
 
-const FORECAST_COLUMNS: ColumnDef<ForecastRow>[] = [
+const FORECAST_COLUMNS: ColumnDef<Forecast>[] = [
   {
     key: "reference",
     label: "Reference",
@@ -203,6 +204,7 @@ export default function ForecastsList() {
   const [ltrFilter, setLtrFilter]   = useState("all");
   const [revenueMin, setRevenueMin] = useState("");
   const [revenueMax, setRevenueMax] = useState("");
+  const [duplicateForecast, setDuplicateForecast] = useState<Forecast | null>(null);
 
   // ── SmartReport metrics ────────────────────────────────────────────────────
   const metrics = useMemo(() => {
@@ -396,7 +398,9 @@ export default function ForecastsList() {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>Duplicate</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => setDuplicateForecast(forecast)} className="gap-2">
+                        <Copy className="h-4 w-4" /> Duplicate
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-destructive focus:text-destructive">Archive</DropdownMenuItem>
                     </DropdownMenuContent>
@@ -407,6 +411,14 @@ export default function ForecastsList() {
           />
         </CardContent>
       </Card>
+
+      {duplicateForecast && (
+        <DuplicateForecastModal
+          forecast={duplicateForecast}
+          open={!!duplicateForecast}
+          onOpenChange={open => { if (!open) setDuplicateForecast(null); }}
+        />
+      )}
     </div>
   );
 }

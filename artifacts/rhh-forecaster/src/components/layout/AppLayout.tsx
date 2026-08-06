@@ -1,12 +1,13 @@
 import { FC, ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarProvider } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, UserCheck, ShieldCheck } from "lucide-react";
+import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, UserCheck, ShieldCheck, LayoutGrid } from "lucide-react";
 import { useLogout, useGetMe } from "@workspace/api-client-react";
 import { usePermission } from "@/hooks/usePermission";
 
 const NAV_ITEMS = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Dashboard",  href: "/dashboard", icon: LayoutDashboard },
+  { label: "Pipeline",   href: "/pipeline",  icon: LayoutGrid },
   { label: "Owners", href: "/owners", icon: Users },
   { label: "Properties", href: "/properties", icon: Home },
   { label: "Forecasts", href: "/forecasts", icon: TrendingUp },

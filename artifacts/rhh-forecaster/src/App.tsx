@@ -28,6 +28,7 @@ import RolesPage from '@/pages/admin/roles';
 import PublicProposal from '@/pages/public/proposal';
 import RefereesList from '@/pages/referees/index';
 import RefereeDetail from '@/pages/referees/[id]';
+import Pipeline from '@/pages/pipeline';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -61,6 +62,7 @@ function ProtectedRouter() {
         <Route path="/admin/roles" component={RolesPage} />
         <Route path="/referees" component={RefereesList} />
         <Route path="/referees/:id" component={RefereeDetail} />
+        <Route path="/pipeline" component={Pipeline} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

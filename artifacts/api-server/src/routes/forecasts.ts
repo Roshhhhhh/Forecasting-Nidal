@@ -517,29 +517,47 @@ router.post("/forecasts/:id/narrative-draft", requireAuth, async (req, res): Pro
     : "80%";
   const scenarioLabel = `${scenarioName} ${scenarioOccupancyPct}`;
 
-  // Always use the 80% scenario's net income — not the stored forecast aggregate which may reflect a different occ
-  const net80 = recScenario?.netOwnerIncome ?? f.netOwnerIncome ?? null;
-  const netIncome = net80 ? `AED ${Math.round(net80).toLocaleString()}` : null;
-  // Compute LTR uplift against the 80% scenario outcome
-  const ltrNet = f.netLtrIncome ?? null;
-  const ltrUplift = (net80 && ltrNet && ltrNet > 0)
-    ? `${Math.round(((net80 - ltrNet) / ltrNet) * 100)}%`
-    : f.increaseVsLtrPct ? `${Math.round(f.increaseVsLtrPct)}%` : null;
+  // ── All figures pinned to the 80% (recommended) scenario ─────────────────────
+  const net80       = recScenario?.netOwnerIncome ?? f.netOwnerIncome ?? null;
+  const gross80     = recScenario?.grossRevenue   ?? f.grossAnnualRevenue ?? null;
+  const mgmtFeeAmt  = (gross80 && f.managementFeePercent)
+    ? Math.round(gross80 * (f.managementFeePercent / 100))
+    : null;
+  const totalExp    = f.totalAnnualExpenses ?? null;
+  const monthly80   = net80 ? Math.round(net80 / 12) : null;
+  const ltrGross    = f.annualLtr ?? null;
+  const ltrNet      = f.netLtrIncome ?? null;
+  const ltrVacPct   = f.ltrVacancyPercent ?? 10;
+  const ltrAdj      = ltrGross ? Math.round(ltrGross * (1 - ltrVacPct / 100)) : null;
+  const ltrUpliftPct = (net80 && ltrNet && ltrNet > 0)
+    ? Math.round(((net80 - ltrNet) / ltrNet) * 100)
+    : f.increaseVsLtrPct ? Math.round(f.increaseVsLtrPct) : null;
 
-  // ── Build template fallback ─────────────────────────────────────────────────
+  // Human-readable helpers
+  const fmt = (n: number | null) => n != null ? `AED ${Math.round(n).toLocaleString()}` : null;
+  const netIncomeStr  = fmt(net80);
+  const grossStr      = fmt(gross80);
+  const monthly80Str  = fmt(monthly80);
+  const mgmtFeeStr    = mgmtFeeAmt ? `${fmt(mgmtFeeAmt)} (${f.managementFeePercent}%)` : null;
+  const totalExpStr   = fmt(totalExp);
+  const ltrGrossStr   = fmt(ltrGross);
+  const ltrAdjStr     = fmt(ltrAdj);
+  const upliftStr     = ltrUpliftPct != null ? `${ltrUpliftPct > 0 ? "+" : ""}${ltrUpliftPct}%` : null;
+
+  // ── Standardised template (used as fallback and as the shape for AI to mirror) ──
   function buildTemplateDraft(): string {
     const greeting = ownerFirstName ? `Dear **${ownerFirstName}**, ` : "";
-    let s1 = `${greeting}Based on our detailed analysis of comparable short-term rental units in **${locationStr}**, your **${bedroomLabel}** property is well-positioned to outperform traditional long-term rental benchmarks in the Abu Dhabi market.`;
-    let s2 = "";
-    if (weightedAdr) {
-      s2 = ` Under our recommended **${scenarioLabel}** scenario, with a weighted average daily rate of **${weightedAdr}**, the figures in this report reflect achievable, data-backed market rates drawn from active comparable listings.`;
-    }
-    let s3 = "";
-    if (netIncome && ltrUplift) {
-      s3 = ` This translates to an estimated net owner income of **${netIncome}** per year — representing a **${ltrUplift}** uplift over the long-term rental benchmark — giving you a significantly stronger return while maintaining full flexibility over your asset.`;
-    } else if (netIncome) {
-      s3 = ` This translates to an estimated net owner income of **${netIncome}** per year, giving you a meaningfully stronger return while maintaining full flexibility over your asset.`;
-    }
+    const s1 = `${greeting}Based on our detailed analysis of comparable short-term rental units in **${locationStr}**, your **${bedroomLabel}** property is well-positioned to significantly outperform traditional long-term rental benchmarks in the Abu Dhabi market.`;
+    const s2 = weightedAdr && grossStr
+      ? ` Our **${scenarioLabel}** projection, with a weighted average daily rate of **${weightedAdr}**, forecasts a gross annual revenue of **${grossStr}** — figures drawn from active comparable listings in your building and area.`
+      : weightedAdr
+      ? ` Our **${scenarioLabel}** projection uses a weighted average daily rate of **${weightedAdr}**, derived from active comparable listings in your building and area.`
+      : "";
+    const s3 = netIncomeStr && upliftStr
+      ? ` After all operating expenses${totalExpStr ? ` (${totalExpStr})` : ""} and a ${f.managementFeePercent}% management fee, your estimated net annual income is **${netIncomeStr}** — a **${upliftStr}** increase over the adjusted long-term rental benchmark — with an average monthly payout of **${monthly80Str}**.`
+      : netIncomeStr
+      ? ` After all fees and expenses, your estimated net annual income is **${netIncomeStr}**, with an average monthly payout of **${monthly80Str}**, giving you a meaningfully stronger return than long-term rental.`
+      : "";
     return (s1 + s2 + s3).trim();
   }
 
@@ -549,33 +567,40 @@ router.post("/forecasts/:id/narrative-draft", requireAuth, async (req, res): Pro
     try {
       const openai = new OpenAI({ apiKey });
 
-      const contextLines: string[] = [
-        `Property type: ${bedroomLabel}`,
-        `Location: ${locationStr}`,
+      // Build a structured data block so the AI has every figure it needs
+      const dataBlock = [
+        `Owner first name: ${ownerFirstName ?? "N/A"}`,
+        `Property: ${bedroomLabel} in ${locationStr}`,
         `Market: Abu Dhabi short-term rental (STR)`,
-        `Recommended scenario: ${scenarioLabel} occupancy`,
-      ];
-      if (weightedAdr) contextLines.push(`Weighted average daily rate: ${weightedAdr}`);
-      if (netIncome) contextLines.push(`Estimated net owner income at 80% occupancy: ${netIncome} per year`);
-      if (ltrUplift) contextLines.push(`Uplift vs. long-term rental benchmark: ${ltrUplift}`);
-      if (ownerFirstName) contextLines.push(`Owner first name: ${ownerFirstName}`);
+        `Projection scenario: ${scenarioLabel}`,
+        `Weighted average daily rate (ADR): ${weightedAdr ?? "N/A"}`,
+        `Gross annual revenue (80%): ${grossStr ?? "N/A"}`,
+        `Total operating expenses: ${totalExpStr ?? "N/A"}`,
+        `PM management fee: ${mgmtFeeStr ?? "N/A"}`,
+        `Net owner income (80%): ${netIncomeStr ?? "N/A"}`,
+        `Average monthly payout (80%): ${monthly80Str ?? "N/A"}`,
+        `LTR annual gross: ${ltrGrossStr ?? "N/A"}`,
+        `LTR adjusted for ${ltrVacPct}% vacancy: ${ltrAdjStr ?? "N/A"}`,
+        `STR uplift vs LTR: ${upliftStr ?? "N/A"}`,
+      ].join("\n");
 
-      const systemPrompt = `You are a senior property consultant at Royal Holiday Homes (RHH), a premium short-term rental management company in Abu Dhabi. Your task is to write a concise, personalised narrative for a property revenue forecast proposal.
+      const systemPrompt = `You are a senior property consultant at Royal Holiday Homes (RHH), Abu Dhabi's premium short-term rental management company. Write a concise, personalised cover narrative for an owner revenue forecast proposal.
 
-Guidelines:
-- Write exactly 2–3 sentences. No lists, no headings.
-- Address the owner by first name if provided (e.g. "Dear Ahmed,").
-- Be specific to the area and property type — avoid generic phrases.
-- Base all figures on the 80% occupancy scenario provided. Explicitly reference it as "${scenarioLabel}" when mentioning occupancy.
-- Use **bold markdown** (double asterisks) to emphasise EXACTLY these elements wherever they appear in your output: the owner's first name, the location/building name, the occupancy percentage, the weighted ADR figure, the net income amount, and the uplift percentage. Do not bold anything else.
-- Tone: professional, warm, and confident. Make the owner feel this is personalised analysis.
-- End with a forward-looking statement about why STR outperforms LTR for this specific property.`;
+STRICT FORMAT — follow exactly:
+- Exactly 3 sentences.
+- Sentence 1: Address owner by first name (e.g. "Dear Ahmed,"), reference the specific building/location, and state the property type. Make it feel personally written.
+- Sentence 2: Reference the ${scenarioLabel} projection; include the weighted ADR and gross annual revenue figures.
+- Sentence 3: State the net owner income, monthly payout, and uplift vs LTR (if available). End with confidence in the STR model for this property.
+- Use **double asterisks** to bold ONLY: owner's first name, building/location name, the occupancy %, ADR value, gross revenue amount, net income amount, monthly payout amount, and the uplift %. Nothing else.
+- Plain prose — no lists, no headers, no footnotes.
+- Do not invent figures. Use only the data provided below.`;
 
-      const userPrompt = `Write the owner narrative for this forecast:\n${contextLines.join("\n")}`;
+      const userPrompt = `Write the cover narrative using this forecast data:\n\n${dataBlock}`;
 
       const completion = await openai.chat.completions.create({
         model: "gpt-4o",
-        max_tokens: 350,
+        max_tokens: 400,
+        temperature: 0.4,
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
@@ -588,7 +613,6 @@ Guidelines:
         return;
       }
     } catch (err) {
-      // Log and fall through to template
       console.error("[narrative-draft] OpenAI call failed, using template fallback:", err);
     }
   }

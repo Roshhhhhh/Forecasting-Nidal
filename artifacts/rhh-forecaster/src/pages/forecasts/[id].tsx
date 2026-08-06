@@ -1545,6 +1545,55 @@ export default function ForecastDetail() {
                 </div>
               </CardHeader>
               <CardContent className="p-5 space-y-4">
+
+                {/* ── Key Forecast Data Reference ────────────────────────── */}
+                {baseAdrVal > 0 && (() => {
+                  const s80 = computeScenario(0.80);
+                  const fmtAed = (n: number) => `AED ${Math.round(n).toLocaleString()}`;
+                  const hasLtr = ltrEffective > 0;
+                  const pct = s80.vsLtr;
+                  const pctColor = pct === null ? "text-muted-foreground"
+                    : pct < 0  ? "text-red-600 dark:text-red-400"
+                    : pct < 20 ? "text-yellow-700 dark:text-yellow-400"
+                    : pct < 30 ? "text-green-600 dark:text-green-400"
+                    :            "text-blue-600 dark:text-blue-400";
+
+                  const rows = [
+                    { label: "Gross Revenue (80%)",          value: fmtAed(s80.gross),                        highlight: false },
+                    { label: "Total Operating Expenses",      value: fmtAed(totalAnnualExpenses),              highlight: false },
+                    { label: `PM Commission (${values.managementFeePercent}%)`, value: fmtAed(s80.mgmtFee),   highlight: false },
+                    { label: "Expected Owner Payout (80%)",   value: fmtAed(s80.net),                         highlight: true  },
+                    { label: "Monthly Payout (80%)",          value: fmtAed(s80.monthly * 12 / 12),           highlight: false },
+                    ...(hasLtr ? [
+                      { label: "LTR Annual (Gross)",          value: fmtAed(values.annualLtr),                highlight: false },
+                      { label: `LTR Adj. (${values.ltrVacancyPercent ?? 10}% vacancy)`, value: fmtAed(ltrEffective), highlight: false },
+                    ] : []),
+                  ];
+
+                  return (
+                    <div className="rounded-lg border border-border/50 bg-muted/20 overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/40 bg-muted/30">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                          <Calculator className="h-3 w-3" /> Key Forecast Data — 80% Scenario
+                        </p>
+                        {hasLtr && pct !== null && (
+                          <span className={`text-xs font-bold tabular-nums ${pctColor}`}>
+                            {pct >= 0 ? "+" : ""}{Math.round(pct)}% vs LTR
+                          </span>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 divide-x divide-y divide-border/30">
+                        {rows.map(({ label, value, highlight }) => (
+                          <div key={label} className={`px-3 py-2.5 ${highlight ? "bg-amber-50/40 dark:bg-amber-950/10" : ""}`}>
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">{label}</p>
+                            <p className={`text-sm font-bold tabular-nums ${highlight ? "text-primary" : "text-foreground"}`}>{value}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div className="space-y-2">
                   <Textarea
                     placeholder={`e.g. Based on our detailed analysis of comparable units in Yas Island, we are confident your ${(forecast as any).propertyType ?? "property"} can generate significantly more than traditional long-term rental. Our team has reviewed current STR performance across similar units in the building and the projections in this report reflect achievable market rates.`}

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   useListReferees, useCreateReferee, useUpdateReferee, getListRefereesQueryKey,
 } from "@workspace/api-client-react";
@@ -19,7 +19,10 @@ import { Link } from "wouter";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Plus, UserCheck, Phone, Mail, Building, Users, Loader2, Pencil, RefreshCw, Home, TrendingUp } from "lucide-react";
+import {
+  Plus, UserCheck, Phone, Mail, Building, Users, Loader2, Pencil,
+  RefreshCw, Home, TrendingUp, Search, X,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface RefereeFormValues {
@@ -37,13 +40,24 @@ interface RefereeFormValues {
 }
 
 const DEFAULT_FEES: Pick<RefereeFormValues, "referralFeeStudio" | "referralFee1br" | "referralFee2br" | "referralFee3br" | "referralFee4brPlus" | "isRecurringEnabled"> = {
-  referralFeeStudio: 1500,
-  referralFee1br: 2000,
-  referralFee2br: 2500,
-  referralFee3br: 3000,
-  referralFee4brPlus: 3500,
-  isRecurringEnabled: false,
+  referralFeeStudio: 1500, referralFee1br: 2000, referralFee2br: 2500,
+  referralFee3br: 3000, referralFee4brPlus: 3500, isRecurringEnabled: false,
 };
+
+function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all whitespace-nowrap select-none
+        ${active
+          ? "bg-primary text-primary-foreground border-primary shadow-sm"
+          : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
+        }`}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default function RefereesList() {
   const queryClient = useQueryClient();
@@ -58,10 +72,14 @@ export default function RefereesList() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<"default" | "owed_desc">("default");
 
+  // Smart filter state
+  const [search, setSearch]     = useState("");
+  const [activeFilter, setActiveFilter] = useState("all"); // all | active | inactive
+  const [recurringFilter, setRecurringFilter] = useState("all"); // all | recurring | one-time
+
   const form = useForm<RefereeFormValues>({
     defaultValues: { name: "", ...DEFAULT_FEES },
   });
-
   const isRecurring = form.watch("isRecurringEnabled");
 
   function openCreate() {
@@ -72,9 +90,7 @@ export default function RefereesList() {
 
   function openEdit(referee: any) {
     form.reset({
-      name: referee.name,
-      phone: referee.phone ?? "",
-      email: referee.email ?? "",
+      name: referee.name, phone: referee.phone ?? "", email: referee.email ?? "",
       companyName: referee.companyName ?? "",
       referralFeeStudio: referee.referralFeeStudio ?? 1500,
       referralFee1br: referee.referralFee1br ?? 2000,
@@ -106,17 +122,29 @@ export default function RefereesList() {
 
   const isPending = createReferee.isPending || updateReferee.isPending;
 
-  const totalCommissionLiability = referees?.reduce(
-    (sum, r) => sum + ((r as any).totalCommissionOwed ?? 0), 0
-  ) ?? 0;
+  const activeFilterCount = useMemo(() => [
+    activeFilter !== "all", recurringFilter !== "all",
+  ].filter(Boolean).length, [activeFilter, recurringFilter]);
 
-  const sortedReferees = referees
-    ? sortBy === "owed_desc"
-      ? [...referees].sort(
-          (a, b) => ((b as any).totalCommissionOwed ?? 0) - ((a as any).totalCommissionOwed ?? 0)
-        )
-      : referees
-    : [];
+  const filteredReferees = useMemo(() => {
+    let list = referees ?? [];
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter(r =>
+        `${r.name} ${r.email || ''} ${r.phone || ''} ${(r as any).companyName || ''} ${r.refereeCode}`.toLowerCase().includes(q)
+      );
+    }
+    if (activeFilter === "active") list = list.filter(r => r.isActive);
+    if (activeFilter === "inactive") list = list.filter(r => !r.isActive);
+    if (recurringFilter === "recurring") list = list.filter(r => r.isRecurringEnabled);
+    if (recurringFilter === "one-time") list = list.filter(r => !r.isRecurringEnabled);
+    if (sortBy === "owed_desc") list = [...list].sort((a, b) => ((b as any).totalCommissionOwed ?? 0) - ((a as any).totalCommissionOwed ?? 0));
+    return list;
+  }, [referees, search, activeFilter, recurringFilter, sortBy]);
+
+  const totalCommissionLiability = referees?.reduce((sum, r) => sum + ((r as any).totalCommissionOwed ?? 0), 0) ?? 0;
+
+  function clearAll() { setSearch(""); setActiveFilter("all"); setRecurringFilter("all"); }
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto space-y-6">
@@ -129,8 +157,7 @@ export default function RefereesList() {
         </div>
         {canCreateReferee && (
           <Button onClick={openCreate} className="gap-2">
-            <Plus className="h-4 w-4" />
-            Add Referee
+            <Plus className="h-4 w-4" /> Add Referee
           </Button>
         )}
       </div>
@@ -160,9 +187,7 @@ export default function RefereesList() {
             <div className="p-2 bg-blue-100 rounded-md"><Building className="h-5 w-5 text-blue-600" /></div>
             <div>
               <p className="text-xs text-muted-foreground">Total Referred Owners</p>
-              <p className="text-xl font-bold">
-                {referees?.reduce((sum, r) => sum + ((r as any).referredCount ?? 0), 0) ?? 0}
-              </p>
+              <p className="text-xl font-bold">{referees?.reduce((sum, r) => sum + ((r as any).referredCount ?? 0), 0) ?? 0}</p>
             </div>
           </CardContent>
         </Card>
@@ -172,151 +197,177 @@ export default function RefereesList() {
             <div>
               <p className="text-xs text-muted-foreground">Total Commission Liability</p>
               <p className="text-xl font-bold text-amber-700">
-                {totalCommissionLiability > 0
-                  ? `${totalCommissionLiability.toLocaleString("en-AE")} AED`
-                  : "—"}
+                {totalCommissionLiability > 0 ? `${totalCommissionLiability.toLocaleString("en-AE")} AED` : "—"}
               </p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Sort control */}
-      {referees && referees.length > 1 && (
-        <div className="flex items-center justify-end gap-2">
-          <span className="text-sm text-muted-foreground">Sort by:</span>
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
-            <SelectTrigger className="w-44 h-8 text-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">Date Added</SelectItem>
-              <SelectItem value="owed_desc">Total Owed (highest first)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
-      {/* List */}
-      {isLoading ? (
-        <div className="text-center text-muted-foreground py-12">Loading referees...</div>
-      ) : !referees || referees.length === 0 ? (
-        <Card className="border-border/50 shadow-sm">
-          <CardContent className="py-16 text-center">
-            <UserCheck className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
-            <p className="text-lg font-medium">No referees yet</p>
-            <p className="text-muted-foreground text-sm mt-1 mb-4">Add your first referee to start tracking referral fees.</p>
-            {canCreateReferee && (
-              <Button onClick={openCreate} className="gap-2">
-                <Plus className="h-4 w-4" /> Add Referee
+      {/* Smart filter bar */}
+      <Card className="border-border/50 shadow-sm">
+        <div className="p-4 border-b border-border space-y-3 bg-muted/20">
+          <div className="flex gap-3">
+            <div className="relative flex-1 max-w-lg">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by name, email, phone, or referee code..."
+                className="pl-9 bg-background"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+              />
+            </div>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+              <SelectTrigger className="w-44 h-10 text-sm bg-background">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Date Added</SelectItem>
+                <SelectItem value="owed_desc">Total Owed (highest first)</SelectItem>
+              </SelectContent>
+            </Select>
+            {(activeFilterCount > 0 || search) && (
+              <Button variant="ghost" size="sm" className="h-10 text-muted-foreground hover:text-foreground gap-1.5" onClick={clearAll}>
+                <X className="h-3.5 w-3.5" /> Clear all
               </Button>
             )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {sortedReferees.map((referee: any) => (
-            <Card key={referee.id} className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3 border-b border-border/50">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="outline" className="font-mono text-xs bg-primary/5 border-primary/30 text-primary">
-                        {referee.refereeCode}
-                      </Badge>
-                      {referee.isRecurringEnabled && (
-                        <Badge variant="outline" className="text-xs gap-1 text-emerald-700 border-emerald-300 bg-emerald-50">
-                          <RefreshCw className="h-2.5 w-2.5" /> Recurring
-                        </Badge>
-                      )}
-                      {!referee.isActive && (
-                        <Badge variant="outline" className="text-xs text-muted-foreground">Inactive</Badge>
-                      )}
-                    </div>
-                    <h3 className="font-semibold text-base truncate">{referee.name}</h3>
-                    {referee.companyName && (
-                      <p className="text-xs text-muted-foreground truncate">{referee.companyName}</p>
-                    )}
-                  </div>
-                  {canEditReferee && (
-                    <button
-                      onClick={() => openEdit(referee)}
-                      className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors ml-2"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="p-4 space-y-3">
-                <div className="space-y-1.5 text-sm">
-                  {referee.phone && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Phone className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{referee.phone}</span>
-                    </div>
-                  )}
-                  {referee.email && (
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <Mail className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{referee.email}</span>
-                    </div>
-                  )}
-                </div>
-                {/* Referral fees summary */}
-                <div className="rounded-md bg-muted/40 p-2.5 grid grid-cols-3 gap-1.5 text-center">
-                  {[
-                    { label: "Studio", value: referee.referralFeeStudio },
-                    { label: "1 BR", value: referee.referralFee1br },
-                    { label: "2 BR", value: referee.referralFee2br },
-                    { label: "3 BR", value: referee.referralFee3br },
-                    { label: "4+ BR", value: referee.referralFee4brPlus },
-                  ].map(({ label, value }) => (
-                    <div key={label}>
-                      <p className="text-[10px] text-muted-foreground leading-tight">{label}</p>
-                      <p className="text-xs font-semibold text-foreground">{Number(value).toLocaleString()} AED</p>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                  <div className="text-sm">
-                    <span className="text-muted-foreground">Referred: </span>
-                    <span className="font-semibold">{(referee as any).referredCount ?? 0} owners</span>
-                  </div>
-                  {referee.isRecurringEnabled && (
-                    <div className="text-xs text-emerald-700 font-medium">
-                      PM%−16% recurring
-                    </div>
-                  )}
-                </div>
-                {referee.isRecurringEnabled && (
-                  <div className="flex items-center justify-between rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2">
-                    <span className="text-xs text-emerald-700 font-medium">Total Owed</span>
-                    <span className="text-sm font-bold text-emerald-800">
-                      {((referee as any).totalCommissionOwed ?? 0) > 0
-                        ? `${Number((referee as any).totalCommissionOwed).toLocaleString("en-AE")} AED`
-                        : "—"}
-                    </span>
-                  </div>
-                )}
-                <Link href={`/referees/${referee.id}`}>
-                  <Button variant="outline" size="sm" className="w-full text-xs gap-1.5">
-                    <Users className="h-3.5 w-3.5" /> View Referred Owners
-                  </Button>
-                </Link>
-              </CardContent>
-            </Card>
-          ))}
+          </div>
+
+          {/* Filter chips */}
+          <div className="flex gap-2 flex-wrap">
+            <Chip active={activeFilter === "all"} onClick={() => setActiveFilter("all")}>All Referees</Chip>
+            <Chip active={activeFilter === "active"} onClick={() => setActiveFilter("active")}>Active</Chip>
+            <Chip active={activeFilter === "inactive"} onClick={() => setActiveFilter("inactive")}>Inactive</Chip>
+            <div className="w-px bg-border mx-1 self-stretch" />
+            <Chip active={recurringFilter === "all"} onClick={() => setRecurringFilter("all")}>Any Programme</Chip>
+            <Chip active={recurringFilter === "recurring"} onClick={() => setRecurringFilter("recurring")}>
+              <RefreshCw className="h-3 w-3 inline mr-1 text-emerald-600" />Recurring
+            </Chip>
+            <Chip active={recurringFilter === "one-time"} onClick={() => setRecurringFilter("one-time")}>One-Time Fee</Chip>
+          </div>
+
+          {/* Result count */}
+          <p className="text-xs text-muted-foreground">
+            Showing <span className="font-semibold text-foreground">{filteredReferees.length}</span> of{" "}
+            <span className="font-semibold text-foreground">{referees?.length ?? 0}</span> referees
+          </p>
         </div>
-      )}
+
+        {/* Grid */}
+        <CardContent className="p-6">
+          {isLoading ? (
+            <div className="text-center text-muted-foreground py-12">Loading referees...</div>
+          ) : filteredReferees.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <UserCheck className="h-12 w-12 mx-auto mb-4 opacity-20" />
+              <p className="font-medium text-foreground">No referees match your filters</p>
+              {(activeFilterCount > 0 || search) ? (
+                <Button variant="link" className="mt-2 text-primary" onClick={clearAll}>Clear all filters</Button>
+              ) : canCreateReferee && (
+                <Button className="mt-4 gap-2" onClick={openCreate}><Plus className="h-4 w-4" /> Add Referee</Button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredReferees.map((referee: any) => (
+                <Card key={referee.id} className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
+                  <CardHeader className="pb-3 border-b border-border/50">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="outline" className="font-mono text-xs bg-primary/5 border-primary/30 text-primary">
+                            {referee.refereeCode}
+                          </Badge>
+                          {referee.isRecurringEnabled && (
+                            <Badge variant="outline" className="text-xs gap-1 text-emerald-700 border-emerald-300 bg-emerald-50">
+                              <RefreshCw className="h-2.5 w-2.5" /> Recurring
+                            </Badge>
+                          )}
+                          {!referee.isActive && (
+                            <Badge variant="outline" className="text-xs text-muted-foreground">Inactive</Badge>
+                          )}
+                        </div>
+                        <h3 className="font-semibold text-base truncate">{referee.name}</h3>
+                        {referee.companyName && (
+                          <p className="text-xs text-muted-foreground truncate">{referee.companyName}</p>
+                        )}
+                      </div>
+                      {canEditReferee && (
+                        <button
+                          onClick={() => openEdit(referee)}
+                          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors ml-2"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </CardHeader>
+                  <CardContent className="p-4 space-y-3">
+                    <div className="space-y-1.5 text-sm">
+                      {referee.phone && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Phone className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{referee.phone}</span>
+                        </div>
+                      )}
+                      {referee.email && (
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Mail className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{referee.email}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="rounded-md bg-muted/40 p-2.5 grid grid-cols-3 gap-1.5 text-center">
+                      {[
+                        { label: "Studio", value: referee.referralFeeStudio },
+                        { label: "1 BR",   value: referee.referralFee1br },
+                        { label: "2 BR",   value: referee.referralFee2br },
+                        { label: "3 BR",   value: referee.referralFee3br },
+                        { label: "4+ BR",  value: referee.referralFee4brPlus },
+                      ].map(({ label, value }) => (
+                        <div key={label}>
+                          <p className="text-[10px] text-muted-foreground leading-tight">{label}</p>
+                          <p className="text-xs font-semibold text-foreground">{Number(value).toLocaleString()} AED</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex items-center justify-between pt-1 border-t border-border/50">
+                      <div className="text-sm">
+                        <span className="text-muted-foreground">Referred: </span>
+                        <span className="font-semibold">{(referee as any).referredCount ?? 0} owners</span>
+                      </div>
+                      {referee.isRecurringEnabled && (
+                        <div className="text-xs text-emerald-700 font-medium">PM%−16% recurring</div>
+                      )}
+                    </div>
+                    {referee.isRecurringEnabled && (
+                      <div className="flex items-center justify-between rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2">
+                        <span className="text-xs text-emerald-700 font-medium">Total Owed</span>
+                        <span className="text-sm font-bold text-emerald-800">
+                          {((referee as any).totalCommissionOwed ?? 0) > 0
+                            ? `${Number((referee as any).totalCommissionOwed).toLocaleString("en-AE")} AED`
+                            : "—"}
+                        </span>
+                      </div>
+                    )}
+                    <Link href={`/referees/${referee.id}`}>
+                      <Button variant="outline" size="sm" className="w-full text-xs gap-1.5">
+                        <Users className="h-3.5 w-3.5" /> View Referred Owners
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-serif">
-              {editingId ? "Edit Referee" : "Add New Referee"}
-            </DialogTitle>
+            <DialogTitle className="font-serif">{editingId ? "Edit Referee" : "Add New Referee"}</DialogTitle>
             {!editingId && (
               <p className="text-sm text-muted-foreground mt-1">
                 A unique Referee ID (e.g. <span className="font-mono font-medium">REF-001</span>) will be automatically generated.
@@ -324,7 +375,6 @@ export default function RefereesList() {
             )}
           </DialogHeader>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-            {/* Contact info */}
             <div className="space-y-2">
               <Label>Full Name <span className="text-destructive">*</span></Label>
               <Input placeholder="e.g. Ahmed Al-Mansoori" {...form.register("name", { required: true })} />
@@ -343,42 +393,29 @@ export default function RefereesList() {
               <Label>Company / Agency</Label>
               <Input placeholder="Al Mansoori Real Estate LLC" {...form.register("companyName")} />
             </div>
-
-            {/* One-time referral fees */}
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Home className="h-4 w-4 text-primary" />
                 <Label className="text-sm font-semibold">One-Time Referral Fees (AED)</Label>
               </div>
-              <p className="text-xs text-muted-foreground -mt-1">
-                Fixed fee paid once when the referred owner signs up. Adjust per layout type.
-              </p>
               <div className="grid grid-cols-2 gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
-                {[
-                  { label: "Studio", field: "referralFeeStudio" as const },
-                  { label: "1 Bedroom", field: "referralFee1br" as const },
-                  { label: "2 Bedrooms", field: "referralFee2br" as const },
-                  { label: "3 Bedrooms", field: "referralFee3br" as const },
-                  { label: "4+ Bedrooms", field: "referralFee4brPlus" as const },
-                ].map(({ label, field }) => (
+                {([
+                  { label: "Studio", field: "referralFeeStudio" },
+                  { label: "1 Bedroom", field: "referralFee1br" },
+                  { label: "2 Bedrooms", field: "referralFee2br" },
+                  { label: "3 Bedrooms", field: "referralFee3br" },
+                  { label: "4+ Bedrooms", field: "referralFee4brPlus" },
+                ] as const).map(({ label, field }) => (
                   <div key={field} className="space-y-1.5">
                     <Label className="text-xs text-muted-foreground">{label}</Label>
                     <div className="relative">
-                      <Input
-                        type="number"
-                        min="0"
-                        step="100"
-                        {...form.register(field, { valueAsNumber: true })}
-                        className="pr-12 text-sm"
-                      />
+                      <Input type="number" min="0" step="100" {...form.register(field, { valueAsNumber: true })} className="pr-12 text-sm" />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">AED</span>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
-
-            {/* Recurring commission programme */}
             <div className="space-y-3">
               <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/20 p-3">
                 <div className="space-y-1">
@@ -386,16 +423,10 @@ export default function RefereesList() {
                     <RefreshCw className="h-4 w-4 text-emerald-600" />
                     <Label className="text-sm font-semibold">Recurring Commission Programme</Label>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Agent earns a share of the PM commission they help close.
-                  </p>
+                  <p className="text-xs text-muted-foreground">Agent earns a share of the PM commission they help close.</p>
                 </div>
-                <Switch
-                  checked={isRecurring}
-                  onCheckedChange={(val) => form.setValue("isRecurringEnabled", val)}
-                />
+                <Switch checked={isRecurring} onCheckedChange={(val) => form.setValue("isRecurringEnabled", val)} />
               </div>
-
               {isRecurring && (
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-2 text-xs">
                   <p className="font-semibold text-emerald-800">Recurring tier structure:</p>
@@ -414,18 +445,14 @@ export default function RefereesList() {
                       </div>
                     ))}
                   </div>
-                  <p className="text-emerald-700 text-[10px] mt-1">
-                    * Company minimum is 15% PM — the programme never reduces RHH below this floor.
-                  </p>
+                  <p className="text-emerald-700 text-[10px] mt-1">* Company minimum is 15% PM — the programme never reduces RHH below this floor.</p>
                 </div>
               )}
             </div>
-
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea placeholder="Any additional context..." {...form.register("notes")} className="min-h-[70px]" />
             </div>
-
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={isPending} className="gap-2">

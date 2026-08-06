@@ -1941,7 +1941,7 @@ components:
           type: ["number", "null"]
         furnishingStatus:
           type: string
-          enum: [unfurnished, partially_furnished, fully_furnished, premium_furnished, hotel_grade]
+          enum: [unfurnished, partially_furnished, fully_furnished, premium_furnished, hotel_grade, previously_holiday_home]
         propertyCondition:
           type: string
           enum: [new, excellent, good, requires_refresh, requires_renovation]
@@ -2010,7 +2010,7 @@ components:
           type: number
         furnishingStatus:
           type: string
-          enum: [unfurnished, partially_furnished, fully_furnished, premium_furnished, hotel_grade]
+          enum: [unfurnished, partially_furnished, fully_furnished, premium_furnished, hotel_grade, previously_holiday_home]
         propertyCondition:
           type: string
           enum: [new, excellent, good, requires_refresh, requires_renovation]

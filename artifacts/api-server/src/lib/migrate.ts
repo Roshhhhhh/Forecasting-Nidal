@@ -93,6 +93,12 @@ export async function runStartupMigration() {
         ADD COLUMN IF NOT EXISTS adr_override REAL
     `);
 
+    // 8. Add previously_holiday_home to furnishing_status enum if not already present
+    // ALTER TYPE ... ADD VALUE is idempotent with IF NOT EXISTS
+    await db.execute(sql`
+      ALTER TYPE furnishing_status ADD VALUE IF NOT EXISTS 'previously_holiday_home'
+    `);
+
     logger.info("Startup migration complete");
   } catch (err) {
     logger.error({ err }, "Startup migration failed");

@@ -28,6 +28,7 @@ export const furnishingStatusEnum = pgEnum("furnishing_status", [
   "fully_furnished",
   "premium_furnished",
   "hotel_grade",
+  "previously_holiday_home",
 ]);
 
 export const propertyConditionEnum = pgEnum("property_condition", [

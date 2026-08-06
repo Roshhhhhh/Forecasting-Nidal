@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import crypto from "crypto";
 import {
   db, proposalsTable, proposalViewEventsTable, forecastsTable,
@@ -31,8 +31,63 @@ function formatProposal(p: any) {
 }
 
 router.get("/proposals", requireAuth, async (_req, res): Promise<void> => {
-  const proposals = await db.select().from(proposalsTable).orderBy(desc(proposalsTable.updatedAt));
-  res.json(proposals.map(formatProposal));
+  const rows = await db
+    .select({
+      id:             proposalsTable.id,
+      forecastId:     proposalsTable.forecastId,
+      referenceNumber:proposalsTable.referenceNumber,
+      status:         proposalsTable.status,
+      shareToken:     proposalsTable.shareToken,
+      shareUrl:       proposalsTable.shareUrl,
+      expiresAt:      proposalsTable.expiresAt,
+      isLinkActive:   proposalsTable.isLinkActive,
+      ownerPin:       proposalsTable.ownerPin,
+      totalViews:     proposalsTable.totalViews,
+      uniqueViews:    proposalsTable.uniqueViews,
+      lastViewedAt:   proposalsTable.lastViewedAt,
+      pdfDownloads:   proposalsTable.pdfDownloads,
+      ownerAction:    proposalsTable.ownerAction,
+      ownerActionAt:  proposalsTable.ownerActionAt,
+      coverNarrative: proposalsTable.coverNarrative,
+      createdAt:      proposalsTable.createdAt,
+      // Owner fields
+      ownerId:        ownersTable.id,
+      ownerFirstName: ownersTable.firstName,
+      ownerLastName:  ownersTable.lastName,
+      ownerCompany:   ownersTable.companyName,
+      ownerType:      ownersTable.ownerType,
+      // Property fields
+      propertyId:     propertiesTable.id,
+      propertyType:   propertiesTable.propertyType,
+      bedrooms:       propertiesTable.bedrooms,
+      area:           propertiesTable.area,
+      community:      propertiesTable.community,
+      // Assigned rep
+      assignedToName: usersTable.name,
+    })
+    .from(proposalsTable)
+    .leftJoin(forecastsTable,  eq(forecastsTable.id,   proposalsTable.forecastId))
+    .leftJoin(ownersTable,     eq(ownersTable.id,      forecastsTable.ownerId))
+    .leftJoin(propertiesTable, eq(propertiesTable.id,  forecastsTable.propertyId))
+    .leftJoin(usersTable,      eq(usersTable.id,       forecastsTable.assignedToId))
+    .orderBy(desc(proposalsTable.updatedAt));
+
+  res.json(rows.map(r => ({
+    ...formatProposal(r),
+    ownerId:        r.ownerId   ?? null,
+    ownerName:      r.ownerCompany
+                      ? String(r.ownerCompany)
+                      : r.ownerFirstName
+                        ? `${r.ownerFirstName} ${r.ownerLastName ?? ""}`.trim()
+                        : null,
+    ownerType:      r.ownerType ?? null,
+    propertyId:     r.propertyId    ?? null,
+    propertyType:   r.propertyType  ?? null,
+    bedrooms:       r.bedrooms      ?? null,
+    area:           r.area          ?? null,
+    community:      r.community     ?? null,
+    assignedToName: r.assignedToName ?? null,
+  })));
 });
 
 router.get("/proposals/:id", requireAuth, async (req, res): Promise<void> => {

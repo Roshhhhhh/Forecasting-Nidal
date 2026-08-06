@@ -3,7 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Search, MoreHorizontal, Globe, Bell, X, Eye, EyeOff, Clock } from "lucide-react";
+import { Search, MoreHorizontal, Globe, Bell, X, Eye, EyeOff, Clock, Building2, User } from "lucide-react";
 import { useState, useRef, useEffect, useMemo } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
@@ -83,7 +83,17 @@ export default function ProposalsList() {
   const now = Date.now();
 
   const filteredProposals = useMemo(() => proposals?.filter(p => {
-    if (search && !`${p.referenceNumber}`.toLowerCase().includes(search.toLowerCase())) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      const haystack = [
+        p.referenceNumber,
+        (p as any).ownerName,
+        (p as any).area,
+        (p as any).community,
+        (p as any).assignedToName,
+      ].filter(Boolean).join(" ").toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
     if (status !== "all" && p.status !== status) return false;
     if (engagement === "hot") {
       const lastViewed = p.lastViewedAt ? new Date(p.lastViewedAt).getTime() : null;
@@ -226,19 +236,22 @@ export default function ProposalsList() {
               <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
                 <tr>
                   <th className="px-6 py-4 font-medium">Reference</th>
+                  <th className="px-6 py-4 font-medium">Owner</th>
+                  <th className="px-6 py-4 font-medium">Property</th>
                   <th className="px-6 py-4 font-medium">Status</th>
                   <th className="px-6 py-4 font-medium text-center">Views</th>
                   <th className="px-6 py-4 font-medium">Last Viewed</th>
+                  <th className="px-6 py-4 font-medium">Lead Owner</th>
                   <th className="px-6 py-4 font-medium">Expires</th>
                   <th className="px-6 py-4 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
                 {isLoading ? (
-                  <tr><td colSpan={6} className="text-center py-12 text-muted-foreground">Loading proposals...</td></tr>
+                  <tr><td colSpan={9} className="text-center py-12 text-muted-foreground">Loading proposals...</td></tr>
                 ) : filteredProposals?.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-16 text-muted-foreground">
+                    <td colSpan={9} className="text-center py-16 text-muted-foreground">
                       <EyeOff className="h-10 w-10 mx-auto mb-3 opacity-20" />
                       <p className="font-medium text-foreground">No proposals match your filters</p>
                       <p className="text-sm mt-1">Try adjusting your status or engagement filters.</p>
@@ -247,8 +260,16 @@ export default function ProposalsList() {
                       )}
                     </td>
                   </tr>
-                ) : filteredProposals?.map((proposal) => (
+                ) : filteredProposals?.map((proposal) => {
+                  const p = proposal as any;
+                  const propLine = [
+                    p.bedrooms != null ? `${p.bedrooms}BR` : null,
+                    p.propertyType ? p.propertyType.replace(/_/g," ").replace(/\b\w/g,(c:string)=>c.toUpperCase()) : null,
+                    p.area ?? p.community,
+                  ].filter(Boolean).join(" · ");
+                  return (
                   <tr key={proposal.id} className="hover:bg-muted/30 transition-colors group">
+                    {/* Reference */}
                     <td className="px-6 py-4 font-medium text-foreground">
                       <Link href={`/proposals/${proposal.id}`} className="hover:text-primary transition-colors">
                         {proposal.referenceNumber}
@@ -257,6 +278,38 @@ export default function ProposalsList() {
                         Generated {new Date(proposal.createdAt).toLocaleDateString()}
                       </div>
                     </td>
+
+                    {/* Owner */}
+                    <td className="px-6 py-4">
+                      {p.ownerName ? (
+                        <div className="flex items-center gap-1.5">
+                          {p.ownerType === "company"
+                            ? <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                            : <User       className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          }
+                          {p.ownerId ? (
+                            <Link href={`/owners/${p.ownerId}`} className="text-sm font-medium text-foreground hover:text-primary transition-colors truncate max-w-[140px]">
+                              {p.ownerName}
+                            </Link>
+                          ) : (
+                            <span className="text-sm font-medium text-foreground truncate max-w-[140px]">{p.ownerName}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">—</span>
+                      )}
+                    </td>
+
+                    {/* Property */}
+                    <td className="px-6 py-4 text-sm text-muted-foreground">
+                      {propLine ? (
+                        <span className="truncate block max-w-[160px]">{propLine}</span>
+                      ) : (
+                        <span className="text-xs">—</span>
+                      )}
+                    </td>
+
+                    {/* Status */}
                     <td className="px-6 py-4">
                       <Badge variant="outline" className={`capitalize ${getStatusColor(proposal.status)}`}>
                         {proposal.status.replace('_', ' ')}
@@ -268,12 +321,16 @@ export default function ProposalsList() {
                         </div>
                       )}
                     </td>
+
+                    {/* Views */}
                     <td className="px-6 py-4">
                       <div className="flex flex-col items-center justify-center">
                         <span className="font-medium">{proposal.totalViews || 0}</span>
                         <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{proposal.uniqueViews || 0} Unique</span>
                       </div>
                     </td>
+
+                    {/* Last Viewed */}
                     <td className="px-6 py-4 text-muted-foreground">
                       {proposal.lastViewedAt ? (
                         <div className="flex flex-col gap-1">
@@ -286,6 +343,13 @@ export default function ProposalsList() {
                         </div>
                       ) : '—'}
                     </td>
+
+                    {/* Lead Owner */}
+                    <td className="px-6 py-4 text-sm text-muted-foreground">
+                      {p.assignedToName ?? <span className="text-xs">—</span>}
+                    </td>
+
+                    {/* Expires */}
                     <td className="px-6 py-4 text-muted-foreground">
                       {proposal.expiresAt ? (
                         <span className={new Date(proposal.expiresAt).getTime() < now ? "text-red-500" : ""}>
@@ -293,6 +357,8 @@ export default function ProposalsList() {
                         </span>
                       ) : '—'}
                     </td>
+
+                    {/* Actions */}
                     <td className="px-6 py-4 text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -316,7 +382,8 @@ export default function ProposalsList() {
                       </DropdownMenu>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

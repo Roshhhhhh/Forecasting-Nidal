@@ -99,6 +99,31 @@ export async function runStartupMigration() {
       ALTER TYPE furnishing_status ADD VALUE IF NOT EXISTS 'previously_holiday_home'
     `);
 
+    // 9. Fix stale isRecommended flags: ensure the 80% scenario is recommended,
+    //    not the old 85% default. This is a one-time idempotent correction for
+    //    forecasts created before the 80% Realistic scenario became the default.
+    //    Step A: clear isRecommended from any 85% scenario
+    await db.execute(sql`
+      UPDATE forecast_scenarios
+      SET is_recommended = false
+      WHERE ABS(occupancy_rate - 0.85) < 0.001
+        AND is_recommended = true
+    `);
+    //    Step B: set isRecommended on the 80% scenario for every forecast that
+    //    currently has no recommended scenario at all, or whose recommended
+    //    scenario is not at 80%.
+    await db.execute(sql`
+      UPDATE forecast_scenarios fs
+      SET is_recommended = true
+      WHERE ABS(fs.occupancy_rate - 0.80) < 0.001
+        AND fs.is_recommended = false
+        AND NOT EXISTS (
+          SELECT 1 FROM forecast_scenarios fs2
+          WHERE fs2.forecast_id = fs.forecast_id
+            AND fs2.is_recommended = true
+        )
+    `);
+
     logger.info("Startup migration complete");
   } catch (err) {
     logger.error({ err }, "Startup migration failed");

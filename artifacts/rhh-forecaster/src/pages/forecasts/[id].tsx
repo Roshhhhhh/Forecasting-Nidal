@@ -716,6 +716,45 @@ export default function ForecastDetail() {
               </Card>
             </div>
 
+            {/* Override notice — shown when any month has a manual occupancy or ADR override */}
+            {(() => {
+              const overriddenMonths = (monthly as any[] | undefined)?.filter(
+                (m: any) => m.occupancyOverride != null || m.adrOverride != null
+              ) ?? [];
+              if (overriddenMonths.length === 0 || !forecast.grossAnnualRevenue) return null;
+              return (
+                <div className="px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 dark:bg-amber-900/10 dark:border-amber-800">
+                  <div className="flex items-start gap-2.5">
+                    <span className="text-amber-500 text-sm shrink-0 mt-0.5">✦</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-amber-800 dark:text-amber-400">
+                        {overriddenMonths.length} {overriddenMonths.length === 1 ? "month has" : "months have"} manual overrides — these totals reflect custom values set in the Monthly tab.
+                      </p>
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {overriddenMonths.map((m: any) => {
+                          const hasOcc = m.occupancyOverride != null;
+                          const hasAdr = m.adrOverride != null;
+                          const tag = hasOcc && hasAdr ? "Occ + ADR" : hasOcc ? "Occ" : "ADR";
+                          return (
+                            <span key={m.month} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-800/30 dark:text-amber-300 border border-amber-200 dark:border-amber-700 font-medium">
+                              {m.monthName}
+                              <span className="opacity-60 font-normal">· {tag}</span>
+                            </span>
+                          );
+                        })}
+                        <button
+                          className="text-xs text-amber-600 dark:text-amber-400 underline underline-offset-2 opacity-70 hover:opacity-100 transition-opacity ml-1"
+                          onClick={() => setActiveTab("monthly")}
+                        >
+                          Edit in Monthly tab
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
             {(!forecast.grossAnnualRevenue) && (
               <Card className="border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-800">
                 <CardContent className="p-5 flex items-center gap-4">

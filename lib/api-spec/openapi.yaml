@@ -2554,6 +2554,8 @@ components:
           type: number
         miscCost:
           type: number
+        baseAdr:
+          type: number
         lowSeasonAdr:
           type: number
         shoulderSeasonAdr:

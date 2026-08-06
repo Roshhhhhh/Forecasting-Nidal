@@ -8,6 +8,7 @@ import { useState, useMemo } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { usePermission } from "@/hooks/usePermission";
+import { DataTable, ColumnDef } from "@/components/DataTable";
 
 const BEDROOM_OPTIONS = [
   { label: "Any", value: "all" },
@@ -52,6 +53,115 @@ function NumBtn({ active, onClick, children }: { active: boolean; onClick: () =>
   );
 }
 
+type PropertyRow = NonNullable<ReturnType<typeof useListProperties>["data"]>[number];
+
+const PROPERTY_COLUMNS: ColumnDef<PropertyRow>[] = [
+  {
+    key: "location",
+    label: "Location",
+    description: "Building, unit number, area and emirate",
+    render: (p) => (
+      <Link href={`/properties/${p.id}`} className="block">
+        <div className="font-medium text-foreground hover:text-primary transition-colors flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
+          {p.projectBuilding
+            ? `${p.unitNumber ? p.unitNumber + ", " : ""}${p.projectBuilding}`
+            : p.area}
+        </div>
+        <div className="text-xs text-muted-foreground mt-0.5 ml-6">{p.area}, {p.emirate}</div>
+      </Link>
+    ),
+    exportValue: (p) => p.projectBuilding
+      ? `${p.unitNumber ? p.unitNumber + ", " : ""}${p.projectBuilding}, ${p.area}`
+      : `${p.area}, ${p.emirate}`,
+    minWidth: "min-w-[180px]",
+  },
+  {
+    key: "details",
+    label: "Type & Size",
+    description: "Bedroom count, property type, and internal area",
+    render: (p) => (
+      <div>
+        <div className="flex items-center gap-2">
+          <Home className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+          <span className="capitalize">
+            {p.bedrooms === 0 ? "Studio" : `${p.bedrooms} Bed`} {p.propertyType}
+          </span>
+        </div>
+        <div className="text-xs text-muted-foreground mt-0.5 ml-5">
+          {p.internalArea ? `${p.internalArea.toLocaleString()} sqft` : "—"}
+        </div>
+      </div>
+    ),
+    exportValue: (p) => `${p.bedrooms === 0 ? "Studio" : `${p.bedrooms} Bed`} ${p.propertyType ?? ""}`.trim(),
+  },
+  {
+    key: "owner",
+    label: "Owner",
+    description: "Property owner name",
+    render: (p) => (
+      <Link href={`/owners/${p.ownerId}`} className="text-foreground hover:text-primary hover:underline">
+        {p.ownerName || `Owner #${p.ownerId}`}
+      </Link>
+    ),
+    exportValue: (p) => p.ownerName ?? `Owner #${p.ownerId}`,
+  },
+  {
+    key: "area",
+    label: "Area",
+    description: "Community or neighbourhood",
+    defaultVisible: false,
+    render: (p) => <span className="text-sm text-muted-foreground">{p.area || "—"}</span>,
+    exportValue: (p) => p.area ?? "",
+  },
+  {
+    key: "emirate",
+    label: "Emirate",
+    description: "Emirate where the property is located",
+    defaultVisible: false,
+    render: (p) => <span className="text-sm text-muted-foreground capitalize">{p.emirate || "—"}</span>,
+    exportValue: (p) => p.emirate ?? "",
+  },
+  {
+    key: "bedrooms",
+    label: "Bedrooms",
+    description: "Number of bedrooms",
+    defaultVisible: false,
+    render: (p) => <span className="text-sm">{p.bedrooms === 0 ? "Studio" : (p.bedrooms ?? "—")}</span>,
+    exportValue: (p) => p.bedrooms === 0 ? "Studio" : (p.bedrooms?.toString() ?? ""),
+  },
+  {
+    key: "internalArea",
+    label: "Size (sqft)",
+    description: "Internal area in square feet",
+    defaultVisible: false,
+    render: (p) => <span className="text-sm">{p.internalArea ? p.internalArea.toLocaleString() : "—"}</span>,
+    exportValue: (p) => p.internalArea ?? "",
+  },
+  {
+    key: "furnishing",
+    label: "Furnishing",
+    description: "Furnished, unfurnished, or partially furnished",
+    render: (p) => p.furnishingStatus ? (
+      <Badge variant="outline" className="capitalize text-[10px] bg-background">
+        {p.furnishingStatus.replace(/_/g, " ")}
+      </Badge>
+    ) : <span className="text-muted-foreground">—</span>,
+    exportValue: (p) => p.furnishingStatus?.replace(/_/g, " ") ?? "",
+  },
+  {
+    key: "condition",
+    label: "Condition",
+    description: "Property condition (new, good, fair, etc.)",
+    render: (p) => p.propertyCondition ? (
+      <Badge variant="outline" className="capitalize text-[10px] bg-background">
+        {p.propertyCondition.replace(/_/g, " ")}
+      </Badge>
+    ) : <span className="text-muted-foreground">—</span>,
+    exportValue: (p) => p.propertyCondition?.replace(/_/g, " ") ?? "",
+  },
+];
+
 export default function PropertiesList() {
   const { data: properties, isLoading } = useListProperties();
   const canCreateProperty = usePermission("properties.create");
@@ -66,7 +176,6 @@ export default function PropertiesList() {
   const [areaMax, setAreaMax] = useState("");
   const [showMoreFilters, setShowMoreFilters] = useState(false);
 
-  // Derive unique emirates from data
   const emirates = useMemo(() => {
     const set = new Set<string>();
     properties?.forEach(p => { if (p.emirate) set.add(p.emirate); });
@@ -84,7 +193,7 @@ export default function PropertiesList() {
   const filteredProperties = useMemo(() => properties?.filter(p => {
     if (search) {
       const q = search.toLowerCase();
-      const haystack = `${p.area} ${p.projectBuilding || ''} ${p.ownerName || ''} ${p.unitNumber || ''}`.toLowerCase();
+      const haystack = `${p.area} ${p.projectBuilding || ""} ${p.ownerName || ""} ${p.unitNumber || ""}`.toLowerCase();
       if (!haystack.includes(q)) return false;
     }
     if (emirate !== "all" && p.emirate !== emirate) return false;
@@ -104,7 +213,6 @@ export default function PropertiesList() {
     setFurnishing("all"); setAreaMin(""); setAreaMax("");
   }
 
-  // Active filter labels for dismissible chips
   const activeChips: { label: string; clear: () => void }[] = [];
   if (emirate !== "all") activeChips.push({ label: emirate, clear: () => setEmirate("all") });
   if (propertyType !== "all") activeChips.push({ label: propertyType.replace("_", " "), clear: () => setPropertyType("all") });
@@ -127,9 +235,7 @@ export default function PropertiesList() {
       </div>
 
       <Card className="border-border/50 shadow-sm">
-        {/* Search + filter bar */}
         <div className="p-4 border-b border-border space-y-3 bg-muted/20">
-          {/* Row 1: Search + More Filters */}
           <div className="flex gap-3">
             <div className="relative flex-1 max-w-lg">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -162,7 +268,6 @@ export default function PropertiesList() {
             )}
           </div>
 
-          {/* Row 2: Emirate chips */}
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             {emirates.map(em => (
               <Chip key={em} active={emirate === em} onClick={() => setEmirate(em)}>
@@ -171,10 +276,8 @@ export default function PropertiesList() {
             ))}
           </div>
 
-          {/* Expanded More Filters panel */}
           {showMoreFilters && (
             <div className="rounded-xl border border-border bg-background p-5 space-y-5 shadow-sm">
-              {/* Property Type */}
               <div className="space-y-2.5">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Property Type</p>
                 <div className="flex flex-wrap gap-2">
@@ -185,8 +288,6 @@ export default function PropertiesList() {
                   ))}
                 </div>
               </div>
-
-              {/* Bedrooms */}
               <div className="space-y-2.5">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Bedrooms</p>
                 <div className="flex gap-2 flex-wrap">
@@ -197,30 +298,14 @@ export default function PropertiesList() {
                   ))}
                 </div>
               </div>
-
-              {/* Area range */}
               <div className="space-y-2.5">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Internal Area (sqft)</p>
                 <div className="flex items-center gap-3 max-w-sm">
-                  <Input
-                    type="number"
-                    placeholder="Min. sqft"
-                    className="text-sm"
-                    value={areaMin}
-                    onChange={e => setAreaMin(e.target.value)}
-                  />
+                  <Input type="number" placeholder="Min. sqft" className="text-sm" value={areaMin} onChange={e => setAreaMin(e.target.value)} />
                   <span className="text-muted-foreground">—</span>
-                  <Input
-                    type="number"
-                    placeholder="Max. sqft"
-                    className="text-sm"
-                    value={areaMax}
-                    onChange={e => setAreaMax(e.target.value)}
-                  />
+                  <Input type="number" placeholder="Max. sqft" className="text-sm" value={areaMax} onChange={e => setAreaMax(e.target.value)} />
                 </div>
               </div>
-
-              {/* Furnishing */}
               <div className="space-y-2.5">
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Furnishing</p>
                 <div className="flex flex-wrap gap-2">
@@ -234,7 +319,6 @@ export default function PropertiesList() {
             </div>
           )}
 
-          {/* Active filter chips */}
           {activeChips.length > 0 && (
             <div className="flex gap-2 flex-wrap">
               {activeChips.map(({ label, clear }) => (
@@ -250,7 +334,6 @@ export default function PropertiesList() {
           )}
         </div>
 
-        {/* Result count */}
         <div className="px-6 py-2.5 border-b border-border/50 bg-muted/10 flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
             Showing <span className="font-semibold text-foreground">{filteredProperties?.length ?? 0}</span> of{" "}
@@ -259,102 +342,44 @@ export default function PropertiesList() {
         </div>
 
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
-                <tr>
-                  <th className="px-6 py-4 font-medium">Location</th>
-                  <th className="px-6 py-4 font-medium">Details</th>
-                  <th className="px-6 py-4 font-medium">Owner</th>
-                  <th className="px-6 py-4 font-medium">Condition</th>
-                  <th className="px-6 py-4 font-medium text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {isLoading ? (
-                  <tr><td colSpan={5} className="text-center py-12 text-muted-foreground">Loading properties...</td></tr>
-                ) : filteredProperties?.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-16 text-muted-foreground">
-                      <Home className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                      <p className="font-medium text-foreground">No properties match your filters</p>
-                      <p className="text-sm mt-1">Try adjusting your search or clearing some filters.</p>
-                      {activeFilterCount > 0 && (
-                        <Button variant="link" className="mt-2 text-primary" onClick={clearAll}>Clear all filters</Button>
-                      )}
-                    </td>
-                  </tr>
-                ) : filteredProperties?.map((property) => (
-                  <tr key={property.id} className="hover:bg-muted/30 transition-colors group">
-                    <td className="px-6 py-4">
-                      <Link href={`/properties/${property.id}`} className="block">
-                        <div className="font-medium text-foreground hover:text-primary transition-colors flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-muted-foreground shrink-0" />
-                          {property.projectBuilding
-                            ? `${property.unitNumber ? property.unitNumber + ', ' : ''}${property.projectBuilding}`
-                            : property.area}
-                        </div>
-                        <div className="text-xs text-muted-foreground mt-0.5 ml-6">
-                          {property.area}, {property.emirate}
-                        </div>
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Home className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="capitalize">
-                          {property.bedrooms === 0 ? "Studio" : `${property.bedrooms} Bed`}{" "}
-                          {property.propertyType}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground mt-0.5 ml-5.5">
-                        {property.internalArea ? `${property.internalArea.toLocaleString()} sqft` : "—"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <Link href={`/owners/${property.ownerId}`} className="text-foreground hover:text-primary hover:underline">
-                        {property.ownerName || `Owner #${property.ownerId}`}
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex flex-col gap-1 items-start">
-                        {property.furnishingStatus && (
-                          <Badge variant="outline" className="capitalize text-[10px] bg-background">
-                            {property.furnishingStatus.replace('_', ' ')}
-                          </Badge>
-                        )}
-                        {property.propertyCondition && (
-                          <Badge variant="outline" className="capitalize text-[10px] bg-background">
-                            {property.propertyCondition.replace('_', ' ')}
-                          </Badge>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/properties/${property.id}`}>View Property</Link>
-                          </DropdownMenuItem>
-                          {canCreateForecast && (
-                            <DropdownMenuItem asChild>
-                              <Link href={`/forecasts/new?propertyId=${property.id}`}>Create Forecast</Link>
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            id="properties"
+            columns={PROPERTY_COLUMNS}
+            data={filteredProperties}
+            isLoading={isLoading}
+            rowKey={p => p.id}
+            exportFileName="Properties"
+            emptyState={
+              <div>
+                <Home className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                <p className="font-medium text-foreground">No properties match your filters</p>
+                <p className="text-sm mt-1">Try adjusting your search or clearing some filters.</p>
+                {activeFilterCount > 0 && (
+                  <Button variant="link" className="mt-2 text-primary" onClick={clearAll}>Clear all filters</Button>
+                )}
+              </div>
+            }
+            actions={property => (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href={`/properties/${property.id}`}>View Property</Link>
+                  </DropdownMenuItem>
+                  {canCreateForecast && (
+                    <DropdownMenuItem asChild>
+                      <Link href={`/forecasts/new?propertyId=${property.id}`}>Create Forecast</Link>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          />
         </CardContent>
       </Card>
     </div>

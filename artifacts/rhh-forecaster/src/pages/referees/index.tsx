@@ -24,6 +24,7 @@ import {
   RefreshCw, Home, TrendingUp, Search, X,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { DataTable, ColumnDef } from "@/components/DataTable";
 
 interface RefereeFormValues {
   name: string;
@@ -72,10 +73,9 @@ export default function RefereesList() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<"default" | "owed_desc">("default");
 
-  // Smart filter state
-  const [search, setSearch]     = useState("");
-  const [activeFilter, setActiveFilter] = useState("all"); // all | active | inactive
-  const [recurringFilter, setRecurringFilter] = useState("all"); // all | recurring | one-time
+  const [search, setSearch]               = useState("");
+  const [activeFilter, setActiveFilter]   = useState("all");
+  const [recurringFilter, setRecurringFilter] = useState("all");
 
   const form = useForm<RefereeFormValues>({
     defaultValues: { name: "", ...DEFAULT_FEES },
@@ -131,7 +131,7 @@ export default function RefereesList() {
     if (search) {
       const q = search.toLowerCase();
       list = list.filter(r =>
-        `${r.name} ${r.email || ''} ${r.phone || ''} ${(r as any).companyName || ''} ${r.refereeCode}`.toLowerCase().includes(q)
+        `${r.name} ${r.email || ""} ${r.phone || ""} ${(r as any).companyName || ""} ${r.refereeCode}`.toLowerCase().includes(q)
       );
     }
     if (activeFilter === "active") list = list.filter(r => r.isActive);
@@ -146,8 +146,135 @@ export default function RefereesList() {
 
   function clearAll() { setSearch(""); setActiveFilter("all"); setRecurringFilter("all"); }
 
+  type RefereeRow = (typeof filteredReferees)[number];
+
+  const refereeColumns = useMemo<ColumnDef<RefereeRow>[]>(() => [
+    {
+      key: "name",
+      label: "Referee",
+      description: "Full name and company",
+      render: (r: any) => (
+        <div>
+          <div className="font-semibold text-foreground">{r.name}</div>
+          {r.companyName && <div className="text-xs text-muted-foreground mt-0.5">{r.companyName}</div>}
+        </div>
+      ),
+      exportValue: (r: any) => r.name,
+      minWidth: "min-w-[140px]",
+    },
+    {
+      key: "code",
+      label: "Code",
+      description: "Unique referee identifier",
+      render: (r: any) => (
+        <Badge variant="outline" className="font-mono text-xs bg-primary/5 border-primary/30 text-primary">
+          {r.refereeCode}
+        </Badge>
+      ),
+      exportValue: (r: any) => r.refereeCode,
+    },
+    {
+      key: "email",
+      label: "Email",
+      render: (r: any) => r.email ? (
+        <a href={`mailto:${r.email}`} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+          <Mail className="h-3 w-3 shrink-0" />{r.email}
+        </a>
+      ) : <span className="text-muted-foreground">—</span>,
+      exportValue: (r: any) => r.email ?? "",
+    },
+    {
+      key: "phone",
+      label: "Phone",
+      render: (r: any) => r.phone ? (
+        <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Phone className="h-3 w-3 shrink-0" />{r.phone}
+        </span>
+      ) : <span className="text-muted-foreground">—</span>,
+      exportValue: (r: any) => r.phone ?? "",
+    },
+    {
+      key: "studio",
+      label: "Studio",
+      description: "One-time referral fee for Studio",
+      render: (r: any) => <span className="text-sm tabular-nums">{Number(r.referralFeeStudio).toLocaleString()} AED</span>,
+      exportValue: (r: any) => r.referralFeeStudio,
+    },
+    {
+      key: "onebr",
+      label: "1 BR",
+      description: "One-time referral fee for 1-bedroom",
+      render: (r: any) => <span className="text-sm tabular-nums">{Number(r.referralFee1br).toLocaleString()} AED</span>,
+      exportValue: (r: any) => r.referralFee1br,
+    },
+    {
+      key: "twobr",
+      label: "2 BR",
+      description: "One-time referral fee for 2-bedroom",
+      render: (r: any) => <span className="text-sm tabular-nums">{Number(r.referralFee2br).toLocaleString()} AED</span>,
+      exportValue: (r: any) => r.referralFee2br,
+    },
+    {
+      key: "threebr",
+      label: "3 BR",
+      description: "One-time referral fee for 3-bedroom",
+      render: (r: any) => <span className="text-sm tabular-nums">{Number(r.referralFee3br).toLocaleString()} AED</span>,
+      exportValue: (r: any) => r.referralFee3br,
+    },
+    {
+      key: "fourbr",
+      label: "4+ BR",
+      description: "One-time referral fee for 4+ bedrooms",
+      render: (r: any) => <span className="text-sm tabular-nums">{Number(r.referralFee4brPlus).toLocaleString()} AED</span>,
+      exportValue: (r: any) => r.referralFee4brPlus,
+    },
+    {
+      key: "totalLeads",
+      label: "Referred Owners",
+      description: "Number of owners referred",
+      render: (r: any) => <span className="text-sm font-medium">{(r as any).referredCount ?? 0}</span>,
+      exportValue: (r: any) => (r as any).referredCount ?? 0,
+    },
+    {
+      key: "programme",
+      label: "Programme",
+      description: "One-time or recurring commission",
+      render: (r: any) => r.isRecurringEnabled ? (
+        <Badge variant="outline" className="text-xs gap-1 text-emerald-700 border-emerald-300 bg-emerald-50">
+          <RefreshCw className="h-2.5 w-2.5" /> Recurring
+        </Badge>
+      ) : (
+        <Badge variant="outline" className="text-xs text-muted-foreground">One-Time</Badge>
+      ),
+      exportValue: (r: any) => r.isRecurringEnabled ? "Recurring" : "One-Time",
+    },
+    {
+      key: "totalOwed",
+      label: "Total Owed",
+      description: "Total recurring commission owed to date",
+      defaultVisible: false,
+      render: (r: any) => ((r as any).totalCommissionOwed ?? 0) > 0 ? (
+        <span className="text-sm font-semibold text-emerald-700">
+          {Number((r as any).totalCommissionOwed).toLocaleString("en-AE")} AED
+        </span>
+      ) : <span className="text-muted-foreground">—</span>,
+      exportValue: (r: any) => (r as any).totalCommissionOwed ?? 0,
+    },
+    {
+      key: "status",
+      label: "Status",
+      description: "Active or inactive referee",
+      render: (r: any) => r.isActive ? (
+        <Badge className="bg-green-500/10 text-green-700 border-green-500/20">Active</Badge>
+      ) : (
+        <Badge variant="outline" className="bg-muted text-muted-foreground">Inactive</Badge>
+      ),
+      exportValue: (r: any) => r.isActive ? "Active" : "Inactive",
+    },
+  ], []);
+
   return (
-    <div className="p-8 max-w-[1200px] mx-auto space-y-6">
+    <div className="p-8 max-w-[1400px] mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">Referees</h1>
@@ -204,7 +331,7 @@ export default function RefereesList() {
         </Card>
       </div>
 
-      {/* Smart filter bar */}
+      {/* Filter bar + DataTable */}
       <Card className="border-border/50 shadow-sm">
         <div className="p-4 border-b border-border space-y-3 bg-muted/20">
           <div className="flex gap-3">
@@ -233,7 +360,6 @@ export default function RefereesList() {
             )}
           </div>
 
-          {/* Filter chips */}
           <div className="flex gap-2 flex-wrap">
             <Chip active={activeFilter === "all"} onClick={() => setActiveFilter("all")}>All Referees</Chip>
             <Chip active={activeFilter === "active"} onClick={() => setActiveFilter("active")}>Active</Chip>
@@ -246,120 +372,49 @@ export default function RefereesList() {
             <Chip active={recurringFilter === "one-time"} onClick={() => setRecurringFilter("one-time")}>One-Time Fee</Chip>
           </div>
 
-          {/* Result count */}
           <p className="text-xs text-muted-foreground">
             Showing <span className="font-semibold text-foreground">{filteredReferees.length}</span> of{" "}
             <span className="font-semibold text-foreground">{referees?.length ?? 0}</span> referees
           </p>
         </div>
 
-        {/* Grid */}
-        <CardContent className="p-6">
-          {isLoading ? (
-            <div className="text-center text-muted-foreground py-12">Loading referees...</div>
-          ) : filteredReferees.length === 0 ? (
-            <div className="text-center py-16 text-muted-foreground">
-              <UserCheck className="h-12 w-12 mx-auto mb-4 opacity-20" />
-              <p className="font-medium text-foreground">No referees match your filters</p>
-              {(activeFilterCount > 0 || search) ? (
-                <Button variant="link" className="mt-2 text-primary" onClick={clearAll}>Clear all filters</Button>
-              ) : canCreateReferee && (
-                <Button className="mt-4 gap-2" onClick={openCreate}><Plus className="h-4 w-4" /> Add Referee</Button>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredReferees.map((referee: any) => (
-                <Card key={referee.id} className="border-border/50 shadow-sm hover:shadow-md transition-shadow">
-                  <CardHeader className="pb-3 border-b border-border/50">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="font-mono text-xs bg-primary/5 border-primary/30 text-primary">
-                            {referee.refereeCode}
-                          </Badge>
-                          {referee.isRecurringEnabled && (
-                            <Badge variant="outline" className="text-xs gap-1 text-emerald-700 border-emerald-300 bg-emerald-50">
-                              <RefreshCw className="h-2.5 w-2.5" /> Recurring
-                            </Badge>
-                          )}
-                          {!referee.isActive && (
-                            <Badge variant="outline" className="text-xs text-muted-foreground">Inactive</Badge>
-                          )}
-                        </div>
-                        <h3 className="font-semibold text-base truncate">{referee.name}</h3>
-                        {referee.companyName && (
-                          <p className="text-xs text-muted-foreground truncate">{referee.companyName}</p>
-                        )}
-                      </div>
-                      {canEditReferee && (
-                        <button
-                          onClick={() => openEdit(referee)}
-                          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors ml-2"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </CardHeader>
-                  <CardContent className="p-4 space-y-3">
-                    <div className="space-y-1.5 text-sm">
-                      {referee.phone && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Phone className="h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate">{referee.phone}</span>
-                        </div>
-                      )}
-                      {referee.email && (
-                        <div className="flex items-center gap-2 text-muted-foreground">
-                          <Mail className="h-3.5 w-3.5 shrink-0" />
-                          <span className="truncate">{referee.email}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="rounded-md bg-muted/40 p-2.5 grid grid-cols-3 gap-1.5 text-center">
-                      {[
-                        { label: "Studio", value: referee.referralFeeStudio },
-                        { label: "1 BR",   value: referee.referralFee1br },
-                        { label: "2 BR",   value: referee.referralFee2br },
-                        { label: "3 BR",   value: referee.referralFee3br },
-                        { label: "4+ BR",  value: referee.referralFee4brPlus },
-                      ].map(({ label, value }) => (
-                        <div key={label}>
-                          <p className="text-[10px] text-muted-foreground leading-tight">{label}</p>
-                          <p className="text-xs font-semibold text-foreground">{Number(value).toLocaleString()} AED</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="flex items-center justify-between pt-1 border-t border-border/50">
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">Referred: </span>
-                        <span className="font-semibold">{(referee as any).referredCount ?? 0} owners</span>
-                      </div>
-                      {referee.isRecurringEnabled && (
-                        <div className="text-xs text-emerald-700 font-medium">PM%−16% recurring</div>
-                      )}
-                    </div>
-                    {referee.isRecurringEnabled && (
-                      <div className="flex items-center justify-between rounded-md bg-emerald-50 border border-emerald-200 px-3 py-2">
-                        <span className="text-xs text-emerald-700 font-medium">Total Owed</span>
-                        <span className="text-sm font-bold text-emerald-800">
-                          {((referee as any).totalCommissionOwed ?? 0) > 0
-                            ? `${Number((referee as any).totalCommissionOwed).toLocaleString("en-AE")} AED`
-                            : "—"}
-                        </span>
-                      </div>
-                    )}
-                    <Link href={`/referees/${referee.id}`}>
-                      <Button variant="outline" size="sm" className="w-full text-xs gap-1.5">
-                        <Users className="h-3.5 w-3.5" /> View Referred Owners
-                      </Button>
-                    </Link>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
+        <CardContent className="p-0">
+          <DataTable
+            id="referees"
+            columns={refereeColumns}
+            data={filteredReferees}
+            isLoading={isLoading}
+            rowKey={(r: any) => r.id}
+            exportFileName="Referees"
+            emptyState={
+              <div>
+                <UserCheck className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                <p className="font-medium text-foreground">No referees match your filters</p>
+                {(activeFilterCount > 0 || search) ? (
+                  <Button variant="link" className="mt-2 text-primary" onClick={clearAll}>Clear all filters</Button>
+                ) : canCreateReferee && (
+                  <Button className="mt-4 gap-2" onClick={openCreate}><Plus className="h-4 w-4" /> Add Referee</Button>
+                )}
+              </div>
+            }
+            actions={canEditReferee ? (referee: any) => (
+              <div className="flex items-center justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 w-8 p-0"
+                  onClick={() => openEdit(referee)}
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </Button>
+                <Button variant="outline" size="sm" className="text-xs gap-1" asChild>
+                  <Link href={`/referees/${referee.id}`}>
+                    <Users className="h-3 w-3" /> Owners
+                  </Link>
+                </Button>
+              </div>
+            ) : undefined}
+          />
         </CardContent>
       </Card>
 

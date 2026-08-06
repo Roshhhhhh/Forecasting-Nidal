@@ -8,6 +8,7 @@ import { useState, useMemo } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { usePermission } from "@/hooks/usePermission";
+import { DataTable, ColumnDef } from "@/components/DataTable";
 
 const LEAD_SOURCE_OPTIONS = [
   { value: "all", label: "All Sources" },
@@ -34,6 +35,88 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   );
 }
 
+type OwnerRow = NonNullable<ReturnType<typeof useListOwners>["data"]>[number];
+
+const OWNER_COLUMNS: ColumnDef<OwnerRow>[] = [
+  {
+    key: "name",
+    label: "Name / Company",
+    description: "Owner or company name with link to profile",
+    render: (o) => (
+      <Link href={`/owners/${o.id}`} className="block">
+        <div className="font-medium text-foreground hover:text-primary transition-colors">
+          {o.ownerType === "company" && o.companyName ? o.companyName : `${o.firstName} ${o.lastName}`}
+        </div>
+        {o.ownerType === "company" && (
+          <div className="text-xs text-muted-foreground mt-0.5">
+            Contact: {o.firstName} {o.lastName}
+          </div>
+        )}
+      </Link>
+    ),
+    exportValue: (o) => o.ownerType === "company" && o.companyName ? o.companyName : `${o.firstName} ${o.lastName}`,
+    minWidth: "min-w-[160px]",
+  },
+  {
+    key: "email",
+    label: "Email",
+    description: "Contact email address",
+    render: (o) => o.email ? (
+      <a href={`mailto:${o.email}`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground hover:underline text-sm">
+        <Mail className="h-3 w-3 shrink-0" />{o.email}
+      </a>
+    ) : <span className="text-muted-foreground">—</span>,
+    exportValue: (o) => o.email ?? "",
+  },
+  {
+    key: "phone",
+    label: "Phone",
+    description: "Contact phone number",
+    render: (o) => o.phone ? (
+      <a href={`tel:${o.phone}`} className="flex items-center gap-2 text-muted-foreground hover:text-foreground text-sm">
+        <Phone className="h-3 w-3 shrink-0" />{o.phone}
+      </a>
+    ) : <span className="text-muted-foreground">—</span>,
+    exportValue: (o) => o.phone ?? "",
+  },
+  {
+    key: "type",
+    label: "Type",
+    description: "Individual or company owner",
+    render: (o) => (
+      <Badge variant="outline" className="capitalize bg-background text-muted-foreground">{o.ownerType}</Badge>
+    ),
+    exportValue: (o) => o.ownerType,
+  },
+  {
+    key: "clientStatus",
+    label: "Client Status",
+    description: "New lead or existing client",
+    render: (o) => o.isExistingClient ? (
+      <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">Client</Badge>
+    ) : (
+      <Badge variant="outline" className="bg-background text-muted-foreground">New Lead</Badge>
+    ),
+    exportValue: (o) => o.isExistingClient ? "Existing Client" : "New Lead",
+  },
+  {
+    key: "leadSource",
+    label: "Lead Source",
+    description: "Acquisition channel",
+    render: (o) => o.leadSource && o.leadSource !== "other" ? (
+      <span className="text-xs capitalize text-muted-foreground">{o.leadSource.replace(/_/g, " ")}</span>
+    ) : <span className="text-muted-foreground">—</span>,
+    exportValue: (o) => o.leadSource?.replace(/_/g, " ") ?? "",
+  },
+  {
+    key: "added",
+    label: "Added",
+    description: "Date the owner was added",
+    render: (o) => <span className="text-muted-foreground text-sm">{new Date(o.createdAt).toLocaleDateString()}</span>,
+    exportValue: (o) => new Date(o.createdAt).toLocaleDateString(),
+  },
+];
+
 export default function OwnersList() {
   const { data: owners, isLoading } = useListOwners();
   const canCreateOwner    = usePermission("owners.create");
@@ -41,7 +124,7 @@ export default function OwnersList() {
 
   const [search, setSearch]           = useState("");
   const [ownerType, setOwnerType]     = useState("all");
-  const [clientStatus, setClientStatus] = useState("all"); // all | lead | existing
+  const [clientStatus, setClientStatus] = useState("all");
   const [leadSource, setLeadSource]   = useState("all");
 
   const activeFilterCount = useMemo(() => [
@@ -53,7 +136,7 @@ export default function OwnersList() {
   const filteredOwners = useMemo(() => owners?.filter(o => {
     if (search) {
       const q = search.toLowerCase();
-      if (!`${o.firstName} ${o.lastName} ${o.companyName || ''} ${o.email} ${o.phone || ''}`.toLowerCase().includes(q)) return false;
+      if (!`${o.firstName} ${o.lastName} ${o.companyName || ""} ${o.email} ${o.phone || ""}`.toLowerCase().includes(q)) return false;
     }
     if (ownerType !== "all" && o.ownerType !== ownerType) return false;
     if (clientStatus === "lead" && o.isExistingClient) return false;
@@ -66,7 +149,6 @@ export default function OwnersList() {
     setSearch(""); setOwnerType("all"); setClientStatus("all"); setLeadSource("all");
   }
 
-  // Active filter chips
   const activeChips: { label: string; clear: () => void }[] = [];
   if (ownerType !== "all") activeChips.push({ label: ownerType === "company" ? "Company" : "Individual", clear: () => setOwnerType("all") });
   if (clientStatus !== "all") activeChips.push({ label: clientStatus === "existing" ? "Existing Clients" : "New Leads", clear: () => setClientStatus("all") });
@@ -88,7 +170,6 @@ export default function OwnersList() {
 
       <Card className="border-border/50 shadow-sm">
         <div className="p-4 border-b border-border space-y-3 bg-muted/20">
-          {/* Search + clear */}
           <div className="flex gap-3">
             <div className="relative flex-1 max-w-lg">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -106,9 +187,7 @@ export default function OwnersList() {
             )}
           </div>
 
-          {/* Filter chips row */}
           <div className="flex gap-2 flex-wrap">
-            {/* Owner type */}
             <Chip active={ownerType === "all"} onClick={() => setOwnerType("all")}>All Owners</Chip>
             <Chip active={ownerType === "individual"} onClick={() => setOwnerType("individual")}>
               <User className="h-3 w-3 inline mr-1" />Individual
@@ -117,13 +196,11 @@ export default function OwnersList() {
               <Building2 className="h-3 w-3 inline mr-1" />Company
             </Chip>
             <div className="w-px bg-border mx-1 self-stretch" />
-            {/* Client status */}
             <Chip active={clientStatus === "all"} onClick={() => setClientStatus("all")}>All Stages</Chip>
             <Chip active={clientStatus === "lead"} onClick={() => setClientStatus("lead")}>New Leads</Chip>
             <Chip active={clientStatus === "existing"} onClick={() => setClientStatus("existing")}>Existing Clients</Chip>
           </div>
 
-          {/* Lead source chips */}
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             <span className="text-xs text-muted-foreground self-center shrink-0">Source:</span>
             {LEAD_SOURCE_OPTIONS.map(opt => (
@@ -133,7 +210,6 @@ export default function OwnersList() {
             ))}
           </div>
 
-          {/* Active filter chips */}
           {activeChips.length > 0 && (
             <div className="flex gap-2 flex-wrap">
               {activeChips.map(({ label, clear }) => (
@@ -149,7 +225,6 @@ export default function OwnersList() {
           )}
         </div>
 
-        {/* Result count */}
         <div className="px-6 py-2.5 border-b border-border/50 bg-muted/10">
           <p className="text-xs text-muted-foreground">
             Showing <span className="font-semibold text-foreground">{filteredOwners?.length ?? 0}</span> of{" "}
@@ -158,98 +233,44 @@ export default function OwnersList() {
         </div>
 
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
-                <tr>
-                  <th className="px-6 py-4 font-medium">Name / Company</th>
-                  <th className="px-6 py-4 font-medium">Contact</th>
-                  <th className="px-6 py-4 font-medium">Type</th>
-                  <th className="px-6 py-4 font-medium">Added</th>
-                  <th className="px-6 py-4 font-medium text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {isLoading ? (
-                  <tr><td colSpan={5} className="text-center py-12 text-muted-foreground">Loading owners...</td></tr>
-                ) : filteredOwners?.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="text-center py-16 text-muted-foreground">
-                      <User className="h-10 w-10 mx-auto mb-3 opacity-20" />
-                      <p className="font-medium text-foreground">No owners match your filters</p>
-                      <p className="text-sm mt-1">Try adjusting your search or clearing some filters.</p>
-                      {(activeFilterCount > 0 || search) && (
-                        <Button variant="link" className="mt-2 text-primary" onClick={clearAll}>Clear all filters</Button>
-                      )}
-                    </td>
-                  </tr>
-                ) : filteredOwners?.map((owner) => (
-                  <tr key={owner.id} className="hover:bg-muted/30 transition-colors group">
-                    <td className="px-6 py-4">
-                      <Link href={`/owners/${owner.id}`} className="block">
-                        <div className="font-medium text-foreground hover:text-primary transition-colors">
-                          {owner.ownerType === 'company' && owner.companyName ? owner.companyName : `${owner.firstName} ${owner.lastName}`}
-                        </div>
-                        {owner.ownerType === 'company' && (
-                          <div className="text-xs text-muted-foreground mt-0.5">Contact: {owner.firstName} {owner.lastName}</div>
-                        )}
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4 space-y-1">
-                      {owner.email && (
-                        <div className="flex items-center text-muted-foreground">
-                          <Mail className="mr-2 h-3 w-3" />
-                          <a href={`mailto:${owner.email}`} className="hover:text-foreground hover:underline">{owner.email}</a>
-                        </div>
-                      )}
-                      {owner.phone && (
-                        <div className="flex items-center text-muted-foreground">
-                          <Phone className="mr-2 h-3 w-3" />
-                          <a href={`tel:${owner.phone}`} className="hover:text-foreground">{owner.phone}</a>
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <Badge variant="outline" className="capitalize bg-background text-muted-foreground">
-                        {owner.ownerType}
-                      </Badge>
-                      {owner.isExistingClient && (
-                        <Badge variant="outline" className="ml-2 bg-primary/10 text-primary border-primary/20">Client</Badge>
-                      )}
-                      {owner.leadSource && owner.leadSource !== "other" && (
-                        <div className="text-[10px] text-muted-foreground mt-1 capitalize">
-                          via {owner.leadSource.replace('_', ' ')}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      {new Date(owner.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem asChild>
-                            <Link href={`/owners/${owner.id}`}>View Profile</Link>
-                          </DropdownMenuItem>
-                          {canCreateProperty && (
-                            <DropdownMenuItem asChild>
-                              <Link href={`/properties/new?ownerId=${owner.id}`}>Add Property</Link>
-                            </DropdownMenuItem>
-                          )}
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            id="owners"
+            columns={OWNER_COLUMNS}
+            data={filteredOwners}
+            isLoading={isLoading}
+            rowKey={o => o.id}
+            exportFileName="Property Owners"
+            emptyState={
+              <div>
+                <User className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                <p className="font-medium text-foreground">No owners match your filters</p>
+                <p className="text-sm mt-1">Try adjusting your search or clearing some filters.</p>
+                {(activeFilterCount > 0 || search) && (
+                  <Button variant="link" className="mt-2 text-primary" onClick={clearAll}>Clear all filters</Button>
+                )}
+              </div>
+            }
+            actions={owner => (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="h-8 w-8 p-0">
+                    <span className="sr-only">Open menu</span>
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem asChild>
+                    <Link href={`/owners/${owner.id}`}>View Profile</Link>
+                  </DropdownMenuItem>
+                  {canCreateProperty && (
+                    <DropdownMenuItem asChild>
+                      <Link href={`/properties/new?ownerId=${owner.id}`}>Add Property</Link>
+                    </DropdownMenuItem>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          />
         </CardContent>
       </Card>
     </div>

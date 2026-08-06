@@ -11,13 +11,14 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Search, UserPlus, ShieldAlert, Edit2, Loader2, Eye, EyeOff, ShieldCheck } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Link, useLocation } from "wouter";
 import { usePermission } from "@/hooks/usePermission";
 import { useGetMe } from "@workspace/api-client-react";
+import { DataTable, ColumnDef } from "@/components/DataTable";
 
 type InviteFormValues = {
   name: string;
@@ -44,7 +45,6 @@ export default function UsersList() {
   const canEditUsers   = usePermission("users.edit");
   const canManageRoles = usePermission("roles.manage");
 
-  // Redirect if the user lacks view permission (once auth has loaded)
   useEffect(() => {
     if (!isMeLoading && !canViewUsers) {
       setLocation("/dashboard");
@@ -52,7 +52,6 @@ export default function UsersList() {
   }, [isMeLoading, canViewUsers, setLocation]);
 
   const { data: users, isLoading } = useListUsers();
-
   const { data: roles } = useListRoles();
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
@@ -66,7 +65,6 @@ export default function UsersList() {
     `${u.name} ${u.email} ${u.role}`.toLowerCase().includes(search.toLowerCase())
   );
 
-  // ── Invite form ──
   const inviteForm = useForm<InviteFormValues>({
     defaultValues: { name: "", email: "", password: "", roleId: "", phone: "" },
   });
@@ -91,7 +89,6 @@ export default function UsersList() {
     }
   }
 
-  // ── Edit form ──
   const editForm = useForm<EditFormValues>({
     defaultValues: { name: "", roleId: "", phone: "", isActive: true },
   });
@@ -137,6 +134,80 @@ export default function UsersList() {
     return user.role?.replace(/_/g, " ") ?? "—";
   }
 
+  type UserRow = NonNullable<typeof users>[number];
+
+  const userColumns = useMemo<ColumnDef<UserRow>[]>(() => [
+    {
+      key: "name",
+      label: "Name",
+      description: "Full name and email address",
+      render: (u) => (
+        <div>
+          <div className="font-medium text-foreground">{u.name}</div>
+          <div className="text-xs text-muted-foreground mt-0.5">{u.email}</div>
+        </div>
+      ),
+      exportValue: (u) => u.name ?? "",
+      minWidth: "min-w-[160px]",
+    },
+    {
+      key: "email",
+      label: "Email Address",
+      description: "Login email",
+      defaultVisible: false,
+      render: (u) => <span className="text-sm text-muted-foreground">{u.email}</span>,
+      exportValue: (u) => u.email,
+    },
+    {
+      key: "role",
+      label: "Role",
+      description: "Assigned permissions role",
+      render: (u) => (
+        <div className="flex items-center gap-2">
+          <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: getRoleColor((u as any).roleId) }} />
+          <span className="capitalize text-sm">{getRoleLabel(u)}</span>
+          {u.role === "super_admin" && <ShieldAlert className="h-4 w-4 text-red-500" />}
+        </div>
+      ),
+      exportValue: (u) => getRoleLabel(u),
+    },
+    {
+      key: "status",
+      label: "Status",
+      description: "Active or inactive account",
+      render: (u) => u.isActive ? (
+        <Badge className="bg-green-500/10 text-green-700 hover:bg-green-500/20 border-green-500/20">Active</Badge>
+      ) : (
+        <Badge variant="outline" className="bg-muted text-muted-foreground">Inactive</Badge>
+      ),
+      exportValue: (u) => u.isActive ? "Active" : "Inactive",
+    },
+    {
+      key: "lastLogin",
+      label: "Last Login",
+      description: "Date of most recent login",
+      render: (u) => (
+        <span className="text-sm text-muted-foreground">
+          {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : "Never"}
+        </span>
+      ),
+      exportValue: (u) => u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : "Never",
+    },
+    {
+      key: "created",
+      label: "Created",
+      description: "Account creation date",
+      defaultVisible: false,
+      render: (u) => (
+        <span className="text-sm text-muted-foreground">
+          {(u as any).createdAt ? new Date((u as any).createdAt).toLocaleDateString() : "—"}
+        </span>
+      ),
+      exportValue: (u) => (u as any).createdAt ? new Date((u as any).createdAt).toLocaleDateString() : "",
+    },
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [roles]);
+
   return (
     <div className="p-8 max-w-[1200px] mx-auto space-y-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -175,62 +246,20 @@ export default function UsersList() {
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-muted-foreground uppercase bg-muted/50 border-b border-border">
-                <tr>
-                  <th className="px-6 py-4 font-medium">Name</th>
-                  <th className="px-6 py-4 font-medium">Role</th>
-                  <th className="px-6 py-4 font-medium">Status</th>
-                  <th className="px-6 py-4 font-medium">Last Login</th>
-                  <th className="px-6 py-4 font-medium text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {isLoading ? (
-                  <tr><td colSpan={5} className="text-center py-12 text-muted-foreground">Loading users...</td></tr>
-                ) : filteredUsers?.length === 0 ? (
-                  <tr><td colSpan={5} className="text-center py-12 text-muted-foreground">No users found.</td></tr>
-                ) : filteredUsers?.map((user) => (
-                  <tr key={user.id} className="hover:bg-muted/30 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-foreground">{user.name}</div>
-                      <div className="text-xs text-muted-foreground mt-0.5">{user.email}</div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="h-2 w-2 rounded-full shrink-0"
-                          style={{ backgroundColor: getRoleColor((user as any).roleId) }}
-                        />
-                        <span className="capitalize text-sm">{getRoleLabel(user)}</span>
-                        {user.role === "super_admin" && (
-                          <ShieldAlert className="h-4 w-4 text-red-500" />
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      {user.isActive ? (
-                        <Badge className="bg-green-500/10 text-green-700 hover:bg-green-500/20 border-green-500/20">Active</Badge>
-                      ) : (
-                        <Badge variant="outline" className="bg-muted text-muted-foreground">Inactive</Badge>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-muted-foreground">
-                      {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : "Never"}
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      {canEditUsers && (
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(user)}>
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            id="users"
+            columns={userColumns}
+            data={filteredUsers}
+            isLoading={isLoading}
+            rowKey={u => u.id}
+            exportFileName="Users"
+            emptyState={<p className="text-sm">No users found.</p>}
+            actions={canEditUsers ? (user) => (
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(user)}>
+                <Edit2 className="h-4 w-4" />
+              </Button>
+            ) : undefined}
+          />
         </CardContent>
       </Card>
 

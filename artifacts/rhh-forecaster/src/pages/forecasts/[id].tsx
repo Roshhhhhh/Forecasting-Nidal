@@ -26,7 +26,6 @@ import {
   Send, FileText, Globe, Eye, Printer, User, MapPin, Ruler, Home,
   Sofa, Wind, Plus, Trash2, ExternalLink, BarChart2,
 } from "lucide-react";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useToast } from "@/hooks/use-toast";
 
 // ── Revenue-yield colour coding ────────────────────────────────────────────────
@@ -375,6 +374,12 @@ export default function ForecastDetail() {
   const { data: comparables, refetch: refetchComparables } = useListForecastComparables(forecastId);
   const createComparable = useCreateForecastComparable();
   const deleteComparable = useDeleteForecastComparable();
+
+  const { data: actuals, refetch: refetchActuals } = useListForecastActuals(forecastId);
+  const upsertActual = useUpsertMonthlyActual();
+  // Local editable state for the actuals tab: monthNum → input string
+  const [actualsInput, setActualsInput] = useState<Record<number, string>>({});
+  const [actualsSaving, setActualsSaving] = useState<Record<number, boolean>>({});
 
   // Comparable form state
   const [compForm, setCompForm] = useState({ listingName: "", listingUrl: "", nightlyRate: "", occupancyPct: "", bedrooms: "", area: "" });
@@ -729,11 +734,12 @@ export default function ForecastDetail() {
           className="w-full h-full"
         >
           <div className="px-6 pt-4 border-b border-border bg-background sticky top-0 z-10">
-            <TabsList className="grid grid-cols-5 max-w-[700px]">
+            <TabsList className="grid grid-cols-6 max-w-[840px]">
               <TabsTrigger value="summary">Summary</TabsTrigger>
               <TabsTrigger value="inputs">Data Inputs</TabsTrigger>
               <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
               <TabsTrigger value="monthly">Monthly</TabsTrigger>
+              <TabsTrigger value="actuals">Actuals</TabsTrigger>
               <TabsTrigger value="proposal">Proposal</TabsTrigger>
             </TabsList>
           </div>
@@ -1700,6 +1706,275 @@ export default function ForecastDetail() {
           </TabsContent>
 
           {/* ── PROPOSAL ── */}
+          {/* ── ACTUALS ── */}
+          <TabsContent value="actuals" className="p-6 space-y-6 max-w-[1400px] mx-auto">
+            {(() => {
+              const projections: any[] = monthly ?? [];
+              const actualsArr: any[] = actuals ?? [];
+
+              // Build merged month data
+              const currentMonth = new Date().getMonth() + 1; // 1–12
+              const mergedData = projections.map((p: any) => {
+                const act = actualsArr.find((a: any) => a.month === p.month);
+                return {
+                  month: p.month,
+                  monthName: p.monthName,
+                  projectedGross: p.grossRevenue ?? 0,
+                  projectedNet: p.netOwnerIncome ?? 0,
+                  actualGross: act?.actualGross ?? null,
+                  actualNet: act?.actualNet ?? null,
+                  isPast: p.month <= currentMonth,
+                };
+              });
+
+              // YTD calculations — only compare projected vs. actual for months
+              // that HAVE an actual entry, so partial data doesn't distort variance.
+              const hasAnyActuals = actualsArr.length > 0;
+              const ytdTrackedMonths = mergedData.filter(m => m.isPast && m.actualGross !== null);
+              const ytdActualGross = ytdTrackedMonths.reduce((s, m) => s + (m.actualGross ?? 0), 0);
+              const ytdActualNet   = ytdTrackedMonths.reduce((s, m) => s + (m.actualNet   ?? 0), 0);
+              // Projected totals only for the same tracked months (apple-to-apple)
+              const ytdProjectedGross = ytdTrackedMonths.reduce((s, m) => s + m.projectedGross, 0);
+              const ytdProjectedNet   = ytdTrackedMonths.reduce((s, m) => s + m.projectedNet,   0);
+              const ytdMonthsWithActuals = ytdTrackedMonths.length;
+              const ytdGrossVariance = ytdProjectedGross > 0 ? ((ytdActualGross - ytdProjectedGross) / ytdProjectedGross) * 100 : null;
+              const ytdNetVariance   = ytdProjectedNet   > 0 ? ((ytdActualNet   - ytdProjectedNet)   / ytdProjectedNet)   * 100 : null;
+
+              function variantStyle(pct: number | null) {
+                if (pct === null) return { text: "text-muted-foreground", badge: "bg-muted text-muted-foreground" };
+                if (pct >= 5) return { text: "text-green-600 dark:text-green-400", badge: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" };
+                if (pct >= -5) return { text: "text-yellow-700 dark:text-yellow-400", badge: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" };
+                return { text: "text-red-600 dark:text-red-400", badge: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" };
+              }
+
+              const grossStyle = variantStyle(ytdGrossVariance);
+              const netStyle = variantStyle(ytdNetVariance);
+
+              async function saveActual(monthNum: number) {
+                if (!forecast) return; // guard — shouldn't happen since component renders only after fetch
+                const rawVal = actualsInput[monthNum];
+                if (rawVal === undefined || rawVal === "") return;
+                const val = parseFloat(rawVal);
+                if (isNaN(val) || val < 0) { toast({ title: "Invalid value", description: "Enter a positive number.", variant: "destructive" }); return; }
+                const proj = projections.find((p: any) => p.month === monthNum);
+                // The server derives actual_net from gross using the forecast's fee & fixed expenses
+                setActualsSaving(prev => ({ ...prev, [monthNum]: true }));
+                try {
+                  await upsertActual.mutateAsync({
+                    id: forecastId,
+                    monthNum,
+                    data: { actualGross: val, notes: null },
+                  });
+                  setActualsInput(prev => { const n = { ...prev }; delete n[monthNum]; return n; });
+                  refetchActuals();
+                  toast({ title: "Saved", description: `${proj?.monthName ?? `Month ${monthNum}`} actual recorded.` });
+                } catch {
+                  toast({ title: "Save failed", variant: "destructive" });
+                } finally {
+                  setActualsSaving(prev => ({ ...prev, [monthNum]: false }));
+                }
+              }
+
+              if (projections.length === 0) {
+                return (
+                  <Card className="border-border/50 shadow-sm">
+                    <CardContent className="p-12 text-center text-muted-foreground">
+                      <BarChart2 className="h-10 w-10 mx-auto mb-3 text-muted-foreground/30" />
+                      <p className="font-medium">No projections yet</p>
+                      <p className="text-sm mt-1">Fill in the Data Inputs tab and click <strong>Save & Calculate</strong> first.</p>
+                    </CardContent>
+                  </Card>
+                );
+              }
+
+              return (
+                <>
+                  {/* YTD KPI cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <Card className="border-border/50 shadow-sm">
+                      <CardContent className="p-5">
+                        <p className="text-xs font-medium text-muted-foreground mb-1">YTD Actual Gross</p>
+                        <p className={`text-2xl font-bold ${hasAnyActuals ? "text-foreground" : "text-muted-foreground"}`}>
+                          {hasAnyActuals ? fmt(ytdActualGross) : "—"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">Projected: {fmt(ytdProjectedGross)}</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-border/50 shadow-sm bg-primary/5 border-primary/10">
+                      <CardContent className="p-5">
+                        <p className="text-xs font-medium text-primary/80 mb-1">YTD Actual Net</p>
+                        <p className={`text-2xl font-bold ${hasAnyActuals ? "text-primary" : "text-muted-foreground"}`}>
+                          {hasAnyActuals ? fmt(ytdActualNet) : "—"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">Projected: {fmt(ytdProjectedNet)}</p>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-border/50 shadow-sm">
+                      <CardContent className="p-5">
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Gross Variance (YTD)</p>
+                        <p className={`text-2xl font-bold ${grossStyle.text}`}>
+                          {ytdGrossVariance !== null ? `${ytdGrossVariance >= 0 ? "+" : ""}${ytdGrossVariance.toFixed(1)}%` : "—"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {ytdGrossVariance !== null ? fmt(ytdActualGross - ytdProjectedGross) : `${ytdMonthsWithActuals} month${ytdMonthsWithActuals !== 1 ? "s" : ""} entered`}
+                        </p>
+                      </CardContent>
+                    </Card>
+                    <Card className="border-border/50 shadow-sm">
+                      <CardContent className="p-5">
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Net Variance (YTD)</p>
+                        <p className={`text-2xl font-bold ${netStyle.text}`}>
+                          {ytdNetVariance !== null ? `${ytdNetVariance >= 0 ? "+" : ""}${ytdNetVariance.toFixed(1)}%` : "—"}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {ytdNetVariance !== null ? fmt(ytdActualNet - ytdProjectedNet) : "Enter actuals to see"}
+                        </p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Chart */}
+                  {hasAnyActuals && (
+                    <Card className="border-border/50 shadow-sm">
+                      <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+                        <CardTitle className="font-serif text-base">Projected vs. Actual Revenue</CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4 h-[300px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={mergedData} margin={{ top: 10, right: 20, left: 10, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                            <XAxis dataKey="monthName" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+                            <YAxis axisLine={false} tickLine={false} tickFormatter={(v) => `${(v / 1000).toFixed(0)}k`} tick={{ fontSize: 11 }} />
+                            <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: "8px", border: "1px solid hsl(var(--border))", fontSize: "12px" }} />
+                            <Legend wrapperStyle={{ fontSize: "12px" }} />
+                            <Bar dataKey="projectedGross" name="Projected Gross" fill="hsl(var(--primary)/0.25)" radius={[3, 3, 0, 0]} maxBarSize={40} />
+                            <Bar dataKey="actualGross" name="Actual Gross" fill="hsl(var(--primary)/0.85)" radius={[3, 3, 0, 0]} maxBarSize={40} />
+                            <Line type="monotone" dataKey="projectedNet" name="Projected Net" stroke="hsl(var(--muted-foreground))" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+                            <Line type="monotone" dataKey="actualNet" name="Actual Net" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 3, fill: "hsl(var(--primary))" }} connectNulls={false} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  {/* Monthly input table */}
+                  <Card className="border-border/50 shadow-sm">
+                    <CardHeader className="bg-muted/20 border-b border-border py-3 px-5">
+                      <div>
+                        <CardTitle className="font-serif text-base">Monthly Actuals</CardTitle>
+                        <p className="text-xs text-muted-foreground mt-0.5">Enter actual gross revenue per month. Net income is derived automatically from the forecast's management fee &amp; expenses.</p>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="overflow-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted/40 border-b border-border">
+                            <tr>
+                              <th className="px-4 py-3 text-left font-medium">Month</th>
+                              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Proj. Gross</th>
+                              <th className="px-4 py-3 text-right font-medium text-muted-foreground">Proj. Net</th>
+                              <th className="px-4 py-3 text-right font-medium text-primary">Actual Gross</th>
+                              <th className="px-4 py-3 text-right font-medium text-primary">Actual Net</th>
+                              <th className="px-4 py-3 text-right font-medium">Variance</th>
+                              <th className="px-4 py-2 w-28" />
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            {mergedData.map((row) => {
+                              const key = row.month as number;
+                              const isSaving = !!actualsSaving[key];
+                              const inputVal = actualsInput[key];
+                              const hasInput = inputVal !== undefined;
+                              const savedActual = actualsArr.find((a: any) => a.month === key);
+                              const hasActual = savedActual?.actualGross != null;
+                              const variancePct = hasActual && row.projectedGross > 0
+                                ? ((savedActual.actualGross - row.projectedGross) / row.projectedGross) * 100
+                                : null;
+                              const vs = variantStyle(variancePct);
+
+                              return (
+                                <tr key={key} className={`hover:bg-muted/20 transition-colors ${hasActual ? "bg-green-50/20 dark:bg-green-950/5" : row.isPast ? "bg-amber-50/20 dark:bg-amber-950/5" : ""}`}>
+                                  <td className="px-4 py-2.5 font-medium">
+                                    {row.monthName}
+                                    {row.isPast && !hasActual && (
+                                      <span className="ml-2 text-[9px] text-amber-500 font-semibold uppercase tracking-wide">Missing</span>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right text-muted-foreground">{fmt(row.projectedGross)}</td>
+                                  <td className="px-4 py-2.5 text-right text-muted-foreground">{fmt(row.projectedNet)}</td>
+                                  <td className="px-2 py-1.5 text-right">
+                                    {hasInput ? (
+                                      <Input
+                                        autoFocus
+                                        type="number" min={0} step={1}
+                                        className="w-28 h-7 text-right text-xs px-2 ml-auto"
+                                        value={inputVal}
+                                        onChange={ev => setActualsInput(prev => ({ ...prev, [key]: ev.target.value }))}
+                                        onKeyDown={ev => { if (ev.key === "Enter") saveActual(key); if (ev.key === "Escape") setActualsInput(prev => { const n = { ...prev }; delete n[key]; return n; }); }}
+                                      />
+                                    ) : (
+                                      <button
+                                        onClick={() => setActualsInput(prev => ({ ...prev, [key]: savedActual?.actualGross != null ? String(savedActual.actualGross) : "" }))}
+                                        className={`flex items-center justify-end gap-1.5 w-full text-right hover:text-primary transition-colors group ${hasActual ? "font-semibold text-foreground" : "text-muted-foreground/40 text-xs"}`}
+                                      >
+                                        {hasActual ? fmt(savedActual.actualGross) : "— enter"}
+                                        <span className="opacity-0 group-hover:opacity-60 text-[10px]">✎</span>
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right text-muted-foreground text-xs">
+                                    {savedActual?.actualNet != null ? fmt(savedActual.actualNet) : "—"}
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right">
+                                    {variancePct !== null ? (
+                                      <span className={`text-xs font-semibold tabular-nums ${vs.text}`}>
+                                        {variancePct >= 0 ? "+" : ""}{variancePct.toFixed(1)}%
+                                      </span>
+                                    ) : "—"}
+                                  </td>
+                                  <td className="px-2 py-1.5">
+                                    {hasInput ? (
+                                      <div className="flex gap-1 justify-end">
+                                        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setActualsInput(prev => { const n = { ...prev }; delete n[key]; return n; })} disabled={isSaving}>✕</Button>
+                                        <Button size="sm" className="h-7 px-2 text-xs bg-primary" onClick={() => saveActual(key)} disabled={isSaving}>
+                                          {isSaving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Save"}
+                                        </Button>
+                                      </div>
+                                    ) : hasActual ? (
+                                      <button
+                                        onClick={() => setActualsInput(prev => ({ ...prev, [key]: String(savedActual.actualGross) }))}
+                                        className="text-[10px] text-muted-foreground hover:text-primary px-2 py-1 rounded hover:bg-muted transition-colors"
+                                      >
+                                        Edit
+                                      </button>
+                                    ) : row.isPast ? (
+                                      <button
+                                        onClick={() => setActualsInput(prev => ({ ...prev, [key]: "" }))}
+                                        className="text-[10px] text-primary hover:text-primary/80 px-2 py-1 rounded hover:bg-primary/5 transition-colors font-medium"
+                                      >
+                                        + Add
+                                      </button>
+                                    ) : null}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div className="p-4 border-t border-border/50 bg-muted/10 flex items-start gap-2">
+                        <span className="text-primary text-xs mt-0.5">ℹ</span>
+                        <p className="text-xs text-muted-foreground">
+                          Enter actual <strong>gross revenue</strong> collected each month. Net income is automatically calculated using the forecast's management fee ({forecast.managementFeePercent ?? 20}%) and monthly expenses. Click any cell to edit.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </>
+              );
+            })()}
+          </TabsContent>
+
           <TabsContent value="proposal" className="p-6 max-w-[900px] mx-auto space-y-6">
 
             {/* Narrative editor */}

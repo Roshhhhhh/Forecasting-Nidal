@@ -3,6 +3,7 @@ import {
   useGetOwner, useUpdateOwner, useListProperties, useListForecasts,
   useListUsers, useListReferees, useCreateReferee, useCreateUser,
   useListProposals, useGetProposalActivity,
+  useListForecastActuals, useGetForecastMonthly,
 } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
@@ -25,7 +26,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Plus, Mail, Phone, MapPin, FileText, Pencil, Home, Globe,
   UserCheck, UserPlus, Loader2, Search, Eye, Clock, Download,
-  MessageSquare, Activity,
+  MessageSquare, Activity, TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -40,6 +41,56 @@ function formatRelativeTime(dateStr: string | null | undefined): string {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days} day${days !== 1 ? "s" : ""} ago`;
   return new Date(dateStr).toLocaleDateString();
+}
+
+/** Compact YTD performance badge shown in the owner profile sidebar. */
+function PerformanceBadge({ forecastId }: { forecastId: number }) {
+  const { data: actuals } = useListForecastActuals(forecastId);
+  const { data: monthly } = useGetForecastMonthly(forecastId);
+
+  if (!actuals || !monthly || actuals.length === 0) return null;
+
+  const currentMonth = new Date().getMonth() + 1;
+  let projectedYTD = 0;
+  let actualYTD = 0;
+  let months = 0;
+
+  for (const proj of (monthly as any[])) {
+    if (proj.month > currentMonth) break;
+    const act = (actuals as any[]).find(a => a.month === proj.month);
+    if (act?.actualGross != null) {
+      projectedYTD += proj.grossRevenue ?? 0;
+      actualYTD += act.actualGross;
+      months++;
+    }
+  }
+
+  if (months === 0) return null;
+
+  const variancePct = projectedYTD > 0 ? ((actualYTD - projectedYTD) / projectedYTD) * 100 : null;
+  if (variancePct === null) return null;
+
+  const isAbove = variancePct >= 5;
+  const isBelow = variancePct < -5;
+  const label = isAbove ? "Ahead of forecast" : isBelow ? "Behind forecast" : "On track";
+  const colorClass = isAbove
+    ? "bg-green-100 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800"
+    : isBelow
+    ? "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800"
+    : "bg-yellow-100 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800";
+  const Icon = isAbove ? TrendingUp : isBelow ? TrendingDown : Minus;
+
+  return (
+    <div className={`mt-3 p-3 rounded-lg border ${colorClass} flex items-center gap-2`}>
+      <Icon className="h-4 w-4 shrink-0" />
+      <div className="min-w-0">
+        <p className="text-xs font-semibold">{label}</p>
+        <p className="text-[11px] opacity-80">
+          {variancePct >= 0 ? "+" : ""}{variancePct.toFixed(1)}% YTD gross · {months} month{months !== 1 ? "s" : ""} tracked
+        </p>
+      </div>
+    </div>
+  );
 }
 
 function ProposalActivityTimeline({ proposalId }: { proposalId: number }) {
@@ -274,6 +325,10 @@ export default function OwnerDetail() {
 
   const ownerProperties = properties?.filter(p => p.ownerId === ownerId) || [];
   const ownerForecasts = forecasts?.filter(f => f.ownerId === ownerId) || [];
+  // Find the most recent accepted/approved forecast for the performance badge
+  const activeForecast = ownerForecasts.find(f => f.status === "accepted" || f.status === "approved")
+    ?? ownerForecasts.find(f => f.status === "published" || f.status === "viewed")
+    ?? null;
 
   // Proposals linked to this owner's forecasts
   const ownerForecastIds = new Set(ownerForecasts.map(f => f.id));
@@ -381,8 +436,17 @@ export default function OwnerDetail() {
                 )}
               </div>
 
+              {activeForecast && (
+                <div className="col-span-2 pt-1">
+                  <div className="text-muted-foreground text-xs mb-1 flex items-center gap-1">
+                    <TrendingUp className="h-3.5 w-3.5" /> Performance vs. Forecast
+                  </div>
+                  <PerformanceBadge forecastId={activeForecast.id} />
+                </div>
+              )}
+
               {(owner as any).notes && (
-                <div className="pt-4 border-t border-border">
+                <div className="col-span-2 pt-4 border-t border-border">
                   <div className="text-muted-foreground mb-1">Internal Notes</div>
                   <p className="text-foreground">{(owner as any).notes}</p>
                 </div>

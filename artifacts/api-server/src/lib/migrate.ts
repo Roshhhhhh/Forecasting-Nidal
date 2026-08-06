@@ -386,6 +386,37 @@ export async function runStartupMigration() {
       )
     `);
 
+    // Create forecast_comparables table (comparable listings panel on forecast detail)
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS forecast_comparables (
+        id           SERIAL PRIMARY KEY,
+        forecast_id  INTEGER NOT NULL REFERENCES forecasts(id) ON DELETE CASCADE,
+        listing_name TEXT NOT NULL,
+        listing_url  TEXT,
+        nightly_rate REAL NOT NULL,
+        occupancy_pct REAL NOT NULL,
+        bedrooms     INTEGER,
+        area         TEXT,
+        sort_order   INTEGER NOT NULL DEFAULT 0,
+        created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    // Create monthly_actuals table for actual vs. projected revenue tracking
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS monthly_actuals (
+        id           SERIAL PRIMARY KEY,
+        forecast_id  INTEGER NOT NULL REFERENCES forecasts(id) ON DELETE CASCADE,
+        month        INTEGER NOT NULL CHECK (month BETWEEN 1 AND 12),
+        actual_gross REAL,
+        actual_net   REAL,
+        notes        TEXT,
+        created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (forecast_id, month)
+      )
+    `);
+
     logger.info("Startup migration complete");
   } catch (err) {
     logger.error({ err }, "Startup migration failed");

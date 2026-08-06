@@ -1052,6 +1052,57 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+  /forecasts/{id}/actuals:
+    get:
+      operationId: listForecastActuals
+      tags: [forecasts]
+      summary: Get monthly actuals for a forecast
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Monthly actuals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MonthlyActual"
+
+  /forecasts/{id}/actuals/{monthNum}:
+    put:
+      operationId: upsertMonthlyActual
+      tags: [forecasts]
+      summary: Upsert actual revenue for a specific month (1–12)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: monthNum
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MonthlyActualInput"
+      responses:
+        "200":
+          description: Upserted monthly actual
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonthlyActual"
+
   /forecasts/{id}/ai-recommend:
     post:
       operationId: generateAiRecommendation
@@ -2678,6 +2729,39 @@ components:
           type: ["number", "null"]
         adrOverride:
           type: ["number", "null"]
+
+    MonthlyActual:
+      type: object
+      required: [id, forecastId, month]
+      properties:
+        id:
+          type: number
+        forecastId:
+          type: number
+        month:
+          type: number
+        actualGross:
+          type: ["number", "null"]
+        actualNet:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    MonthlyActualInput:
+      type: object
+      properties:
+        actualGross:
+          type: ["number", "null"]
+        actualNet:
+          type: ["number", "null"]
+        notes:
+          type: ["string", "null"]
 
     AiRecommendation:
       type: object

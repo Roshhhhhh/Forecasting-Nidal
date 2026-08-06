@@ -3,7 +3,7 @@ import { eq, desc, and } from "drizzle-orm";
 import {
   db, forecastsTable, forecastScenariosTable, monthlyProjectionsTable,
   aiRecommendationsTable, ownersTable, propertiesTable, usersTable, proposalsTable,
-  amenitiesTable, propertyAmenitiesTable, forecastComparablesTable,
+  amenitiesTable, propertyAmenitiesTable, forecastComparablesTable, monthlyActualsTable,
 } from "@workspace/db";
 import {
   CreateForecastBody, UpdateForecastBody, GetForecastParams,
@@ -560,6 +560,80 @@ router.delete("/forecasts/:id/comparables/:compId", requireAuth, async (req, res
   const compId = parseInt(req.params.compId, 10);
   await db.delete(forecastComparablesTable).where(eq(forecastComparablesTable.id, compId));
   res.json({ message: "Comparable deleted" });
+});
+
+// ── Monthly Actuals CRUD ──────────────────────────────────────────────────────
+router.get("/forecasts/:id/actuals", requireAuth, async (req, res): Promise<void> => {
+  const forecastId = parseInt(req.params.id, 10);
+  const rows = await db.select().from(monthlyActualsTable)
+    .where(eq(monthlyActualsTable.forecastId, forecastId))
+    .orderBy(monthlyActualsTable.month);
+  res.json(rows);
+});
+
+router.put("/forecasts/:id/actuals/:monthNum", requireAuth, async (req, res): Promise<void> => {
+  const forecastId = parseInt(req.params.id, 10);
+  const monthNum   = parseInt(req.params.monthNum, 10);
+  if (!Number.isFinite(forecastId) || forecastId <= 0) {
+    res.status(400).json({ error: "Invalid forecast id" }); return;
+  }
+  if (!Number.isFinite(monthNum) || monthNum < 1 || monthNum > 12) {
+    res.status(400).json({ error: "monthNum must be 1–12" }); return;
+  }
+
+  // Fetch full forecast for server-side net derivation
+  const [f] = await db.select({
+    id: forecastsTable.id,
+    managementFeePercent: forecastsTable.managementFeePercent,
+    internetCost: forecastsTable.internetCost,
+    utilityCost: forecastsTable.utilityCost,
+    maintenanceCost: forecastsTable.maintenanceCost,
+    miscCost: forecastsTable.miscCost,
+  }).from(forecastsTable).where(eq(forecastsTable.id, forecastId));
+  if (!f) { res.status(404).json({ error: "Forecast not found" }); return; }
+
+  // Validate body — reject non-finite or negative monetary values
+  const raw = req.body as Record<string, unknown>;
+  const actualGross = raw.actualGross === null || raw.actualGross === undefined ? null : Number(raw.actualGross);
+  const notes       = typeof raw.notes === "string" ? raw.notes : null;
+
+  if (actualGross !== null && (!Number.isFinite(actualGross) || actualGross < 0)) {
+    res.status(400).json({ error: "actualGross must be a finite non-negative number" }); return;
+  }
+  if (notes !== null && notes.length > 1000) {
+    res.status(400).json({ error: "notes must be 1000 characters or fewer" }); return;
+  }
+
+  // Server derives actual_net from gross: remove management fee then fixed monthly operating costs.
+  // Fixed costs = internet + utility + maintenance + misc (excludes management fee to avoid double-counting).
+  let actualNet: number | null = null;
+  if (actualGross !== null) {
+    const mgmtFee     = f.managementFeePercent ?? 20;
+    const fixedAnnual = (f.internetCost ?? 0) + (f.utilityCost ?? 0)
+                      + (f.maintenanceCost ?? 0) + (f.miscCost ?? 0);
+    actualNet = Math.max(0, actualGross * (1 - mgmtFee / 100) - fixedAnnual / 12);
+  }
+
+  const [row] = await db.insert(monthlyActualsTable)
+    .values({
+      forecastId,
+      month: monthNum,
+      actualGross: actualGross ?? null,
+      actualNet,
+      notes: notes ?? null,
+    })
+    .onConflictDoUpdate({
+      target: [monthlyActualsTable.forecastId, monthlyActualsTable.month],
+      set: {
+        actualGross: actualGross ?? null,
+        actualNet,
+        notes: notes ?? null,
+        updatedAt: new Date(),
+      },
+    })
+    .returning();
+
+  res.json(row);
 });
 
 router.post("/forecasts/:id/ai-recommend/accept", requireAuth, async (req, res): Promise<void> => {

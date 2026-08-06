@@ -48,6 +48,8 @@ import type {
   MarketAreaInput,
   MarketAreaUpdate,
   MessageResponse,
+  MonthlyActual,
+  MonthlyActualInput,
   MonthlyOverrideInput,
   MonthlyProjection,
   NarrativeDraftResponse,
@@ -4008,6 +4010,157 @@ export const useDeleteForecastComparable = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteForecastComparableMutationOptions(options));
+    }
+
+export const getListForecastActualsUrl = (id: number,) => {
+
+
+
+
+  return `/api/forecasts/${id}/actuals`
+}
+
+/**
+ * @summary Get monthly actuals for a forecast
+ */
+export const listForecastActuals = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<MonthlyActual[]> => {
+
+  return customFetch<MonthlyActual[]>(getListForecastActualsUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListForecastActualsQueryKey = (id: number,) => {
+    return [
+    `/api/forecasts/${id}/actuals`
+    ] as const;
+    }
+
+
+export const getListForecastActualsQueryOptions = <TData = Awaited<ReturnType<typeof listForecastActuals>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listForecastActuals>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListForecastActualsQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listForecastActuals>>> = ({ signal }) => listForecastActuals(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listForecastActuals>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListForecastActualsQueryResult = NonNullable<Awaited<ReturnType<typeof listForecastActuals>>>
+export type ListForecastActualsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get monthly actuals for a forecast
+ */
+
+export function useListForecastActuals<TData = Awaited<ReturnType<typeof listForecastActuals>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listForecastActuals>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListForecastActualsQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpsertMonthlyActualUrl = (id: number,
+    monthNum: number,) => {
+
+
+
+
+  return `/api/forecasts/${id}/actuals/${monthNum}`
+}
+
+/**
+ * @summary Upsert actual revenue for a specific month (1–12)
+ */
+export const upsertMonthlyActual = async (id: number,
+    monthNum: number,
+    monthlyActualInput: MonthlyActualInput, options?: Parameters<typeof customFetch>[1]): Promise<MonthlyActual> => {
+
+  return customFetch<MonthlyActual>(getUpsertMonthlyActualUrl(id,monthNum),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(monthlyActualInput)
+  }
+);}
+
+
+
+
+
+export const getUpsertMonthlyActualMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertMonthlyActual>>, TError,{id: number;monthNum: number;data: BodyType<MonthlyActualInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof upsertMonthlyActual>>, TError,{id: number;monthNum: number;data: BodyType<MonthlyActualInput>}, TContext> => {
+
+const mutationKey = ['upsertMonthlyActual'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof upsertMonthlyActual>>, {id: number;monthNum: number;data: BodyType<MonthlyActualInput>}> = (props) => {
+          const {id,monthNum,data} = props ?? {};
+
+          return  upsertMonthlyActual(id,monthNum,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpsertMonthlyActualMutationResult = NonNullable<Awaited<ReturnType<typeof upsertMonthlyActual>>>
+    export type UpsertMonthlyActualMutationBody = BodyType<MonthlyActualInput>
+    export type UpsertMonthlyActualMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Upsert actual revenue for a specific month (1–12)
+ */
+export const useUpsertMonthlyActual = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof upsertMonthlyActual>>, TError,{id: number;monthNum: number;data: BodyType<MonthlyActualInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof upsertMonthlyActual>>,
+        TError,
+        {id: number;monthNum: number;data: BodyType<MonthlyActualInput>},
+        TContext
+      > => {
+      return useMutation(getUpsertMonthlyActualMutationOptions(options));
     }
 
 export const getGenerateAiRecommendationUrl = (id: number,) => {

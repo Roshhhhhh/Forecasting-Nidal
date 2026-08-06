@@ -164,6 +164,17 @@ export const forecastComparablesTable = pgTable("forecast_comparables", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const monthlyActualsTable = pgTable("monthly_actuals", {
+  id: serial("id").primaryKey(),
+  forecastId: integer("forecast_id").notNull(),
+  month: integer("month").notNull(), // 1–12
+  actualGross: real("actual_gross"),
+  actualNet: real("actual_net"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
 export const insertForecastSchema = createInsertSchema(forecastsTable).omit({
   id: true,
   createdAt: true,

@@ -41,6 +41,8 @@ export * from './marketArea';
 export * from './marketAreaInput';
 export * from './marketAreaUpdate';
 export * from './messageResponse';
+export * from './monthlyActual';
+export * from './monthlyActualInput';
 export * from './monthlyOverrideInput';
 export * from './monthlyProjection';
 export * from './narrativeDraftResponse';

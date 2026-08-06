@@ -879,6 +879,29 @@ export interface MonthlyProjection {
   adrOverride?: number | null;
 }
 
+export interface MonthlyActual {
+  id: number;
+  forecastId: number;
+  month: number;
+  /** @nullable */
+  actualGross?: number | null;
+  /** @nullable */
+  actualNet?: number | null;
+  /** @nullable */
+  notes?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MonthlyActualInput {
+  /** @nullable */
+  actualGross?: number | null;
+  /** @nullable */
+  actualNet?: number | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
 export interface AiRecommendation {
   id: number;
   forecastId: number;

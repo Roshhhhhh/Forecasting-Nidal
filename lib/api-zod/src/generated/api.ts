@@ -1523,6 +1523,52 @@ export const DeleteForecastComparableResponse = zod.object({
 
 
 /**
+ * @summary Get monthly actuals for a forecast
+ */
+export const ListForecastActualsParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListForecastActualsResponseItem = zod.object({
+  "id": zod.number(),
+  "forecastId": zod.number(),
+  "month": zod.number(),
+  "actualGross": zod.number().nullish(),
+  "actualNet": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date().optional(),
+  "updatedAt": zod.coerce.date().optional()
+})
+export const ListForecastActualsResponse = zod.array(ListForecastActualsResponseItem)
+
+
+/**
+ * @summary Upsert actual revenue for a specific month (1–12)
+ */
+export const UpsertMonthlyActualParams = zod.object({
+  "id": zod.coerce.number(),
+  "monthNum": zod.coerce.number()
+})
+
+export const UpsertMonthlyActualBody = zod.object({
+  "actualGross": zod.number().nullish(),
+  "actualNet": zod.number().nullish(),
+  "notes": zod.string().nullish()
+})
+
+export const UpsertMonthlyActualResponse = zod.object({
+  "id": zod.number(),
+  "forecastId": zod.number(),
+  "month": zod.number(),
+  "actualGross": zod.number().nullish(),
+  "actualNet": zod.number().nullish(),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.coerce.date().optional(),
+  "updatedAt": zod.coerce.date().optional()
+})
+
+
+/**
  * @summary Generate AI pricing recommendations for a forecast
  */
 export const GenerateAiRecommendationParams = zod.object({

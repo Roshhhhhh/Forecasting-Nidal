@@ -1,5 +1,7 @@
-import { useState } from "react";
-import { useListRoles, useCreateRole, useUpdateRole, useDeleteRole } from "@workspace/api-client-react";
+import { useState, useEffect } from "react";
+import { useListRoles, useCreateRole, useUpdateRole, useDeleteRole, useGetMe } from "@workspace/api-client-react";
+import { useLocation } from "wouter";
+import { usePermission } from "@/hooks/usePermission";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -101,7 +103,17 @@ const PRESET_COLORS = [
 export default function RolesPage() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const { isLoading: isMeLoading } = useGetMe();
+  const canManageRoles = usePermission("roles.manage");
   const { data: roles, isLoading } = useListRoles();
+
+  // Redirect if the user lacks manage permission (once auth has loaded)
+  useEffect(() => {
+    if (!isMeLoading && !canManageRoles) {
+      setLocation("/dashboard");
+    }
+  }, [isMeLoading, canManageRoles, setLocation]);
   const createRole  = useCreateRole();
   const updateRole  = useUpdateRole();
   const deleteRole  = useDeleteRole();

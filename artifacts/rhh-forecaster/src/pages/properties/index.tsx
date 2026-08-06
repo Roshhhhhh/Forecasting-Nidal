@@ -7,9 +7,12 @@ import { Plus, Search, MapPin, Home, MoreHorizontal } from "lucide-react";
 import { useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { usePermission } from "@/hooks/usePermission";
 
 export default function PropertiesList() {
   const { data: properties, isLoading } = useListProperties();
+  const canCreateProperty = usePermission("properties.create");
+  const canCreateForecast = usePermission("forecasts.create");
   const [search, setSearch] = useState("");
 
   const filteredProperties = properties?.filter(p => 
@@ -23,10 +26,12 @@ export default function PropertiesList() {
           <h1 className="text-3xl font-serif font-bold text-foreground">Properties</h1>
           <p className="text-muted-foreground mt-1 text-lg">Manage the portfolio of actual and prospective units.</p>
         </div>
-        <Link href="/properties/new" className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Property
-        </Link>
+        {canCreateProperty && (
+          <Link href="/properties/new" className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Property
+          </Link>
+        )}
       </div>
 
       <Card className="border-border/50 shadow-sm">
@@ -117,9 +122,11 @@ export default function PropertiesList() {
                           <DropdownMenuItem asChild>
                             <Link href={`/properties/${property.id}`}>View Property</Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/forecasts/new?propertyId=${property.id}`}>Create Forecast</Link>
-                          </DropdownMenuItem>
+                          {canCreateForecast && (
+                            <DropdownMenuItem asChild>
+                              <Link href={`/forecasts/new?propertyId=${property.id}`}>Create Forecast</Link>
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>

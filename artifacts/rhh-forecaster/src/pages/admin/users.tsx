@@ -11,11 +11,13 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Search, UserPlus, ShieldAlert, Edit2, Loader2, Eye, EyeOff, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
+import { usePermission } from "@/hooks/usePermission";
+import { useGetMe } from "@workspace/api-client-react";
 
 type InviteFormValues = {
   name: string;
@@ -35,7 +37,22 @@ type EditFormValues = {
 export default function UsersList() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
+  const { isLoading: isMeLoading } = useGetMe();
+  const canViewUsers   = usePermission("users.view");
+  const canCreateUsers = usePermission("users.create");
+  const canEditUsers   = usePermission("users.edit");
+  const canManageRoles = usePermission("roles.manage");
+
+  // Redirect if the user lacks view permission (once auth has loaded)
+  useEffect(() => {
+    if (!isMeLoading && !canViewUsers) {
+      setLocation("/dashboard");
+    }
+  }, [isMeLoading, canViewUsers, setLocation]);
+
   const { data: users, isLoading } = useListUsers();
+
   const { data: roles } = useListRoles();
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
@@ -128,16 +145,20 @@ export default function UsersList() {
           <p className="text-muted-foreground mt-1 text-lg">Manage platform access and roles.</p>
         </div>
         <div className="flex gap-3">
-          <Button variant="outline" className="h-10 px-4 gap-2" asChild>
-            <Link href="/admin/roles">
-              <ShieldCheck className="h-4 w-4" />
-              Manage Roles
-            </Link>
-          </Button>
-          <Button className="h-10 px-6" onClick={() => { inviteForm.reset(); setShowPassword(false); setInviteOpen(true); }}>
-            <UserPlus className="mr-2 h-4 w-4" />
-            Invite User
-          </Button>
+          {canManageRoles && (
+            <Button variant="outline" className="h-10 px-4 gap-2" asChild>
+              <Link href="/admin/roles">
+                <ShieldCheck className="h-4 w-4" />
+                Manage Roles
+              </Link>
+            </Button>
+          )}
+          {canCreateUsers && (
+            <Button className="h-10 px-6" onClick={() => { inviteForm.reset(); setShowPassword(false); setInviteOpen(true); }}>
+              <UserPlus className="mr-2 h-4 w-4" />
+              Invite User
+            </Button>
+          )}
         </div>
       </div>
 
@@ -199,9 +220,11 @@ export default function UsersList() {
                       {user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString() : "Never"}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(user)}>
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
+                      {canEditUsers && (
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEdit(user)}>
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))}

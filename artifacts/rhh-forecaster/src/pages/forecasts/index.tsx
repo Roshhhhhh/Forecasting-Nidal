@@ -7,9 +7,12 @@ import { Plus, Search, MoreHorizontal } from "lucide-react";
 import { useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { usePermission } from "@/hooks/usePermission";
 
 export default function ForecastsList() {
   const { data: forecasts, isLoading } = useListForecasts();
+  const canCreateForecast = usePermission("forecasts.create");
+  const canEditForecast   = usePermission("forecasts.edit");
   const [search, setSearch] = useState("");
 
   const filteredForecasts = forecasts?.filter(f => 
@@ -38,10 +41,12 @@ export default function ForecastsList() {
           <h1 className="text-3xl font-serif font-bold text-foreground">Revenue Forecasts</h1>
           <p className="text-muted-foreground mt-1 text-lg">Manage and track all revenue projections.</p>
         </div>
-        <Link href="/forecasts/new" className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm">
-          <Plus className="mr-2 h-4 w-4" />
-          Create Forecast
-        </Link>
+        {canCreateForecast && (
+          <Link href="/forecasts/new" className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm">
+            <Plus className="mr-2 h-4 w-4" />
+            Create Forecast
+          </Link>
+        )}
       </div>
 
       <Card className="border-border/50 shadow-sm">
@@ -127,12 +132,18 @@ export default function ForecastsList() {
                           <DropdownMenuItem asChild>
                             <Link href={`/forecasts/${forecast.id}`}>View Details</Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/forecasts/${forecast.id}/edit`}>Edit Forecast</Link>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem>Duplicate</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive focus:text-destructive">Archive</DropdownMenuItem>
+                          {canEditForecast && (
+                            <DropdownMenuItem asChild>
+                              <Link href={`/forecasts/${forecast.id}/edit`}>Edit Forecast</Link>
+                            </DropdownMenuItem>
+                          )}
+                          {canEditForecast && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem>Duplicate</DropdownMenuItem>
+                              <DropdownMenuItem className="text-destructive focus:text-destructive">Archive</DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>

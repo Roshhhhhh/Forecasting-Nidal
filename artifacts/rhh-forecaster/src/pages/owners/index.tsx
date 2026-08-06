@@ -7,9 +7,12 @@ import { Plus, Search, Mail, Phone, MoreHorizontal } from "lucide-react";
 import { useState } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { usePermission } from "@/hooks/usePermission";
 
 export default function OwnersList() {
   const { data: owners, isLoading } = useListOwners();
+  const canCreateOwner = usePermission("owners.create");
+  const canCreateProperty = usePermission("properties.create");
   const [search, setSearch] = useState("");
 
   const filteredOwners = owners?.filter(o => 
@@ -23,10 +26,12 @@ export default function OwnersList() {
           <h1 className="text-3xl font-serif font-bold text-foreground">Property Owners</h1>
           <p className="text-muted-foreground mt-1 text-lg">Manage your client relationships and leads.</p>
         </div>
-        <Link href="/owners/new" className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Owner
-        </Link>
+        {canCreateOwner && (
+          <Link href="/owners/new" className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Owner
+          </Link>
+        )}
       </div>
 
       <Card className="border-border/50 shadow-sm">
@@ -105,9 +110,11 @@ export default function OwnersList() {
                           <DropdownMenuItem asChild>
                             <Link href={`/owners/${owner.id}`}>View Profile</Link>
                           </DropdownMenuItem>
-                          <DropdownMenuItem asChild>
-                            <Link href={`/properties/new?ownerId=${owner.id}`}>Add Property</Link>
-                          </DropdownMenuItem>
+                          {canCreateProperty && (
+                            <DropdownMenuItem asChild>
+                              <Link href={`/properties/new?ownerId=${owner.id}`}>Add Property</Link>
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </td>

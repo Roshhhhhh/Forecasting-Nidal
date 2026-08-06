@@ -3,6 +3,7 @@ import { Link, useLocation } from "wouter";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarProvider } from "@/components/ui/sidebar";
 import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, UserCheck, ShieldCheck } from "lucide-react";
 import { useLogout, useGetMe } from "@workspace/api-client-react";
+import { usePermission } from "@/hooks/usePermission";
 
 const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -18,6 +19,8 @@ export const AppSidebar: FC = () => {
   const [location, setLocation] = useLocation();
   const logout = useLogout();
   const { data: user } = useGetMe();
+  const canManageUsers = usePermission("users.view");
+  const canManageRoles = usePermission("roles.manage");
 
   const handleLogout = async () => {
     await logout.mutateAsync();
@@ -64,26 +67,26 @@ export const AppSidebar: FC = () => {
                 </Link>
               </SidebarMenuButton>
             </SidebarMenuItem>
-            {user?.role === "super_admin" || user?.role === "admin" ? (
-              <>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/admin/users"}>
-                    <Link href="/admin/users" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-sidebar-accent">
-                      <ShieldAlert className="h-4 w-4" />
-                      <span>Users</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-                <SidebarMenuItem>
-                  <SidebarMenuButton asChild isActive={location === "/admin/roles"}>
-                    <Link href="/admin/roles" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-sidebar-accent">
-                      <ShieldCheck className="h-4 w-4" />
-                      <span>Roles</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              </>
-            ) : null}
+            {canManageUsers && (
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location === "/admin/users"}>
+                  <Link href="/admin/users" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-sidebar-accent">
+                    <ShieldAlert className="h-4 w-4" />
+                    <span>Users</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
+            {canManageRoles && (
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location === "/admin/roles"}>
+                  <Link href="/admin/roles" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-sidebar-accent">
+                    <ShieldCheck className="h-4 w-4" />
+                    <span>Roles</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
           </SidebarMenu>
         </div>
       </SidebarContent>

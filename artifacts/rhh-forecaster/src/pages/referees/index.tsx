@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   useListReferees, useCreateReferee, useUpdateReferee,
 } from "@workspace/api-client-react";
+import { usePermission } from "@/hooks/usePermission";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +48,8 @@ const DEFAULT_FEES: Pick<RefereeFormValues, "referralFeeStudio" | "referralFee1b
 export default function RefereesList() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const canCreateReferee = usePermission("referees.create");
+  const canEditReferee   = usePermission("referees.edit");
   const { data: referees, isLoading } = useListReferees();
   const createReferee = useCreateReferee();
   const updateReferee = useUpdateReferee();
@@ -124,10 +127,12 @@ export default function RefereesList() {
             Track partners entitled to referral fees and recurring commission on owner introductions.
           </p>
         </div>
-        <Button onClick={openCreate} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Add Referee
-        </Button>
+        {canCreateReferee && (
+          <Button onClick={openCreate} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Add Referee
+          </Button>
+        )}
       </div>
 
       {/* Stats bar */}
@@ -201,9 +206,11 @@ export default function RefereesList() {
             <UserCheck className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
             <p className="text-lg font-medium">No referees yet</p>
             <p className="text-muted-foreground text-sm mt-1 mb-4">Add your first referee to start tracking referral fees.</p>
-            <Button onClick={openCreate} className="gap-2">
-              <Plus className="h-4 w-4" /> Add Referee
-            </Button>
+            {canCreateReferee && (
+              <Button onClick={openCreate} className="gap-2">
+                <Plus className="h-4 w-4" /> Add Referee
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (
@@ -231,12 +238,14 @@ export default function RefereesList() {
                       <p className="text-xs text-muted-foreground truncate">{referee.companyName}</p>
                     )}
                   </div>
-                  <button
-                    onClick={() => openEdit(referee)}
-                    className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors ml-2"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
+                  {canEditReferee && (
+                    <button
+                      onClick={() => openEdit(referee)}
+                      className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors ml-2"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
               </CardHeader>
               <CardContent className="p-4 space-y-3">

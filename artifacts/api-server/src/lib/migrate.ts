@@ -99,7 +99,13 @@ export async function runStartupMigration() {
       ALTER TYPE furnishing_status ADD VALUE IF NOT EXISTS 'previously_holiday_home'
     `);
 
-    // 9. Fix stale isRecommended flags: ensure the 80% scenario is recommended,
+    // 9. Add weighted_adr to forecast_scenarios (per-scenario weighted average daily rate)
+    await db.execute(sql`
+      ALTER TABLE forecast_scenarios
+        ADD COLUMN IF NOT EXISTS weighted_adr REAL
+    `);
+
+    // 10. Fix stale isRecommended flags: ensure the 80% scenario is recommended,
     //    not the old 85% default. This is a one-time idempotent correction for
     //    forecasts created before the 80% Realistic scenario became the default.
     //    Step A: clear isRecommended from any 85% scenario

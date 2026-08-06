@@ -162,6 +162,15 @@ router.get("/p/:token", async (req, res): Promise<void> => {
   const ownerLastName  = ownerData?.lastName  ?? "";
   const ownerTitle     = ownerData?.title     ?? null;
 
+  // Resolve weightedAdr from the recommended scenario so it is always consistent
+  // with the hero KPIs (grossRevenue, netOwnerIncome), regardless of which occupancy
+  // was used when the forecast was last fully recalculated.
+  const recScenario = scenarios.find((s: any) => s.isRecommended)
+    ?? scenarios.find((s: any) => s.name === "Realistic" && Math.abs(s.occupancyRate - 0.80) < 0.01)
+    ?? scenarios.find((s: any) => Math.abs(s.occupancyRate - 0.80) < 0.01)
+    ?? (scenarios.length ? scenarios[Math.floor(scenarios.length / 2)] : null);
+  const resolvedWeightedAdr = (recScenario as any)?.weightedAdr ?? forecast.weightedAdr ?? 0;
+
   res.json({
     referenceNumber: proposal.referenceNumber,
     ownerName,            // server-composed full name (may duplicate title — client deduplicates)
@@ -180,7 +189,7 @@ router.get("/p/:token", async (req, res): Promise<void> => {
     view: propertyData?.view ?? null,
     furnishingStatus: propertyData?.furnishingStatus ?? "fully_furnished",
     heroImageUrl: propertyData?.heroImageUrl ?? null,
-    weightedAdr: forecast.weightedAdr ?? 0,
+    weightedAdr: resolvedWeightedAdr,
     recommendedOccupancy: forecast.recommendedOccupancy ?? 0.80,
     grossAnnualRevenue: forecast.grossAnnualRevenue ?? 0,
     netOwnerIncome: forecast.netOwnerIncome ?? 0,

@@ -179,5 +179,6 @@ export function calculateScenario(baseInputs: ForecastInputs, referenceOccupancy
     grossRevenue:   result.grossAnnualRevenue,
     netOwnerIncome: result.netOwnerIncome,
     totalExpenses:  result.totalAnnualExpenses,
+    weightedAdr:    result.weightedAdr,
   };
 }

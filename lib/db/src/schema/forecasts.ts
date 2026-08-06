@@ -94,6 +94,7 @@ export const forecastScenariosTable = pgTable("forecast_scenarios", {
   grossRevenue: real("gross_revenue"),
   netOwnerIncome: real("net_owner_income"),
   totalExpenses: real("total_expenses"),
+  weightedAdr: real("weighted_adr"),
   isRecommended: boolean("is_recommended").notNull().default(false),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

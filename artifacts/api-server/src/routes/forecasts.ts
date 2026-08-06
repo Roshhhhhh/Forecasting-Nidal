@@ -505,29 +505,39 @@ router.post("/forecasts/:id/narrative-draft", requireAuth, async (req, res): Pro
   const ownerFirstName = ownerInfo?.firstName ?? null;
   const locationStr = building ? `${building}, ${area}` : area;
 
-  // Fetch the recommended (80%) scenario — always base narrative on 80% occupancy figures
-  const scenarios = await db.select().from(forecastScenariosTable).where(eq(forecastScenariosTable.forecastId, id));
-  const recScenario = scenarios.find(s => s.isRecommended)
-    ?? scenarios.find(s => s.name === "Realistic" && Math.abs(s.occupancyRate - 0.80) < 0.01)
-    ?? scenarios.find(s => Math.abs((s.occupancyRate ?? 0) - 0.80) < 0.01)
-    ?? null;
-  const scenarioName = recScenario?.name ?? "Realistic";
-  const scenarioOccupancyPct = recScenario
-    ? `${Math.round(recScenario.occupancyRate * 100)}%`
-    : "80%";
-  const scenarioLabel = `${scenarioName} ${scenarioOccupancyPct}`;
+  const scenarioLabel = "Realistic 80%";
 
-  // ── All figures pinned to the 80% (recommended) scenario ─────────────────────
-  const net80       = recScenario?.netOwnerIncome ?? f.netOwnerIncome ?? null;
-  const gross80     = recScenario?.grossRevenue   ?? f.grossAnnualRevenue ?? null;
-  const mgmtFeeAmt  = (gross80 && f.managementFeePercent)
+  // ── Recompute the 80% scenario live from stored inputs (never trust stale DB rows) ──
+  const resolvedBaseAdr = f.baseAdr ?? f.shoulderSeasonAdr;
+  if (!resolvedBaseAdr) {
+    res.status(400).json({ error: "Run Save & Calculate before generating a narrative draft." });
+    return;
+  }
+  const calcInputs = {
+    baseAdr:              resolvedBaseAdr,
+    referenceOccupancy:   f.recommendedOccupancy ?? REFERENCE_OCCUPANCY,
+    ownerBlockedNights:   f.ownerBlockedNights ?? 0,
+    managementFeePercent: f.managementFeePercent ?? 20,
+    ltrVacancyPercent:    f.ltrVacancyPercent ?? 10,
+    annualLtr:            f.annualLtr,
+    internetCost:         f.internetCost ?? 0,
+    utilityCost:          f.utilityCost ?? 0,
+    maintenanceCost:      f.maintenanceCost ?? 0,
+    miscCost:             f.miscCost ?? 0,
+  };
+  const computed80 = calculateScenario(calcInputs, 0.80);
+
+  // ── All figures pinned to the live 80% computation ────────────────────────────
+  const net80      = computed80.netOwnerIncome;
+  const gross80    = computed80.grossRevenue;
+  const mgmtFeeAmt = gross80 && f.managementFeePercent
     ? Math.round(gross80 * (f.managementFeePercent / 100))
     : null;
-  const totalExp    = f.totalAnnualExpenses ?? null;
-  const monthly80   = net80 ? Math.round(net80 / 12) : null;
-  const ltrGross    = f.annualLtr ?? null;
-  const ltrNet      = f.netLtrIncome ?? null;
-  const ltrVacPct   = f.ltrVacancyPercent ?? 10;
+  const totalExp   = computed80.totalExpenses ?? f.totalAnnualExpenses ?? null;
+  const monthly80  = net80 ? Math.round(net80 / 12) : null;
+  const ltrGross   = f.annualLtr ?? null;
+  const ltrNet     = f.netLtrIncome ?? null;
+  const ltrVacPct  = f.ltrVacancyPercent ?? 10;
   const ltrAdj      = ltrGross ? Math.round(ltrGross * (1 - ltrVacPct / 100)) : null;
   const ltrUpliftPct = (net80 && ltrNet && ltrNet > 0)
     ? Math.round(((net80 - ltrNet) / ltrNet) * 100)

@@ -11,6 +11,7 @@ import { z } from "zod";
 import { useLocation, Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
+import LeadSourcePicker from "@/components/LeadSourcePicker";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -339,49 +340,9 @@ export default function OwnerNew() {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Lead Source</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value ?? ""}>
-                      <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Where did they come from?" /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Direct</SelectLabel>
-                          <SelectItem value="direct_call">Direct Call</SelectItem>
-                          <SelectItem value="website">Website Inquiry</SelectItem>
-                          <SelectItem value="google_search">Google Search</SelectItem>
-                          <SelectItem value="walk_in">Walk-In</SelectItem>
-                        </SelectGroup>
-                        <SelectGroup>
-                          <SelectLabel>Social Media</SelectLabel>
-                          <SelectItem value="social_media_instagram">Instagram</SelectItem>
-                          <SelectItem value="social_media_facebook">Facebook</SelectItem>
-                          <SelectItem value="social_media_x">X (Twitter)</SelectItem>
-                          <SelectItem value="social_media_linkedin">LinkedIn</SelectItem>
-                          <SelectItem value="social_media_snapchat">Snapchat</SelectItem>
-                          <SelectItem value="social_media_tiktok">TikTok</SelectItem>
-                          <SelectItem value="social_media_whatsapp">WhatsApp</SelectItem>
-                          <SelectItem value="social_media_youtube">YouTube</SelectItem>
-                          <SelectItem value="social_media_telegram">Telegram</SelectItem>
-                          <SelectItem value="social_media_threads">Threads</SelectItem>
-                          <SelectItem value="social_media_pinterest">Pinterest</SelectItem>
-                          <SelectItem value="social_media_reddit">Reddit</SelectItem>
-                          <SelectItem value="social_media_bereal">BeReal</SelectItem>
-                        </SelectGroup>
-                        <SelectGroup>
-                          <SelectLabel>Referrals</SelectLabel>
-                          <SelectItem value="referral">Referred by a Referee</SelectItem>
-                          <SelectItem value="existing_owner">Existing RHH Owner</SelectItem>
-                        </SelectGroup>
-                        <SelectGroup>
-                          <SelectLabel>Other</SelectLabel>
-                          <SelectItem value="agent">Real Estate Agent</SelectItem>
-                          <SelectItem value="cold_outreach">Cold Outreach</SelectItem>
-                          <SelectItem value="guest_staying">Guest Staying With Us</SelectItem>
-                          <SelectItem value="ai_suggested">AI Suggested</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
+                    <FormControl>
+                      <LeadSourcePicker value={field.value ?? ""} onChange={field.onChange} />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}

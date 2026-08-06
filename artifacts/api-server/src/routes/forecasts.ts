@@ -502,21 +502,32 @@ router.post("/forecasts/:id/narrative-draft", requireAuth, async (req, res): Pro
   const bedrooms = propertyInfo?.bedrooms ?? f.bedrooms ?? 1;
   const bedroomLabel = bedrooms === 0 ? "studio" : `${bedrooms}-bedroom`;
   const weightedAdr = f.weightedAdr ? `AED ${Math.round(f.weightedAdr).toLocaleString()}` : null;
-  const occupancyPct = f.recommendedOccupancy ? `${Math.round((f.recommendedOccupancy as number) * 100)}%` : null;
   const netIncome = f.netOwnerIncome ? `AED ${Math.round(f.netOwnerIncome).toLocaleString()}` : null;
   const ltrUplift = f.increaseVsLtrPct ? `${Math.round(f.increaseVsLtrPct)}%` : null;
   const ownerFirstName = ownerInfo?.firstName ?? null;
   const locationStr = building ? `${building}, ${area}` : area;
+
+  // Fetch the recommended scenario to get its name and exact occupancy
+  const scenarios = await db.select().from(forecastScenariosTable).where(eq(forecastScenariosTable.forecastId, id));
+  const recScenario = scenarios.find(s => s.isRecommended)
+    ?? scenarios.find(s => s.name === "Realistic" && Math.abs(s.occupancyRate - 0.80) < 0.01)
+    ?? scenarios.find(s => Math.abs((s.occupancyRate ?? 0) - (f.recommendedOccupancy ?? 0.80)) < 0.01)
+    ?? null;
+  const scenarioName = recScenario?.name ?? "Realistic";
+  const scenarioOccupancyPct = recScenario
+    ? `${Math.round(recScenario.occupancyRate * 100)}%`
+    : f.recommendedOccupancy
+      ? `${Math.round((f.recommendedOccupancy as number) * 100)}%`
+      : "80%";
+  const scenarioLabel = `${scenarioName} ${scenarioOccupancyPct}`;
 
   // ── Build template fallback ─────────────────────────────────────────────────
   function buildTemplateDraft(): string {
     const greeting = ownerFirstName ? `Dear ${ownerFirstName}, ` : "";
     let s1 = `${greeting}Based on our detailed analysis of comparable short-term rental units in ${locationStr}, your ${bedroomLabel} property is well-positioned to outperform traditional long-term rental benchmarks in the Abu Dhabi market.`;
     let s2 = "";
-    if (weightedAdr && occupancyPct) {
-      s2 = ` At a weighted average daily rate of ${weightedAdr} and a projected occupancy of ${occupancyPct}, the figures in this report reflect achievable, data-backed market rates drawn from active comparable listings.`;
-    } else if (weightedAdr) {
-      s2 = ` At a weighted average daily rate of ${weightedAdr}, the projections in this report reflect achievable, data-backed market rates drawn from active comparable listings.`;
+    if (weightedAdr) {
+      s2 = ` Under our recommended ${scenarioName} scenario at ${scenarioOccupancyPct} occupancy, with a weighted average daily rate of ${weightedAdr}, the figures in this report reflect achievable, data-backed market rates drawn from active comparable listings.`;
     }
     let s3 = "";
     if (netIncome && ltrUplift) {
@@ -537,9 +548,9 @@ router.post("/forecasts/:id/narrative-draft", requireAuth, async (req, res): Pro
         `Property type: ${bedroomLabel}`,
         `Location: ${locationStr}`,
         `Market: Abu Dhabi short-term rental (STR)`,
+        `Recommended scenario: ${scenarioName} (${scenarioOccupancyPct} occupancy)`,
       ];
       if (weightedAdr) contextLines.push(`Weighted average daily rate: ${weightedAdr}`);
-      if (occupancyPct) contextLines.push(`Projected occupancy rate: ${occupancyPct}`);
       if (netIncome) contextLines.push(`Estimated net owner income: ${netIncome} per year`);
       if (ltrUplift) contextLines.push(`Uplift vs. long-term rental benchmark: ${ltrUplift}`);
       if (ownerFirstName) contextLines.push(`Owner first name: ${ownerFirstName}`);
@@ -550,6 +561,7 @@ Guidelines:
 - Write exactly 2–3 sentences.
 - Address the owner by first name if provided (e.g. "Dear Ahmed,").
 - Be specific to the area and property type — avoid generic phrases.
+- Explicitly name the recommended scenario (e.g. "Realistic 80% scenario") when referencing occupancy projections.
 - Mention at least one concrete data point from the forecast (ADR, occupancy, net income, or LTR uplift).
 - Tone: professional, warm, and confident. Make the owner feel assured this is personalised analysis.
 - Do not use bullet points, markdown, or headings — plain prose only.

@@ -1377,7 +1377,7 @@ export default function ForecastDetail() {
                       {" / 1,000 characters"}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Tip: Mention the location, a standout feature, and why STR outperforms LTR here.
+                      Tip: Reference the Realistic 80% scenario, mention the location or a standout feature, and explain why STR outperforms LTR here.
                     </p>
                   </div>
                 </div>

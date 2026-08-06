@@ -123,8 +123,65 @@ router.get("/forecasts/:id", requireAuth, async (req, res): Promise<void> => {
   if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
   const [f] = await db.select().from(forecastsTable).where(eq(forecastsTable.id, id));
   if (!f) { res.status(404).json({ error: "Forecast not found" }); return; }
+
+  // Join owner, property and assigned-user data so the detail view has everything it needs
+  let ownerTitle: string | null = null;
+  let ownerFirstName: string | null = null;
+  let ownerLastName: string | null = null;
+  let ownerName: string | null = null;
+  let propertyAddress: string | null = null;
+  let propertyType: string | null = null;
+  let bedrooms: number | null = null;
+  let bathrooms: number | null = null;
+  let internalArea: number | null = null;
+  let view: string | null = null;
+  let floor: number | null = null;
+  let furnishingStatus: string | null = null;
+  let area: string | null = null;
+  let projectBuilding: string | null = null;
+  let unitNumber: string | null = null;
+  let advisorName: string | null = null;
+
+  if (f.ownerId) {
+    const [o] = await db.select().from(ownersTable).where(eq(ownersTable.id, f.ownerId));
+    if (o) {
+      ownerTitle      = o.title ?? null;
+      ownerFirstName  = o.firstName;
+      ownerLastName   = o.lastName;
+      ownerName       = [o.title, o.firstName, o.lastName].filter(Boolean).join(" ");
+    }
+  }
+  if (f.propertyId) {
+    const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, f.propertyId));
+    if (p) {
+      propertyType    = p.propertyType ?? null;
+      bedrooms        = p.bedrooms ?? null;
+      bathrooms       = p.bathrooms ?? null;
+      internalArea    = p.internalArea ?? null;
+      view            = p.view ?? null;
+      floor           = p.floor ?? null;
+      furnishingStatus= p.furnishingStatus ?? null;
+      area            = p.area ?? null;
+      projectBuilding = p.projectBuilding ?? null;
+      unitNumber      = p.unitNumber ?? null;
+      propertyAddress = [p.projectBuilding, p.area].filter(Boolean).join(", ");
+    }
+  }
+  if (f.assignedToId) {
+    const [u] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, f.assignedToId));
+    advisorName = u?.name ?? null;
+  }
+
   res.json({
     id: f.id, referenceNumber: f.referenceNumber, ownerId: f.ownerId, propertyId: f.propertyId,
+    // Joined owner fields
+    ownerTitle, ownerFirstName, ownerLastName, ownerName,
+    // Joined property fields
+    propertyAddress, propertyType, bedrooms, bathrooms, internalArea, view,
+    floor, furnishingStatus, area, projectBuilding, unitNumber,
+    // Joined representative
+    advisorName,
+    // Forecast fields
     status: f.status, managementFeePercent: f.managementFeePercent, ltrVacancyPercent: f.ltrVacancyPercent,
     annualLtr: f.annualLtr, internetCost: f.internetCost, utilityCost: f.utilityCost,
     maintenanceCost: f.maintenanceCost, miscCost: f.miscCost,

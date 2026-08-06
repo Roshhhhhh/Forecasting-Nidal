@@ -9,6 +9,7 @@ import { useParams, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import ProposalCoverPreview from "@/components/ProposalCoverPreview";
+import ProposalPreviewModal from "@/components/ProposalPreviewModal";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -336,6 +337,7 @@ export default function ForecastDetail() {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [proposalTab, setProposalTab] = useState<"share" | null>(null);
   const [activeTab, setActiveTab] = useState("inputs");
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const updateForecast = useUpdateForecast();
   const calculateForecast = useCalculateForecast();
@@ -1352,7 +1354,17 @@ export default function ForecastDetail() {
                 <div className="flex items-center gap-2">
                   <Eye className="h-4 w-4 text-primary" />
                   <CardTitle className="font-serif text-base">Cover Preview</CardTitle>
-                  <span className="ml-auto text-xs text-muted-foreground">Updates live as you type</span>
+                  <span className="ml-2 text-xs text-muted-foreground">Updates live as you type</span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="ml-auto gap-1.5 text-xs border-primary/30 text-primary hover:bg-primary/5"
+                    onClick={() => setPreviewOpen(true)}
+                    disabled={!forecast?.grossAnnualRevenue}
+                    title={!forecast?.grossAnnualRevenue ? "Run Save & Calculate first to enable full preview" : "Open a full-screen read-only preview of the complete owner proposal"}
+                  >
+                    <Eye className="h-3.5 w-3.5" /> Preview Full Proposal
+                  </Button>
                 </div>
               </CardHeader>
               <CardContent className="p-4">
@@ -1514,6 +1526,17 @@ export default function ForecastDetail() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* ── Full Proposal Preview Modal ── */}
+      <ProposalPreviewModal
+        open={previewOpen}
+        onClose={() => setPreviewOpen(false)}
+        forecast={forecast}
+        proposal={proposal ?? null}
+        scenarios={scenarios ?? []}
+        monthly={monthly ?? []}
+        narrativeText={narrativeText}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import {
   useListForecastScenarios, useGetForecastMonthly, useUpdateMonthlyOverride,
   useGenerateAiRecommendation, useGenerateNarrativeDraft, useListProposals, usePublishProposal,
   useUpdateProposal, useListForecastComparables, useCreateForecastComparable, useDeleteForecastComparable,
+  useListForecastActuals, useUpsertMonthlyActual,
 } from "@workspace/api-client-react";
 import DuplicateForecastModal from "@/components/DuplicateForecastModal";
 import ProposalSharePanel from "@/components/ProposalSharePanel";
@@ -663,62 +664,72 @@ export default function ForecastDetail() {
   return (
     <div className="flex flex-col h-[calc(100vh-theme(spacing.0))] w-full">
       {/* Top Header */}
-      <header className="flex items-center justify-between px-6 py-3 border-b border-border bg-background z-10 sticky top-0 shrink-0">
-        <div className="flex items-center gap-4">
-          <Link href="/forecasts" className="p-2 -ml-2 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors">
-            <ArrowLeft className="h-5 w-5" />
-          </Link>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-xl font-serif font-bold text-foreground">{forecast.referenceNumber}</h1>
-              <Badge variant="outline" className={`capitalize text-xs ${getStatusColor(forecast.status)}`}>
-                {forecast.status.replace(/_/g, " ")}
-              </Badge>
-              {lastSaved && !isDirty && (
-                <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3 text-green-500" /> Saved
-                </span>
-              )}
-              {isDirty && <span className="text-xs text-amber-500">Unsaved changes</span>}
+      <header className="px-3 sm:px-6 py-2 sm:py-3 border-b border-border bg-background z-10 sticky top-0 shrink-0">
+        <div className="flex items-center justify-between gap-2 min-h-[44px]">
+          {/* Left: back + title */}
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <Link href="/forecasts" className="p-2 -ml-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base sm:text-xl font-serif font-bold text-foreground truncate">{forecast.referenceNumber}</h1>
+                <Badge variant="outline" className={`capitalize text-xs shrink-0 ${getStatusColor(forecast.status)}`}>
+                  {forecast.status.replace(/_/g, " ")}
+                </Badge>
+                {lastSaved && !isDirty && (
+                  <span className="text-xs text-muted-foreground hidden sm:flex items-center gap-1">
+                    <CheckCircle2 className="h-3 w-3 text-green-500" /> Saved
+                  </span>
+                )}
+                {isDirty && <span className="text-xs text-amber-500 hidden sm:inline">Unsaved</span>}
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5 truncate hidden sm:block">
+                {(forecast as any).ownerName}{(forecast as any).ownerName && " · "}{(forecast as any).propertyAddress}
+              </p>
             </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              {(forecast as any).ownerName}{(forecast as any).ownerName && " · "}{(forecast as any).propertyAddress}
-            </p>
+          </div>
+          {/* Right: action buttons — icon-only on mobile, full label on sm+ */}
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+            <Button variant="outline" size="sm" className="gap-1.5 px-2 sm:px-3" onClick={() => setDuplicateOpen(true)}>
+              <Copy className="h-4 w-4" />
+              <span className="hidden sm:inline">Duplicate</span>
+            </Button>
+            <Button
+              variant="outline" size="sm"
+              onClick={handleSave}
+              disabled={isSaving || !isDirty}
+              className="gap-1.5 px-2 sm:px-3"
+            >
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              <span className="hidden sm:inline">Save Draft</span>
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleCalculate}
+              disabled={isCalculating}
+              className="gap-1.5 px-2 sm:px-3"
+              title="Saves inputs and recalculates all projections."
+            >
+              {isCalculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
+              <span className="hidden sm:inline">{isCalculating ? "Calculating…" : "Save & Calculate"}</span>
+              <span className="sm:hidden text-[11px]">Calc</span>
+            </Button>
+            <Button
+              variant="default" size="sm" className="gap-1.5 px-2 sm:px-3 bg-primary/90 hover:bg-primary"
+              onClick={handlePublishProposal}
+              disabled={publishProposal.isPending || !forecast?.grossAnnualRevenue}
+              title={!forecast?.grossAnnualRevenue ? "Run Save & Calculate first" : ""}
+            >
+              {publishProposal.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share className="h-4 w-4" />}
+              <span className="hidden sm:inline">{hasShareLink ? "Reshare Proposal" : "Generate Proposal"}</span>
+            </Button>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => setDuplicateOpen(true)}>
-            <Copy className="h-4 w-4" /> Duplicate
-          </Button>
-          <Button
-            variant="outline" size="sm"
-            onClick={handleSave}
-            disabled={isSaving || !isDirty}
-            className="gap-2"
-          >
-            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save Draft
-          </Button>
-          <Button
-            size="sm"
-            onClick={handleCalculate}
-            disabled={isCalculating}
-            className="gap-2"
-            title="Saves inputs and recalculates all projections. Manual month overrides (if any) take priority over the new inputs."
-          >
-            {isCalculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
-            Save & Calculate
-          </Button>
-          <Button
-            variant="default" size="sm" className="gap-2 bg-primary/90 hover:bg-primary"
-            onClick={handlePublishProposal}
-            disabled={publishProposal.isPending || !forecast?.grossAnnualRevenue}
-            title={!forecast?.grossAnnualRevenue ? "Run Save & Calculate first" : ""}
-          >
-            {publishProposal.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share className="h-4 w-4" />}
-            {hasShareLink ? "Reshare Proposal" : "Generate Proposal"}
-          </Button>
-        </div>
+        {/* Mobile subtitle row */}
+        <p className="text-xs text-muted-foreground pb-1 truncate sm:hidden">
+          {(forecast as any).ownerName}{(forecast as any).ownerName && " · "}{(forecast as any).propertyAddress}
+        </p>
       </header>
 
       {/* Tabs */}
@@ -733,19 +744,21 @@ export default function ForecastDetail() {
           }}
           className="w-full h-full"
         >
-          <div className="px-6 pt-4 border-b border-border bg-background sticky top-0 z-10">
-            <TabsList className="grid grid-cols-6 max-w-[840px]">
-              <TabsTrigger value="summary">Summary</TabsTrigger>
-              <TabsTrigger value="inputs">Data Inputs</TabsTrigger>
-              <TabsTrigger value="scenarios">Scenarios</TabsTrigger>
-              <TabsTrigger value="monthly">Monthly</TabsTrigger>
-              <TabsTrigger value="actuals">Actuals</TabsTrigger>
-              <TabsTrigger value="proposal">Proposal</TabsTrigger>
-            </TabsList>
+          <div className="px-3 sm:px-6 pt-3 sm:pt-4 border-b border-border bg-background sticky top-0 z-10">
+            <div className="overflow-x-auto scrollbar-none -mx-1 px-1 pb-0.5">
+              <TabsList className="grid grid-cols-6 min-w-[480px] max-w-[840px]">
+                <TabsTrigger value="summary" className="text-xs sm:text-sm">Summary</TabsTrigger>
+                <TabsTrigger value="inputs" className="text-xs sm:text-sm">Inputs</TabsTrigger>
+                <TabsTrigger value="scenarios" className="text-xs sm:text-sm">Scenarios</TabsTrigger>
+                <TabsTrigger value="monthly" className="text-xs sm:text-sm">Monthly</TabsTrigger>
+                <TabsTrigger value="actuals" className="text-xs sm:text-sm">Actuals</TabsTrigger>
+                <TabsTrigger value="proposal" className="text-xs sm:text-sm">Proposal</TabsTrigger>
+              </TabsList>
+            </div>
           </div>
 
           {/* ── SUMMARY ── */}
-          <TabsContent value="summary" className="p-6 space-y-6 max-w-[1400px] mx-auto">
+          <TabsContent value="summary" className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <Card className="border-border/50 shadow-sm">
                 <CardContent className="p-6">
@@ -934,7 +947,7 @@ export default function ForecastDetail() {
           </TabsContent>
 
           {/* ── DATA INPUTS ── */}
-          <TabsContent value="inputs" className="p-6 max-w-[1200px] mx-auto">
+          <TabsContent value="inputs" className="p-4 sm:p-6 max-w-[1200px] mx-auto">
             <div className="space-y-6">
 
               {/* ── Property & Owner Reference ───────────────────────────── */}
@@ -1523,7 +1536,7 @@ export default function ForecastDetail() {
           </TabsContent>
 
           {/* ── SCENARIOS ── */}
-          <TabsContent value="scenarios" className="p-6 max-w-[1400px] mx-auto space-y-6">
+          <TabsContent value="scenarios" className="p-4 sm:p-6 max-w-[1400px] mx-auto space-y-6">
             {/* Live preview note */}
             <div className="flex items-start gap-3 p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-lg">
               <Sparkles className="h-5 w-5 text-blue-600 mt-0.5 shrink-0" />
@@ -1536,7 +1549,7 @@ export default function ForecastDetail() {
             </div>
 
             {/* LTR Benchmark header */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Card className="border-border/50 shadow-sm">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div>
@@ -1686,7 +1699,7 @@ export default function ForecastDetail() {
           </TabsContent>
 
           {/* ── MONTHLY ── */}
-          <TabsContent value="monthly" className="p-6 max-w-[1400px] mx-auto space-y-4">
+          <TabsContent value="monthly" className="p-4 sm:p-6 max-w-[1400px] mx-auto space-y-4">
             {overrideBannerCount != null && (
               <div className="flex items-start justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-900/20 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
                 <div className="flex items-start gap-2">
@@ -1707,7 +1720,7 @@ export default function ForecastDetail() {
 
           {/* ── PROPOSAL ── */}
           {/* ── ACTUALS ── */}
-          <TabsContent value="actuals" className="p-6 space-y-6 max-w-[1400px] mx-auto">
+          <TabsContent value="actuals" className="p-4 sm:p-6 space-y-6 max-w-[1400px] mx-auto">
             {(() => {
               const projections: any[] = monthly ?? [];
               const actualsArr: any[] = actuals ?? [];
@@ -1975,7 +1988,7 @@ export default function ForecastDetail() {
             })()}
           </TabsContent>
 
-          <TabsContent value="proposal" className="p-6 max-w-[900px] mx-auto space-y-6">
+          <TabsContent value="proposal" className="p-4 sm:p-6 max-w-[900px] mx-auto space-y-6">
 
             {/* Narrative editor */}
             <Card className="border-border/50 shadow-sm">
@@ -2260,13 +2273,13 @@ export default function ForecastDetail() {
                               <Eye className="h-3 w-3" /> Auto-refreshes every 30s
                             </span>
                           </div>
-                          <div className="grid grid-cols-3 gap-4">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             {[
                               { label: "Total Views", val: proposal?.totalViews ?? 0 },
                               { label: "PDF Downloads", val: proposal?.pdfDownloads ?? 0 },
                               { label: "Status", val: proposal?.ownerAction ? `Owner: ${proposal.ownerAction.replace(/_/g, " ")}` : "Awaiting response" },
                             ].map(({ label, val }) => (
-                              <div key={label} className="text-center p-4 bg-muted/20 rounded-lg border border-border/50">
+                              <div key={label} className="text-center p-3 sm:p-4 bg-muted/20 rounded-lg border border-border/50">
                                 <div className="text-xs text-muted-foreground mb-1">{label}</div>
                                 <div className="text-lg font-bold text-foreground">{val}</div>
                               </div>

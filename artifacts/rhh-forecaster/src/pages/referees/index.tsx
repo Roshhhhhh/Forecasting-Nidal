@@ -275,7 +275,7 @@ export default function RefereesList() {
   ], []);
 
   return (
-    <div className="p-8 max-w-[1400px] mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1400px] mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">Referees</h1>
@@ -304,8 +304,8 @@ export default function RefereesList() {
       {/* Filter bar + DataTable */}
       <Card className="border-border/50 shadow-sm">
         <div className="p-4 border-b border-border space-y-3 bg-muted/20">
-          <div className="flex gap-3">
-            <div className="relative flex-1 max-w-lg">
+          <div className="flex flex-wrap gap-2">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by name, email, phone, or referee code..."
@@ -404,7 +404,7 @@ export default function RefereesList() {
               <Label>Full Name <span className="text-destructive">*</span></Label>
               <Input placeholder="e.g. Ahmed Al-Mansoori" {...form.register("name", { required: true })} />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label>Phone</Label>
                 <Input placeholder="+971 50 123 4567" {...form.register("phone")} />
@@ -423,7 +423,7 @@ export default function RefereesList() {
                 <Home className="h-4 w-4 text-primary" />
                 <Label className="text-sm font-semibold">One-Time Referral Fees (AED)</Label>
               </div>
-              <div className="grid grid-cols-2 gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
                 {([
                   { label: "Studio", field: "referralFeeStudio" },
                   { label: "1 Bedroom", field: "referralFee1br" },
@@ -455,7 +455,7 @@ export default function RefereesList() {
               {isRecurring && (
                 <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-3 space-y-2 text-xs">
                   <p className="font-semibold text-emerald-800">Recurring tier structure:</p>
-                  <div className="grid grid-cols-3 gap-1 text-center">
+                  <div className="grid grid-cols-3 gap-1 text-center text-[10px]">
                     {[
                       { pm: "20%", agent: "4%", co: "16%" },
                       { pm: "19%", agent: "3%", co: "16%" },

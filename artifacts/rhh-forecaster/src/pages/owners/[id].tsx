@@ -343,7 +343,7 @@ export default function OwnerDetail() {
     })[0] ?? null;
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto space-y-6">
       <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
         <Link href="/owners" className="hover:text-foreground transition-colors">Owners</Link>
         <span>/</span>
@@ -457,7 +457,7 @@ export default function OwnerDetail() {
 
         <div className="md:col-span-2">
           <Tabs defaultValue="properties" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 max-w-[560px]">
+            <TabsList className="grid w-full grid-cols-3 max-w-[560px] sm:max-w-[560px]">
               <TabsTrigger value="properties">Properties ({ownerProperties.length})</TabsTrigger>
               <TabsTrigger value="forecasts">Forecasts ({ownerForecasts.length})</TabsTrigger>
               <TabsTrigger value="engagement" className="flex items-center gap-1.5">

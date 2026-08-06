@@ -1,6 +1,6 @@
 import { FC, ReactNode, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
-import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarProvider } from "@/components/ui/sidebar";
+import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, UserCheck, ShieldCheck, LayoutGrid, Eye } from "lucide-react";
 import { useLogout, useGetMe, useListProposals } from "@workspace/api-client-react";
 import { usePermission } from "@/hooks/usePermission";
@@ -167,7 +167,12 @@ export const AppLayout: FC<{ children: ReactNode }> = ({ children }) => {
       <div className="flex min-h-[100dvh] w-full bg-background">
         <AppSidebar />
         <ProposalViewWatcher />
-        <main className="flex-1 overflow-auto flex flex-col">
+        <main className="flex-1 overflow-auto flex flex-col min-w-0">
+          {/* Mobile-only top bar with hamburger + logo */}
+          <header className="flex md:hidden items-center gap-3 px-3 py-2 border-b border-border bg-background sticky top-0 z-20 shrink-0">
+            <SidebarTrigger className="h-9 w-9 shrink-0" />
+            <img src="/rhh-logo.png" alt="Royal Holiday Homes" className="h-7 w-auto" />
+          </header>
           <div className="flex-1 w-full mx-auto">
             {children}
           </div>

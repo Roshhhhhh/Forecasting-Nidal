@@ -260,7 +260,7 @@ export default function ForecastsList() {
   if (revenueMin || revenueMax) activeChips.push({ label: `AED ${revenueMin || "0"} – ${revenueMax || "∞"}`, clear: () => { setRevenueMin(""); setRevenueMax(""); } });
 
   return (
-    <div className="p-8 max-w-[1600px] mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-[1600px] mx-auto space-y-6">
       {/* Page header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
@@ -284,8 +284,8 @@ export default function ForecastsList() {
 
         {/* Filter bar */}
         <div className="p-4 border-b border-border space-y-3 bg-muted/20">
-          <div className="flex gap-3">
-            <div className="relative flex-1 max-w-lg">
+          <div className="flex flex-wrap gap-2">
+            <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search by ref, owner, or property..."

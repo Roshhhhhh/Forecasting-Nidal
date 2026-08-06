@@ -220,7 +220,7 @@ const propertySchema = z.object({
   propertyType: z.enum(["apartment", "duplex", "penthouse", "townhouse", "villa", "studio", "hotel_apartment", "other"]),
   bedrooms: z.coerce.number().min(0),
   bathrooms: z.coerce.number().min(0).optional(),
-  hasMainRoom: z.boolean().default(false),
+  hasMaidsRoom: z.boolean().default(false),
   hasStudy: z.boolean().default(false),
   internalArea: z.coerce.number().min(1, "Size is required"),
   furnishingStatus: z.enum(["unfurnished", "partially_furnished", "fully_furnished", "premium_furnished", "hotel_grade", "previously_holiday_home"]).optional(),
@@ -254,7 +254,7 @@ export default function PropertyNew() {
       propertyType: "apartment",
       bedrooms: 1,
       bathrooms: 1,
-      hasMainRoom: false,
+      hasMaidsRoom: false,
       hasStudy: false,
       internalArea: 0,
       isWaterfront: false,
@@ -606,19 +606,19 @@ export default function PropertyNew() {
               <div className="col-span-1 md:col-span-3 flex flex-wrap items-center gap-6 pt-1">
                 <FormField
                   control={form.control}
-                  name="hasMainRoom"
+                  name="hasMaidsRoom"
                   render={({ field }) => (
                     <FormItem className="flex items-center gap-2 space-y-0">
                       <FormControl>
                         <input
                           type="checkbox"
-                          id="hasMainRoom"
+                          id="hasMaidsRoom"
                           checked={!!field.value}
                           onChange={e => field.onChange(e.target.checked)}
                           className="h-4 w-4 rounded border border-input accent-primary cursor-pointer"
                         />
                       </FormControl>
-                      <FormLabel htmlFor="hasMainRoom" className="cursor-pointer font-normal text-sm">Main Room</FormLabel>
+                      <FormLabel htmlFor="hasMaidsRoom" className="cursor-pointer font-normal text-sm">Maid Room</FormLabel>
                     </FormItem>
                   )}
                 />

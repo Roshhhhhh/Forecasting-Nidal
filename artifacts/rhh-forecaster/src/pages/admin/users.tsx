@@ -10,7 +10,8 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { Search, UserPlus, ShieldAlert, Edit2, Loader2, Eye, EyeOff, ShieldCheck } from "lucide-react";
+import { Search, UserPlus, ShieldAlert, Edit2, Loader2, Eye, EyeOff, ShieldCheck, Users, CheckCircle } from "lucide-react";
+import { SmartReport } from "@/components/SmartReport";
 import { useState, useEffect, useMemo } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
@@ -232,6 +233,13 @@ export default function UsersList() {
           )}
         </div>
       </div>
+
+      <SmartReport metrics={[
+        { icon: <Users       className="h-4 w-4" />, label: "Total Users",   value: users?.length ?? 0 },
+        { icon: <CheckCircle className="h-4 w-4" />, label: "Active",         value: users?.filter(u => u.isActive).length ?? 0, color: "green" as const },
+        {                                             label: "Inactive",       value: users?.filter(u => !u.isActive).length ?? 0 },
+        {                                             label: "Roles",          value: roles?.length ?? 0 },
+      ]} />
 
       <Card className="border-border/50 shadow-sm">
         <CardHeader className="py-4 border-b border-border bg-muted/20">

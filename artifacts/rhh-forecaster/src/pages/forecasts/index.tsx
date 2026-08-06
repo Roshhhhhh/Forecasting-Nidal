@@ -3,15 +3,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Plus, Search, MoreHorizontal, X, TrendingUp, TrendingDown } from "lucide-react";
+import {
+  Plus, Search, MoreHorizontal, X, TrendingUp, TrendingDown, Eye, Pencil,
+  FileText, CheckCircle,
+} from "lucide-react";
 import { useState, useMemo } from "react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { usePermission } from "@/hooks/usePermission";
 import { DataTable, ColumnDef } from "@/components/DataTable";
+import { SmartReport } from "@/components/SmartReport";
+import { PageTabs } from "@/components/PageTabs";
 
 const STATUSES = [
-  { value: "all",       label: "All Statuses" },
+  { value: "all",       label: "All" },
   { value: "draft",     label: "Draft" },
   { value: "published", label: "Published" },
   { value: "accepted",  label: "Accepted" },
@@ -197,11 +204,38 @@ export default function ForecastsList() {
   const [revenueMin, setRevenueMin] = useState("");
   const [revenueMax, setRevenueMax] = useState("");
 
+  // ── SmartReport metrics ────────────────────────────────────────────────────
+  const metrics = useMemo(() => {
+    const all = forecasts ?? [];
+    const accepted = all.filter(f => f.status === "accepted").length;
+    const beatLtr  = all.filter(f => (f.increaseVsLtrPct ?? 0) > 0).length;
+    const revenues = all.map(f => f.grossAnnualRevenue ?? 0).filter(v => v > 0);
+    const avgRev   = revenues.length > 0
+      ? Math.round(revenues.reduce((s, v) => s + v, 0) / revenues.length)
+      : 0;
+    return [
+      { icon: <FileText    className="h-4 w-4" />, label: "Total Forecasts",   value: all.length },
+      { icon: <CheckCircle className="h-4 w-4" />, label: "Accepted",          value: accepted, color: accepted > 0 ? "green" as const : "default" as const },
+      {                                             label: "Avg Gross Revenue", value: avgRev > 0 ? fmtAed(avgRev) : "—" },
+      { icon: <TrendingUp  className="h-4 w-4" />, label: "Beat LTR",          value: beatLtr, color: beatLtr > 0 ? "green" as const : "default" as const,
+        subtitle: `of ${all.filter(f => f.increaseVsLtrPct != null).length} with LTR data` },
+    ];
+  }, [forecasts]);
+
+  // ── Status tabs ───────────────────────────────────────────────────────────
+  const statusTabs = useMemo(() =>
+    STATUSES.map(s => ({
+      value: s.value,
+      label: s.label,
+      count: s.value === "all" ? (forecasts?.length ?? 0) : (forecasts?.filter(f => f.status === s.value).length ?? 0),
+    }))
+  , [forecasts]);
+
+  // ── Filters ───────────────────────────────────────────────────────────────
   const activeFilterCount = useMemo(() => [
-    status !== "all",
     ltrFilter !== "all",
     !!revenueMin || !!revenueMax,
-  ].filter(Boolean).length, [status, ltrFilter, revenueMin, revenueMax]);
+  ].filter(Boolean).length, [ltrFilter, revenueMin, revenueMax]);
 
   const filteredForecasts = useMemo(() => forecasts?.filter(f => {
     if (search) {
@@ -218,16 +252,16 @@ export default function ForecastsList() {
   }), [forecasts, search, status, ltrFilter, revenueMin, revenueMax]);
 
   function clearAll() {
-    setSearch(""); setStatus("all"); setLtrFilter("all"); setRevenueMin(""); setRevenueMax("");
+    setSearch(""); setLtrFilter("all"); setRevenueMin(""); setRevenueMax("");
   }
 
   const activeChips: { label: string; clear: () => void }[] = [];
-  if (status !== "all") activeChips.push({ label: STATUSES.find(s => s.value === status)!.label, clear: () => setStatus("all") });
   if (ltrFilter !== "all") activeChips.push({ label: LTR_FILTERS.find(f => f.value === ltrFilter)!.label, clear: () => setLtrFilter("all") });
   if (revenueMin || revenueMax) activeChips.push({ label: `AED ${revenueMin || "0"} – ${revenueMax || "∞"}`, clear: () => { setRevenueMin(""); setRevenueMax(""); } });
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-6">
+      {/* Page header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">Revenue Forecasts</h1>
@@ -240,7 +274,15 @@ export default function ForecastsList() {
         )}
       </div>
 
+      {/* SmartReport */}
+      <SmartReport metrics={metrics} />
+
+      {/* Main card */}
       <Card className="border-border/50 shadow-sm">
+        {/* Nav Tabs — status */}
+        <PageTabs tabs={statusTabs} value={status} onChange={setStatus} />
+
+        {/* Filter bar */}
         <div className="p-4 border-b border-border space-y-3 bg-muted/20">
           <div className="flex gap-3">
             <div className="relative flex-1 max-w-lg">
@@ -254,27 +296,24 @@ export default function ForecastsList() {
             </div>
             {(activeFilterCount > 0 || search) && (
               <Button variant="ghost" size="sm" className="h-10 text-muted-foreground hover:text-foreground gap-1.5" onClick={clearAll}>
-                <X className="h-3.5 w-3.5" /> Clear all
+                <X className="h-3.5 w-3.5" /> Clear filters
               </Button>
             )}
           </div>
 
+          {/* LTR filter chips */}
           <div className="flex gap-2 flex-wrap">
-            {STATUSES.map(s => (
-              <Chip key={s.value} active={status === s.value} onClick={() => setStatus(s.value)}>
-                {s.label}
-              </Chip>
-            ))}
-            <div className="w-px bg-border mx-1 self-stretch" />
+            <span className="text-xs text-muted-foreground self-center">vs LTR:</span>
             {LTR_FILTERS.map(f => (
               <Chip key={f.value} active={ltrFilter === f.value} onClick={() => setLtrFilter(f.value)}>
-                {f.value === "positive" && <TrendingUp className="h-3 w-3 inline mr-1 text-green-600" />}
+                {f.value === "positive" && <TrendingUp   className="h-3 w-3 inline mr-1 text-green-600" />}
                 {f.value === "negative" && <TrendingDown className="h-3 w-3 inline mr-1 text-red-500" />}
                 {f.label}
               </Chip>
             ))}
           </div>
 
+          {/* Revenue range */}
           <div className="flex items-center gap-3 max-w-sm">
             <div className="relative flex-1">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">AED</span>
@@ -287,6 +326,7 @@ export default function ForecastsList() {
             </div>
           </div>
 
+          {/* Active filter chips */}
           {activeChips.length > 0 && (
             <div className="flex gap-2 flex-wrap pt-0.5">
               {activeChips.map(({ label, clear }) => (
@@ -302,6 +342,7 @@ export default function ForecastsList() {
           )}
         </div>
 
+        {/* Record count */}
         <div className="px-6 py-2.5 border-b border-border/50 bg-muted/10">
           <p className="text-xs text-muted-foreground">
             Showing <span className="font-semibold text-foreground">{filteredForecasts?.length ?? 0}</span> of{" "}
@@ -328,31 +369,40 @@ export default function ForecastsList() {
               </div>
             }
             actions={forecast => (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-8 w-8 p-0">
-                    <span className="sr-only">Open menu</span>
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link href={`/forecasts/${forecast.id}`}>View Details</Link>
-                  </DropdownMenuItem>
-                  {canEditForecast && (
-                    <DropdownMenuItem asChild>
-                      <Link href={`/forecasts/${forecast.id}/edit`}>Edit Forecast</Link>
-                    </DropdownMenuItem>
-                  )}
-                  {canEditForecast && (
-                    <>
-                      <DropdownMenuSeparator />
+              <div className="flex items-center gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                <Link href={`/forecasts/${forecast.id}`}>
+                  <button
+                    className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                    title="View Details"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
+                </Link>
+                {canEditForecast && (
+                  <Link href={`/forecasts/${forecast.id}/edit`}>
+                    <button
+                      className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                      title="Edit Forecast"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  </Link>
+                )}
+                {canEditForecast && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
                       <DropdownMenuItem>Duplicate</DropdownMenuItem>
+                      <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-destructive focus:text-destructive">Archive</DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
             )}
           />
         </CardContent>

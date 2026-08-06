@@ -23,6 +23,7 @@ import {
   Plus, UserCheck, Phone, Mail, Building, Users, Loader2, Pencil,
   RefreshCw, Home, TrendingUp, Search, X,
 } from "lucide-react";
+import { SmartReport } from "@/components/SmartReport";
 import { useToast } from "@/hooks/use-toast";
 import { DataTable, ColumnDef } from "@/components/DataTable";
 
@@ -289,47 +290,16 @@ export default function RefereesList() {
         )}
       </div>
 
-      {/* Stats bar */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="border-border/50 shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-md"><UserCheck className="h-5 w-5 text-primary" /></div>
-            <div>
-              <p className="text-xs text-muted-foreground">Total Referees</p>
-              <p className="text-xl font-bold">{referees?.length ?? 0}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50 shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-green-100 rounded-md"><Users className="h-5 w-5 text-green-600" /></div>
-            <div>
-              <p className="text-xs text-muted-foreground">Active Referees</p>
-              <p className="text-xl font-bold">{referees?.filter(r => r.isActive).length ?? 0}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50 shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-blue-100 rounded-md"><Building className="h-5 w-5 text-blue-600" /></div>
-            <div>
-              <p className="text-xs text-muted-foreground">Total Referred Owners</p>
-              <p className="text-xl font-bold">{referees?.reduce((sum, r) => sum + ((r as any).referredCount ?? 0), 0) ?? 0}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border/50 shadow-sm border-amber-200 bg-amber-50/40">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 bg-amber-100 rounded-md"><TrendingUp className="h-5 w-5 text-amber-600" /></div>
-            <div>
-              <p className="text-xs text-muted-foreground">Total Commission Liability</p>
-              <p className="text-xl font-bold text-amber-700">
-                {totalCommissionLiability > 0 ? `${totalCommissionLiability.toLocaleString("en-AE")} AED` : "—"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <SmartReport metrics={[
+        { icon: <UserCheck  className="h-4 w-4" />, label: "Total Referees",          value: referees?.length ?? 0 },
+        { icon: <Users      className="h-4 w-4" />, label: "Active Referees",          value: referees?.filter(r => r.isActive).length ?? 0, color: "green" as const },
+        { icon: <RefreshCw  className="h-4 w-4" />, label: "Recurring Programme",      value: referees?.filter(r => r.isRecurringEnabled).length ?? 0 },
+        { icon: <Home       className="h-4 w-4" />, label: "Total Referred Owners",    value: referees?.reduce((sum, r) => sum + ((r as any).referredCount ?? 0), 0) ?? 0 },
+        { icon: <TrendingUp className="h-4 w-4" />, label: "Total Commission Owed",
+          value: totalCommissionLiability > 0 ? `${totalCommissionLiability.toLocaleString("en-AE")} AED` : "—",
+          color: totalCommissionLiability > 0 ? "amber" as const : "default" as const,
+        },
+      ]} />
 
       {/* Filter bar + DataTable */}
       <Card className="border-border/50 shadow-sm">

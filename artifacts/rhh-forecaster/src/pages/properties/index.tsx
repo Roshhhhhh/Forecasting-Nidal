@@ -3,7 +3,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Plus, Search, MapPin, Home, MoreHorizontal, X, SlidersHorizontal, ChevronDown } from "lucide-react";
+import { Plus, Search, MapPin, Home, MoreHorizontal, X, SlidersHorizontal, ChevronDown, Building } from "lucide-react";
+import { SmartReport, Metric } from "@/components/SmartReport";
 import { useState, useMemo } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
@@ -167,6 +168,19 @@ export default function PropertiesList() {
   const canCreateProperty = usePermission("properties.create");
   const canCreateForecast = usePermission("forecasts.create");
 
+  const smartMetrics = useMemo((): Metric[] => {
+    const all = properties ?? [];
+    const apartments = all.filter(p => p.propertyType?.toLowerCase() === "apartment").length;
+    const villas     = all.filter(p => p.propertyType?.toLowerCase() === "villa").length;
+    const uniqueAreas = new Set(all.map(p => p.area).filter(Boolean)).size;
+    return [
+      { icon: <Home     className="h-4 w-4" />, label: "Total Properties", value: all.length },
+      { icon: <Building className="h-4 w-4" />, label: "Apartments",        value: apartments },
+      { icon: <Home     className="h-4 w-4" />, label: "Villas",            value: villas },
+      { icon: <MapPin   className="h-4 w-4" />, label: "Areas",             value: uniqueAreas, subtitle: "unique communities" },
+    ];
+  }, [properties]);
+
   const [search, setSearch] = useState("");
   const [emirate, setEmirate] = useState("all");
   const [propertyType, setPropertyType] = useState("all");
@@ -233,6 +247,8 @@ export default function PropertiesList() {
           </Link>
         )}
       </div>
+
+      <SmartReport metrics={smartMetrics} />
 
       <Card className="border-border/50 shadow-sm">
         <div className="p-4 border-b border-border space-y-3 bg-muted/20">

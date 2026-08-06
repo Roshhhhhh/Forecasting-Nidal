@@ -3,21 +3,22 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Plus, Search, Mail, Phone, MoreHorizontal, X, Building2, User } from "lucide-react";
+import { Plus, Search, Mail, Phone, X, Building2, User, Eye, Users } from "lucide-react";
 import { useState, useMemo } from "react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { usePermission } from "@/hooks/usePermission";
 import { DataTable, ColumnDef } from "@/components/DataTable";
+import { SmartReport } from "@/components/SmartReport";
+import { PageTabs } from "@/components/PageTabs";
 
 const LEAD_SOURCE_OPTIONS = [
-  { value: "all", label: "All Sources" },
-  { value: "referral", label: "Referral" },
-  { value: "cold_call", label: "Cold Call" },
-  { value: "walk_in", label: "Walk-in" },
+  { value: "all",          label: "All Sources" },
+  { value: "referral",     label: "Referral" },
+  { value: "cold_call",    label: "Cold Call" },
+  { value: "walk_in",      label: "Walk-in" },
   { value: "social_media", label: "Social Media" },
-  { value: "event", label: "Event" },
-  { value: "other", label: "Other" },
+  { value: "event",        label: "Event" },
+  { value: "other",        label: "Other" },
 ];
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
@@ -122,16 +123,37 @@ export default function OwnersList() {
   const canCreateOwner    = usePermission("owners.create");
   const canCreateProperty = usePermission("properties.create");
 
-  const [search, setSearch]           = useState("");
-  const [ownerType, setOwnerType]     = useState("all");
+  const [search, setSearch]         = useState("");
+  const [ownerType, setOwnerType]   = useState("all");
   const [clientStatus, setClientStatus] = useState("all");
-  const [leadSource, setLeadSource]   = useState("all");
+  const [leadSource, setLeadSource] = useState("all");
 
+  // ── SmartReport metrics ──────────────────────────────────────────────────
+  const metrics = useMemo(() => {
+    const all = owners ?? [];
+    return [
+      { icon: <Users className="h-4 w-4" />, label: "Total Owners",      value: all.length },
+      { icon: <User  className="h-4 w-4" />, label: "Individual",         value: all.filter(o => o.ownerType === "individual").length },
+      { icon: <Building2 className="h-4 w-4" />, label: "Company",        value: all.filter(o => o.ownerType === "company").length },
+      { icon: <Plus  className="h-4 w-4" />, label: "New Leads",          value: all.filter(o => !o.isExistingClient).length },
+      {                                        label: "Existing Clients",  value: all.filter(o => o.isExistingClient).length,
+        color: "green" as const,
+      },
+    ];
+  }, [owners]);
+
+  // ── Status tabs ───────────────────────────────────────────────────────────
+  const statusTabs = useMemo(() => [
+    { value: "all",      label: "All Owners",       count: owners?.length ?? 0 },
+    { value: "lead",     label: "New Leads",         count: owners?.filter(o => !o.isExistingClient).length ?? 0 },
+    { value: "existing", label: "Existing Clients",  count: owners?.filter(o => o.isExistingClient).length ?? 0 },
+  ], [owners]);
+
+  // ── Filters ───────────────────────────────────────────────────────────────
   const activeFilterCount = useMemo(() => [
     ownerType !== "all",
-    clientStatus !== "all",
     leadSource !== "all",
-  ].filter(Boolean).length, [ownerType, clientStatus, leadSource]);
+  ].filter(Boolean).length, [ownerType, leadSource]);
 
   const filteredOwners = useMemo(() => owners?.filter(o => {
     if (search) {
@@ -139,23 +161,23 @@ export default function OwnersList() {
       if (!`${o.firstName} ${o.lastName} ${o.companyName || ""} ${o.email} ${o.phone || ""}`.toLowerCase().includes(q)) return false;
     }
     if (ownerType !== "all" && o.ownerType !== ownerType) return false;
-    if (clientStatus === "lead" && o.isExistingClient) return false;
+    if (clientStatus === "lead"     && o.isExistingClient)  return false;
     if (clientStatus === "existing" && !o.isExistingClient) return false;
     if (leadSource !== "all" && o.leadSource !== leadSource) return false;
     return true;
   }), [owners, search, ownerType, clientStatus, leadSource]);
 
   function clearAll() {
-    setSearch(""); setOwnerType("all"); setClientStatus("all"); setLeadSource("all");
+    setSearch(""); setOwnerType("all"); setLeadSource("all");
   }
 
   const activeChips: { label: string; clear: () => void }[] = [];
   if (ownerType !== "all") activeChips.push({ label: ownerType === "company" ? "Company" : "Individual", clear: () => setOwnerType("all") });
-  if (clientStatus !== "all") activeChips.push({ label: clientStatus === "existing" ? "Existing Clients" : "New Leads", clear: () => setClientStatus("all") });
   if (leadSource !== "all") activeChips.push({ label: LEAD_SOURCE_OPTIONS.find(l => l.value === leadSource)?.label ?? leadSource, clear: () => setLeadSource("all") });
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-6">
+      {/* Page header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">Property Owners</h1>
@@ -168,7 +190,15 @@ export default function OwnersList() {
         )}
       </div>
 
+      {/* SmartReport */}
+      <SmartReport metrics={metrics} />
+
+      {/* Main card */}
       <Card className="border-border/50 shadow-sm">
+        {/* Nav Tabs */}
+        <PageTabs tabs={statusTabs} value={clientStatus} onChange={setClientStatus} />
+
+        {/* Filter bar */}
         <div className="p-4 border-b border-border space-y-3 bg-muted/20">
           <div className="flex gap-3">
             <div className="relative flex-1 max-w-lg">
@@ -182,25 +212,23 @@ export default function OwnersList() {
             </div>
             {(activeFilterCount > 0 || search) && (
               <Button variant="ghost" size="sm" className="h-10 text-muted-foreground hover:text-foreground gap-1.5" onClick={clearAll}>
-                <X className="h-3.5 w-3.5" /> Clear all
+                <X className="h-3.5 w-3.5" /> Clear filters
               </Button>
             )}
           </div>
 
+          {/* Type chips */}
           <div className="flex gap-2 flex-wrap">
-            <Chip active={ownerType === "all"} onClick={() => setOwnerType("all")}>All Owners</Chip>
+            <Chip active={ownerType === "all"} onClick={() => setOwnerType("all")}>All Types</Chip>
             <Chip active={ownerType === "individual"} onClick={() => setOwnerType("individual")}>
               <User className="h-3 w-3 inline mr-1" />Individual
             </Chip>
             <Chip active={ownerType === "company"} onClick={() => setOwnerType("company")}>
               <Building2 className="h-3 w-3 inline mr-1" />Company
             </Chip>
-            <div className="w-px bg-border mx-1 self-stretch" />
-            <Chip active={clientStatus === "all"} onClick={() => setClientStatus("all")}>All Stages</Chip>
-            <Chip active={clientStatus === "lead"} onClick={() => setClientStatus("lead")}>New Leads</Chip>
-            <Chip active={clientStatus === "existing"} onClick={() => setClientStatus("existing")}>Existing Clients</Chip>
           </div>
 
+          {/* Source chips */}
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
             <span className="text-xs text-muted-foreground self-center shrink-0">Source:</span>
             {LEAD_SOURCE_OPTIONS.map(opt => (
@@ -210,6 +238,7 @@ export default function OwnersList() {
             ))}
           </div>
 
+          {/* Active filter chips */}
           {activeChips.length > 0 && (
             <div className="flex gap-2 flex-wrap">
               {activeChips.map(({ label, clear }) => (
@@ -225,6 +254,7 @@ export default function OwnersList() {
           )}
         </div>
 
+        {/* Record count */}
         <div className="px-6 py-2.5 border-b border-border/50 bg-muted/10">
           <p className="text-xs text-muted-foreground">
             Showing <span className="font-semibold text-foreground">{filteredOwners?.length ?? 0}</span> of{" "}
@@ -251,24 +281,26 @@ export default function OwnersList() {
               </div>
             }
             actions={owner => (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-8 w-8 p-0">
-                    <span className="sr-only">Open menu</span>
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link href={`/owners/${owner.id}`}>View Profile</Link>
-                  </DropdownMenuItem>
-                  {canCreateProperty && (
-                    <DropdownMenuItem asChild>
-                      <Link href={`/properties/new?ownerId=${owner.id}`}>Add Property</Link>
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="flex items-center gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                <Link href={`/owners/${owner.id}`}>
+                  <button
+                    className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                    title="View Profile"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
+                </Link>
+                {canCreateProperty && (
+                  <Link href={`/properties/new?ownerId=${owner.id}`}>
+                    <button
+                      className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                      title="Add Property"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </Link>
+                )}
+              </div>
             )}
           />
         </CardContent>

@@ -317,15 +317,52 @@ router.post("/forecasts/:id/duplicate", requireAuth, async (req, res): Promise<v
   const id = parseInt(raw, 10);
   const [original] = await db.select().from(forecastsTable).where(eq(forecastsTable.id, id));
   if (!original) { res.status(404).json({ error: "Forecast not found" }); return; }
+
+  // Optional overrides from request body (owner / property re-assignment)
+  const ownerIdOverride  = req.body?.ownerId  ? Number(req.body.ownerId)  : undefined;
+  const propertyIdOverride = req.body?.propertyId ? Number(req.body.propertyId) : undefined;
+
   const { id: _id, referenceNumber: _ref, createdAt: _ca, updatedAt: _ua, ...rest } = original;
-  const [duplicate] = await db.insert(forecastsTable).values({
+  const [dup] = await db.insert(forecastsTable).values({
     ...rest,
+    ...(ownerIdOverride   !== undefined && { ownerId:    ownerIdOverride }),
+    ...(propertyIdOverride !== undefined && { propertyId: propertyIdOverride }),
     referenceNumber: generateRef(),
+    // Reset calculated outputs so the staff must recalculate for the new property
+    grossAnnualRevenue: null,
+    netAnnualRevenue: null,
+    netAnnualRevenueLtr: null,
+    weightedAdr: null,
     status: "draft",
     createdById: req.session.userId,
   }).returning();
-  await db.insert(proposalsTable).values({ forecastId: duplicate.id, referenceNumber: duplicate.referenceNumber, createdById: req.session.userId });
-  res.status(201).json(formatForecast(duplicate));
+
+  // Deep-copy scenarios
+  const scenarios = await db.select().from(forecastScenariosTable).where(eq(forecastScenariosTable.forecastId, id));
+  if (scenarios.length) {
+    await db.insert(forecastScenariosTable).values(
+      scenarios.map(({ id: _sid, createdAt: _sca, ...s }) => ({ ...s, forecastId: dup.id }))
+    );
+  }
+
+  // Deep-copy monthly projections (overrides only — recalc will fill the rest)
+  const months = await db.select().from(monthlyProjectionsTable).where(eq(monthlyProjectionsTable.forecastId, id));
+  if (months.length) {
+    await db.insert(monthlyProjectionsTable).values(
+      months.map(({ id: _mid, ...m }) => ({ ...m, forecastId: dup.id }))
+    );
+  }
+
+  // Deep-copy comparables
+  const comparables = await db.select().from(forecastComparablesTable).where(eq(forecastComparablesTable.forecastId, id));
+  if (comparables.length) {
+    await db.insert(forecastComparablesTable).values(
+      comparables.map(({ id: _cid, createdAt: _cca, ...c }) => ({ ...c, forecastId: dup.id }))
+    );
+  }
+
+  await db.insert(proposalsTable).values({ forecastId: dup.id, referenceNumber: dup.referenceNumber, createdById: req.session.userId });
+  res.status(201).json(formatForecast(dup));
 });
 
 router.get("/forecasts/:id/scenarios", requireAuth, async (req, res): Promise<void> => {

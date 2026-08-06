@@ -6,6 +6,8 @@ import {
   useGenerateAiRecommendation, useGenerateNarrativeDraft, useListProposals, usePublishProposal,
   useUpdateProposal, useListForecastComparables, useCreateForecastComparable, useDeleteForecastComparable,
 } from "@workspace/api-client-react";
+import DuplicateForecastModal from "@/components/DuplicateForecastModal";
+import ProposalSharePanel from "@/components/ProposalSharePanel";
 import { useParams, Link } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -362,6 +364,7 @@ export default function ForecastDetail() {
   const [proposalTab, setProposalTab] = useState<"share" | null>(null);
   const [activeTab, setActiveTab] = useState("inputs");
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [duplicateOpen, setDuplicateOpen] = useState(false);
   // Banner shown on Monthly tab after a recalculate that found active overrides
   const [overrideBannerCount, setOverrideBannerCount] = useState<number | null>(null);
 
@@ -679,7 +682,7 @@ export default function ForecastDetail() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => setDuplicateOpen(true)}>
             <Copy className="h-4 w-4" /> Duplicate
           </Button>
           <Button
@@ -1956,6 +1959,24 @@ export default function ForecastDetail() {
                             </a>
                           </Button>
                         </div>
+                        {/* ── Premium share panel ── */}
+                        <div className="rounded-xl border border-border/50 bg-muted/20 p-5">
+                          <ProposalSharePanel
+                            ownerName={(forecast as any).ownerName ?? null}
+                            propertyAddress={(forecast as any).propertyAddress ?? null}
+                            propertyType={(forecast as any).propertyType ?? null}
+                            bedrooms={(forecast as any).bedrooms ?? null}
+                            area={(forecast as any).area ?? null}
+                            grossRevenue={forecast.grossAnnualRevenue ?? null}
+                            netPayout={forecast.netOwnerIncome ?? null}
+                            occupancy={typeof forecast.recommendedOccupancy === "number" ? forecast.recommendedOccupancy : null}
+                            vsLtrPct={typeof forecast.increaseVsLtrPct === "number" ? forecast.increaseVsLtrPct : null}
+                            shareUrl={window.location.origin + proposal!.shareUrl!}
+                            referenceNumber={forecast.referenceNumber}
+                            advisorName={(proposal as any)?.advisorName ?? null}
+                          />
+                        </div>
+
                         {/* Engagement stats */}
                         <div>
                           <div className="flex items-center justify-between mb-2">
@@ -2045,6 +2066,15 @@ export default function ForecastDetail() {
         monthly={monthly ?? []}
         narrativeText={narrativeText}
       />
+
+      {/* ── Duplicate Forecast Modal ── */}
+      {duplicateOpen && (
+        <DuplicateForecastModal
+          forecast={forecast}
+          open={duplicateOpen}
+          onOpenChange={setDuplicateOpen}
+        />
+      )}
     </div>
   );
 }

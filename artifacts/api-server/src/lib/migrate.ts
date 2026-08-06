@@ -370,6 +370,22 @@ export async function runStartupMigration() {
       ALTER TABLE properties ADD COLUMN IF NOT EXISTS has_main_room BOOLEAN NOT NULL DEFAULT false
     `);
 
+    // Create forecast_comparables table (comparable listings panel on forecast detail)
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS forecast_comparables (
+        id           SERIAL PRIMARY KEY,
+        forecast_id  INTEGER NOT NULL REFERENCES forecasts(id) ON DELETE CASCADE,
+        listing_name TEXT NOT NULL,
+        listing_url  TEXT,
+        nightly_rate REAL NOT NULL,
+        occupancy_pct REAL NOT NULL,
+        bedrooms     INTEGER,
+        area         TEXT,
+        sort_order   INTEGER NOT NULL DEFAULT 0,
+        created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
     logger.info("Startup migration complete");
   } catch (err) {
     logger.error({ err }, "Startup migration failed");

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useLocation } from "wouter";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
@@ -18,9 +18,10 @@ interface Props {
   forecast: Forecast;
   open: boolean;
   onOpenChange: (v: boolean) => void;
+  onDuplicating?: (inFlight: boolean) => void;
 }
 
-export default function DuplicateForecastModal({ forecast, open, onOpenChange }: Props) {
+export default function DuplicateForecastModal({ forecast, open, onOpenChange, onDuplicating }: Props) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
@@ -90,7 +91,13 @@ export default function DuplicateForecastModal({ forecast, open, onOpenChange }:
   const ownerChanged    = selectedOwnerId    !== (forecast.ownerId    ?? null);
   const propertyChanged = selectedPropertyId !== (forecast.propertyId ?? null);
 
+  // Synchronous ref guard — prevents two calls racing before React re-renders
+  const inFlightRef = useRef(false);
+
   async function handleDuplicate() {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    onDuplicating?.(true);
     try {
       const body: Record<string, number> = {};
       if (selectedOwnerId    !== null) body.ownerId    = selectedOwnerId;
@@ -106,6 +113,9 @@ export default function DuplicateForecastModal({ forecast, open, onOpenChange }:
       setLocation(`/forecasts/${newForecast.id}`);
     } catch {
       toast({ title: "Duplicate failed", description: "Please try again.", variant: "destructive" });
+    } finally {
+      inFlightRef.current = false;
+      onDuplicating?.(false);
     }
   }
 

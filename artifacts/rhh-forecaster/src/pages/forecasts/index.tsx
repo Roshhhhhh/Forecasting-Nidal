@@ -205,6 +205,7 @@ export default function ForecastsList() {
   const [revenueMin, setRevenueMin] = useState("");
   const [revenueMax, setRevenueMax] = useState("");
   const [duplicateForecast, setDuplicateForecast] = useState<Forecast | null>(null);
+  const [isDuplicating, setIsDuplicating]         = useState(false);
 
   // ── SmartReport metrics ────────────────────────────────────────────────────
   const metrics = useMemo(() => {
@@ -398,7 +399,11 @@ export default function ForecastsList() {
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem onClick={() => setDuplicateForecast(forecast)} className="gap-2">
+                      <DropdownMenuItem
+                        onClick={() => { if (!isDuplicating) setDuplicateForecast(forecast); }}
+                        disabled={isDuplicating}
+                        className="gap-2"
+                      >
                         <Copy className="h-4 w-4" /> Duplicate
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
@@ -417,6 +422,7 @@ export default function ForecastsList() {
           forecast={duplicateForecast}
           open={!!duplicateForecast}
           onOpenChange={open => { if (!open) setDuplicateForecast(null); }}
+          onDuplicating={setIsDuplicating}
         />
       )}
     </div>

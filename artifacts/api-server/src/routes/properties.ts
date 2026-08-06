@@ -29,6 +29,7 @@ function formatProperty(p: any, ownerName?: string | null) {
     bathrooms: p.bathrooms,
     hasMaidsRoom: p.hasMaidsRoom,
     hasStudy: p.hasStudy,
+    hasMainRoom: (p as any).hasMainRoom ?? false,
     balconies: p.balconies,
     parkingSpaces: p.parkingSpaces,
     internalArea: p.internalArea,

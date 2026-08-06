@@ -55,6 +55,7 @@ export const propertiesTable = pgTable("properties", {
   bathrooms: real("bathrooms").notNull(),
   hasMaidsRoom: boolean("has_maids_room").notNull().default(false),
   hasStudy: boolean("has_study").notNull().default(false),
+  hasMainRoom: boolean("has_main_room").notNull().default(false),
   balconies: integer("balconies"),
   parkingSpaces: integer("parking_spaces"),
   internalArea: real("internal_area").notNull(),

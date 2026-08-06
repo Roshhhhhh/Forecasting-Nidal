@@ -142,6 +142,20 @@ export default function PublicProposal() {
   const [chartView, setChartView] = useState<"net" | "gross" | "occ" | "adr">("net");
   const [mobileScenarioIndex, setMobileScenarioIndex] = useState(0);
 
+  // Pin mobile scenario selector to the recommended (80%) scenario on load
+  useEffect(() => {
+    if (!proposal?.scenarios?.length) return;
+    const sorted = ([...proposal.scenarios] as any[]).sort((a, b) => a.occupancyRate - b.occupancyRate);
+    const rec =
+      sorted.find((s: any) => s.isRecommended) ??
+      sorted.find((s: any) => Math.abs((s.occupancyRate ?? 0) - 0.80) < 0.01) ??
+      sorted.reduce((best: any, s: any) =>
+        Math.abs(s.occupancyRate - 0.80) < Math.abs(best.occupancyRate - 0.80) ? s : best,
+        sorted[0]);
+    const idx = sorted.indexOf(rec);
+    if (idx >= 0) setMobileScenarioIndex(idx);
+  }, [proposal?.scenarios?.length]);
+
   // Expanded sections on mobile
   const [expandedCosts, setExpandedCosts] = useState(false);
 

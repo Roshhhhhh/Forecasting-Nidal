@@ -365,6 +365,11 @@ export async function runStartupMigration() {
       `);
     }
 
+    // Add has_main_room column to properties if missing
+    await db.execute(sql`
+      ALTER TABLE properties ADD COLUMN IF NOT EXISTS has_main_room BOOLEAN NOT NULL DEFAULT false
+    `);
+
     logger.info("Startup migration complete");
   } catch (err) {
     logger.error({ err }, "Startup migration failed");

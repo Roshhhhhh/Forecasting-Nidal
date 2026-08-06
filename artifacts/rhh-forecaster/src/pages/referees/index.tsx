@@ -1,6 +1,6 @@
 import { useState } from "react";
 import {
-  useListReferees, useCreateReferee, useUpdateReferee,
+  useListReferees, useCreateReferee, useUpdateReferee, getListRefereesQueryKey,
 } from "@workspace/api-client-react";
 import { usePermission } from "@/hooks/usePermission";
 import { useQueryClient } from "@tanstack/react-query";
@@ -97,7 +97,7 @@ export default function RefereesList() {
         await createReferee.mutateAsync({ data: data as any });
         toast({ title: "Referee created", description: "A unique Referee ID has been generated." });
       }
-      queryClient.invalidateQueries({ queryKey: ["listReferees"] });
+      queryClient.invalidateQueries({ queryKey: getListRefereesQueryKey() });
       setDialogOpen(false);
     } catch {
       toast({ title: "Error", variant: "destructive", description: "Failed to save referee." });

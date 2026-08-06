@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useCreateOwner, useListUsers, useListReferees, useCreateReferee, useCreateUser, useListRoles } from "@workspace/api-client-react";
+import { useCreateOwner, useListUsers, useListReferees, useCreateReferee, useCreateUser, useListRoles, getListRefereesQueryKey, getListUsersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -127,7 +127,7 @@ export default function OwnerNew() {
   async function handleCreateReferee(data: RefereeQuickFormValues) {
     try {
       const newReferee = await createReferee.mutateAsync({ data: data as any });
-      queryClient.invalidateQueries({ queryKey: ["listReferees"] });
+      queryClient.invalidateQueries({ queryKey: getListRefereesQueryKey() });
       form.setValue("refereeId", (newReferee as any).id);
       setAddRefereeOpen(false);
       refereeForm.reset({
@@ -159,7 +159,7 @@ export default function OwnerNew() {
           phone:    data.phone,
         } as any,
       });
-      queryClient.invalidateQueries({ queryKey: ["listUsers"] });
+      queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
       form.setValue("assignedToId", (newUser as any).id);
       setAddRepOpen(false);
       repForm.reset({ name: "", email: "", password: "", roleId: "" });

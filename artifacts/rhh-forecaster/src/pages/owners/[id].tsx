@@ -23,7 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Plus, Mail, Phone, MapPin, FileText, Pencil, Home, Globe,
-  UserCheck, UserPlus, Loader2,
+  UserCheck, UserPlus, Loader2, Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -112,6 +112,8 @@ export default function OwnerDetail() {
   const [editOpen, setEditOpen] = useState(false);
   const [addRepOpen, setAddRepOpen] = useState(false);
   const [addRefereeOpen, setAddRefereeOpen] = useState(false);
+  const [repSearch, setRepSearch] = useState("");
+  const [refereeSearch, setRefereeSearch] = useState("");
 
   const form = useForm<EditFormValues>({ resolver: zodResolver(editSchema) });
   const repForm = useForm<RepQuickFormValues>({
@@ -182,7 +184,7 @@ export default function OwnerDetail() {
   async function handleCreateRep(data: RepQuickFormValues) {
     try {
       const newUser = await createUser.mutateAsync({ data: data as any });
-      queryClient.invalidateQueries({ queryKey: ["listUsers"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       form.setValue("assignedToId", (newUser as any).id);
       setAddRepOpen(false);
       repForm.reset({ name: "", email: "", password: "", role: "sales" });
@@ -195,7 +197,7 @@ export default function OwnerDetail() {
   async function handleCreateReferee(data: RefereeQuickFormValues) {
     try {
       const newRef = await createReferee.mutateAsync({ data: data as any });
-      queryClient.invalidateQueries({ queryKey: ["listReferees"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/referees"] });
       form.setValue("refereeId", (newRef as any).id);
       setAddRefereeOpen(false);
       refereeForm.reset({ name: "", commissionPercent: 5 });
@@ -514,14 +516,31 @@ export default function OwnerDetail() {
                       <FormLabel>Assigned Representative</FormLabel>
                       <div className="flex gap-2">
                         <Select
-                          onValueChange={(val) => field.onChange(val ? parseInt(val) : null)}
+                          onValueChange={(val) => { field.onChange(val ? parseInt(val) : null); setRepSearch(""); }}
                           value={field.value ? String(field.value) : ""}
+                          onOpenChange={(open) => { if (!open) setRepSearch(""); }}
                         >
                           <FormControl><SelectTrigger><SelectValue placeholder="Select team member" /></SelectTrigger></FormControl>
                           <SelectContent>
-                            {users?.map((u: any) => (
-                              <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
-                            ))}
+                            <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border">
+                              <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              <input
+                                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                                placeholder="Search team members..."
+                                value={repSearch}
+                                onChange={(e) => setRepSearch(e.target.value)}
+                                onKeyDown={(e) => e.stopPropagation()}
+                              />
+                            </div>
+                            {users
+                              ?.filter((u: any) => u.name.toLowerCase().includes(repSearch.toLowerCase()))
+                              .map((u: any) => (
+                                <SelectItem key={u.id} value={String(u.id)}>{u.name}</SelectItem>
+                              ))
+                            }
+                            {users?.filter((u: any) => u.name.toLowerCase().includes(repSearch.toLowerCase())).length === 0 && (
+                              <p className="py-2 text-center text-xs text-muted-foreground">No members found</p>
+                            )}
                           </SelectContent>
                         </Select>
                         <Button type="button" variant="outline" size="icon" className="shrink-0"
@@ -548,8 +567,9 @@ export default function OwnerDetail() {
                       <FormField control={form.control} name="refereeId" render={({ field }) => (
                         <FormItem className="flex-1">
                           <Select
-                            onValueChange={(val) => field.onChange(val ? parseInt(val) : null)}
+                            onValueChange={(val) => { field.onChange(val ? parseInt(val) : null); setRefereeSearch(""); }}
                             value={field.value ? String(field.value) : ""}
+                            onOpenChange={(open) => { if (!open) setRefereeSearch(""); }}
                           >
                             <FormControl>
                               <SelectTrigger className="bg-background">
@@ -557,12 +577,36 @@ export default function OwnerDetail() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {referees?.filter((r: any) => r.isActive).map((r: any) => (
-                                <SelectItem key={r.id} value={String(r.id)}>
-                                  <span className="font-mono text-xs text-primary mr-2">{r.refereeCode}</span>
-                                  {r.name}{r.companyName && ` (${r.companyName})`}
-                                </SelectItem>
-                              ))}
+                              <div className="flex items-center gap-2 px-2 py-1.5 border-b border-border">
+                                <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                <input
+                                  className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                                  placeholder="Search referees..."
+                                  value={refereeSearch}
+                                  onChange={(e) => setRefereeSearch(e.target.value)}
+                                  onKeyDown={(e) => e.stopPropagation()}
+                                />
+                              </div>
+                              {referees
+                                ?.filter((r: any) => r.isActive && (
+                                  r.name.toLowerCase().includes(refereeSearch.toLowerCase()) ||
+                                  (r.companyName ?? "").toLowerCase().includes(refereeSearch.toLowerCase()) ||
+                                  (r.refereeCode ?? "").toLowerCase().includes(refereeSearch.toLowerCase())
+                                ))
+                                .map((r: any) => (
+                                  <SelectItem key={r.id} value={String(r.id)}>
+                                    <span className="font-mono text-xs text-primary mr-2">{r.refereeCode}</span>
+                                    {r.name}{r.companyName && ` (${r.companyName})`}
+                                  </SelectItem>
+                                ))
+                              }
+                              {referees?.filter((r: any) => r.isActive && (
+                                r.name.toLowerCase().includes(refereeSearch.toLowerCase()) ||
+                                (r.companyName ?? "").toLowerCase().includes(refereeSearch.toLowerCase()) ||
+                                (r.refereeCode ?? "").toLowerCase().includes(refereeSearch.toLowerCase())
+                              )).length === 0 && (
+                                <p className="py-2 text-center text-xs text-muted-foreground">No referees found</p>
+                              )}
                             </SelectContent>
                           </Select>
                         </FormItem>

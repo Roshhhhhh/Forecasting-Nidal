@@ -12,6 +12,7 @@ import {
 import { requireAuth } from "../middlewares/auth";
 import { calculateMonthlyProjections, calculateScenario, type MonthlyOverrides, REFERENCE_OCCUPANCY } from "../lib/calculate";
 import { bustCommissionCache } from "./referees";
+import OpenAI from "openai";
 
 /** Bust the server-side commission cache for whichever referee is linked to this forecast's owner. */
 async function bustCacheForForecast(ownerId: number | null | undefined): Promise<void> {
@@ -441,28 +442,79 @@ router.post("/forecasts/:id/narrative-draft", requireAuth, async (req, res): Pro
   const netIncome = f.netOwnerIncome ? `AED ${Math.round(f.netOwnerIncome).toLocaleString()}` : null;
   const ltrUplift = f.increaseVsLtrPct ? `${Math.round(f.increaseVsLtrPct)}%` : null;
   const ownerFirstName = ownerInfo?.firstName ?? null;
-
   const locationStr = building ? `${building}, ${area}` : area;
-  const greeting = ownerFirstName ? `Dear ${ownerFirstName}, ` : "";
 
-  let sentence1 = `${greeting}Based on our detailed analysis of comparable short-term rental units in ${locationStr}, your ${bedroomLabel} property is well-positioned to outperform traditional long-term rental benchmarks in the Abu Dhabi market.`;
-
-  let sentence2 = "";
-  if (weightedAdr && occupancyPct) {
-    sentence2 = ` At a weighted average daily rate of ${weightedAdr} and a projected occupancy of ${occupancyPct}, the figures in this report reflect achievable, data-backed market rates drawn from active comparable listings.`;
-  } else if (weightedAdr) {
-    sentence2 = ` At a weighted average daily rate of ${weightedAdr}, the projections in this report reflect achievable, data-backed market rates drawn from active comparable listings.`;
+  // ── Build template fallback ─────────────────────────────────────────────────
+  function buildTemplateDraft(): string {
+    const greeting = ownerFirstName ? `Dear ${ownerFirstName}, ` : "";
+    let s1 = `${greeting}Based on our detailed analysis of comparable short-term rental units in ${locationStr}, your ${bedroomLabel} property is well-positioned to outperform traditional long-term rental benchmarks in the Abu Dhabi market.`;
+    let s2 = "";
+    if (weightedAdr && occupancyPct) {
+      s2 = ` At a weighted average daily rate of ${weightedAdr} and a projected occupancy of ${occupancyPct}, the figures in this report reflect achievable, data-backed market rates drawn from active comparable listings.`;
+    } else if (weightedAdr) {
+      s2 = ` At a weighted average daily rate of ${weightedAdr}, the projections in this report reflect achievable, data-backed market rates drawn from active comparable listings.`;
+    }
+    let s3 = "";
+    if (netIncome && ltrUplift) {
+      s3 = ` This translates to an estimated net owner income of ${netIncome} per year — representing a ${ltrUplift} uplift over the long-term rental benchmark — giving you a significantly stronger return while maintaining full flexibility over your asset.`;
+    } else if (netIncome) {
+      s3 = ` This translates to an estimated net owner income of ${netIncome} per year, giving you a meaningfully stronger return while maintaining full flexibility over your asset.`;
+    }
+    return (s1 + s2 + s3).trim();
   }
 
-  let sentence3 = "";
-  if (netIncome && ltrUplift) {
-    sentence3 = ` This translates to an estimated net owner income of ${netIncome} per year — representing a ${ltrUplift} uplift over the long-term rental benchmark — giving you a significantly stronger return while maintaining full flexibility over your asset.`;
-  } else if (netIncome) {
-    sentence3 = ` This translates to an estimated net owner income of ${netIncome} per year, giving you a meaningfully stronger return while maintaining full flexibility over your asset.`;
+  // ── Attempt AI generation ───────────────────────────────────────────────────
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (apiKey) {
+    try {
+      const openai = new OpenAI({ apiKey });
+
+      const contextLines: string[] = [
+        `Property type: ${bedroomLabel}`,
+        `Location: ${locationStr}`,
+        `Market: Abu Dhabi short-term rental (STR)`,
+      ];
+      if (weightedAdr) contextLines.push(`Weighted average daily rate: ${weightedAdr}`);
+      if (occupancyPct) contextLines.push(`Projected occupancy rate: ${occupancyPct}`);
+      if (netIncome) contextLines.push(`Estimated net owner income: ${netIncome} per year`);
+      if (ltrUplift) contextLines.push(`Uplift vs. long-term rental benchmark: ${ltrUplift}`);
+      if (ownerFirstName) contextLines.push(`Owner first name: ${ownerFirstName}`);
+
+      const systemPrompt = `You are a senior property consultant at Royal Holiday Homes (RHH), a premium short-term rental management company in Abu Dhabi. Your task is to write a concise, owner-facing narrative for a property revenue forecast proposal.
+
+Guidelines:
+- Write exactly 2–3 sentences.
+- Address the owner by first name if provided (e.g. "Dear Ahmed,").
+- Be specific to the area and property type — avoid generic phrases.
+- Mention at least one concrete data point from the forecast (ADR, occupancy, net income, or LTR uplift).
+- Tone: professional, warm, and confident. Make the owner feel assured this is personalised analysis.
+- Do not use bullet points, markdown, or headings — plain prose only.
+- End with a forward-looking statement about why STR outperforms LTR for this property.`;
+
+      const userPrompt = `Write the owner narrative for this forecast:\n${contextLines.join("\n")}`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o",
+        max_tokens: 300,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+      });
+
+      const aiDraft = completion.choices[0]?.message?.content?.trim();
+      if (aiDraft) {
+        res.json({ draft: aiDraft, source: "ai" });
+        return;
+      }
+    } catch (err) {
+      // Log and fall through to template
+      console.error("[narrative-draft] OpenAI call failed, using template fallback:", err);
+    }
   }
 
-  const draft = (sentence1 + sentence2 + sentence3).trim();
-  res.json({ draft });
+  // ── Template fallback ───────────────────────────────────────────────────────
+  res.json({ draft: buildTemplateDraft(), source: "template" });
 });
 
 export default router;

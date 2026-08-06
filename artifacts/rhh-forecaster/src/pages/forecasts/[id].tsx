@@ -34,7 +34,7 @@ const MONTH_SEASON_LABEL = ["peak","peak","shoulder","shoulder","shoulder","low"
 const REFERENCE_OCC   = 0.75; // March shoulder = scale reference
 
 // Sensitivity table columns: reference occupancy levels
-const OCC_LEVELS = [0.95, 0.90, 0.85, 0.80, 0.75, 0.70, 0.65];
+const OCC_LEVELS = [0.95, 0.90, 0.85, 0.80, 0.75, 0.70];
 
 interface FormValues {
   annualLtr: number;
@@ -1135,8 +1135,7 @@ export default function ForecastDetail() {
                           {occ === 0.85 && <div className="text-[10px] font-normal mt-0.5">Confident</div>}
                           {occ === 0.80 && <div className="text-[10px] font-normal mt-0.5">Realistic</div>}
                           {occ === 0.75 && <div className="text-[10px] font-normal mt-0.5">Reference</div>}
-                          {occ === 0.70 && <div className="text-[10px] font-normal mt-0.5">Cautious</div>}
-                          {occ === 0.65 && <div className="text-[10px] font-normal mt-0.5">Conservative</div>}
+                          {occ === 0.70 && <div className="text-[10px] font-normal mt-0.5">Conservative</div>}
                         </th>
                       ))}
                     </tr>
@@ -1318,11 +1317,11 @@ export default function ForecastDetail() {
                     className="gap-2 border-primary/30 text-primary hover:bg-primary/5"
                     onClick={handleGenerateDraft}
                     disabled={generateNarrativeDraft.isPending || !forecast?.grossAnnualRevenue}
-                    title={!forecast?.grossAnnualRevenue ? "Run Save & Calculate first to enable AI draft" : "Generate a personalised draft from this property's data"}
+                    title={!forecast?.grossAnnualRevenue ? "Run Save & Calculate first to enable AI draft" : "Generate an AI-written paragraph personalised to this property's data using GPT-4o"}
                   >
                     {generateNarrativeDraft.isPending
                       ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</>
-                      : <><Sparkles className="h-4 w-4" /> Generate Draft</>}
+                      : <><Sparkles className="h-4 w-4" /> AI Draft</>}
                   </Button>
                   <Button
                     size="sm"

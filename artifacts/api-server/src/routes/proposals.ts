@@ -157,11 +157,21 @@ router.get("/p/:token", async (req, res): Promise<void> => {
     ? [propertyData.projectBuilding, propertyData.area, "Abu Dhabi"].filter(Boolean).join(", ")
     : "Property";
 
+  // Build owner first name (strip title duplication for salutation)
+  const ownerFirstName = ownerData?.firstName ?? "";
+  const ownerLastName  = ownerData?.lastName  ?? "";
+  const ownerTitle     = ownerData?.title     ?? null;
+
   res.json({
     referenceNumber: proposal.referenceNumber,
-    ownerName,
-    ownerTitle: ownerData?.title ?? null,
+    ownerName,            // server-composed full name (may duplicate title — client deduplicates)
+    ownerTitle,
+    ownerFirstName,
+    ownerLastName,
     propertyAddress,
+    projectBuilding: propertyData?.projectBuilding ?? null,
+    area: propertyData?.area ?? null,
+    unitNumber: propertyData?.unitNumber ?? null,
     propertyType: propertyData?.propertyType ?? "apartment",
     bedrooms: propertyData?.bedrooms ?? 1,
     bathrooms: propertyData?.bathrooms ?? 1,
@@ -176,8 +186,17 @@ router.get("/p/:token", async (req, res): Promise<void> => {
     netOwnerIncome: forecast.netOwnerIncome ?? 0,
     monthlyPayout: forecast.netOwnerIncome ? Math.round(forecast.netOwnerIncome / 12) : 0,
     netLtrIncome: forecast.netLtrIncome ?? null,
+    annualLtr: forecast.annualLtr ?? null,
+    ltrVacancyPercent: forecast.ltrVacancyPercent ?? 10,
+    managementFeePercent: forecast.managementFeePercent ?? 17,
     increaseVsLtr: forecast.increaseVsLtr ?? null,
     increaseVsLtrPct: forecast.increaseVsLtrPct ?? null,
+    // Expense breakdown
+    utilityCost: forecast.utilityCost ?? 0,
+    internetCost: forecast.internetCost ?? 0,
+    maintenanceCost: forecast.maintenanceCost ?? 0,
+    miscCost: forecast.miscCost ?? 0,
+    ownerBlockedNights: forecast.ownerBlockedNights ?? 0,
     narrativeText: proposal.coverNarrative ?? forecast.narrativeText ?? null,
     scenarios,
     monthlyProjections,
@@ -186,7 +205,7 @@ router.get("/p/:token", async (req, res): Promise<void> => {
     advisorName,
     companyPhone: settings?.phone ?? null,
     companyEmail: settings?.ownerEmail ?? null,
-    disclaimer: settings?.disclaimer ?? "This forecast is an estimate and does not represent a guarantee of future rental income.",
+    disclaimer: settings?.disclaimer ?? "This forecast is an estimate prepared using available property information, Royal Holiday Homes' internal market benchmarks and current conditions. Actual occupancy, ADR, expenses, gross revenue and net owner income may differ. This proposal does not represent a guarantee of future rental income.",
     ownerAction: proposal.ownerAction ?? null,
   });
 });

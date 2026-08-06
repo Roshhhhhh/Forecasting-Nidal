@@ -1,0 +1,1656 @@
+Please redesign and rebuild the existing Royal Holiday Homes owner-facing proposal experience.
+
+The current proposal is visually strong, but the data architecture, scenario selection, content flow, PDF consistency and owner conversion journey must be corrected.
+
+This update should preserve the existing forecasting backend while rebuilding the public owner proposal as one premium, continuous, mobile-responsive landing page.
+
+Do not build separate content pages hidden behind tabs.
+
+The proposal must feel like a personalized investment presentation and conversion page, not a generic dashboard or a multi-page corporate website.
+
+==================================================
+1. CRITICAL SCENARIO LOGIC CORRECTION
+==================================================
+
+The proposal currently pulls headline data and the cover narrative from the wrong scenario.
+
+The approved owner-facing reference scenario must be:
+
+Scenario name: Realistic
+Occupancy: 80%
+
+The 80% Realistic scenario must be used consistently throughout:
+
+- Cover narrative
+- Hero financial figures
+- Average daily rate
+- Gross annual revenue
+- Annual net owner income
+- Average monthly payout
+- Increase versus long-term rental
+- Monthly revenue chart
+- Monthly net income chart
+- Seasonal ADR explanation
+- Long-term rental comparison
+- Downloaded PDF
+- Acceptance summary
+- Internal notification after acceptance
+- Email previews
+- Open Graph preview, where financial information is enabled
+- Any AI-generated proposal narrative
+
+Do not allow different components to independently select:
+
+- The first scenario
+- The lowest scenario
+- The highest scenario
+- The scenario with the lowest sort order
+- The scenario most recently created
+- A hardcoded occupancy rate
+
+Every proposal must have a single authoritative field:
+
+recommendedScenarioId
+
+All primary proposal content must resolve through:
+
+proposal.recommendedScenarioId
+
+For the current configuration, recommendedScenarioId should point to the Realistic 80% scenario.
+
+Other scenarios may remain available for comparison, but they must not replace the owner-facing recommended scenario unless an authorized admin explicitly changes the recommended scenario.
+
+==================================================
+2. CREATE A SINGLE SOURCE OF TRUTH
+==================================================
+
+Create one normalized proposal view model on the server.
+
+Example:
+
+ProposalViewModel {
+  proposalId
+  proposalReference
+  proposalDate
+  expiryDate
+  owner
+  property
+  recommendedScenario
+  approvedScenarios
+  seasonalRates
+  monthlyForecast
+  longTermRental
+  financialSummary
+  narrative
+  companyProfile
+  proposalStatus
+  engagementPermissions
+}
+
+The following values must come only from recommendedScenario:
+
+- recommendedOccupancy
+- weightedAverageADR
+- grossAnnualRevenue
+- annualNetOwnerIncome
+- averageMonthlyNetPayout
+- upliftAmount
+- upliftPercentage
+- totalAnnualExpenses
+- managementFee
+- monthlyForecast
+- coverNarrativeVariables
+
+Create a reusable server-side function such as:
+
+getPublishedProposalViewModel(proposalToken)
+
+This function must:
+
+1. Find the published proposal version.
+2. Find its recommendedScenarioId.
+3. Validate that the scenario belongs to the proposal version.
+4. Validate that the scenario is approved.
+5. Calculate or retrieve all final financial values.
+6. Return one immutable view model.
+7. Supply the same view model to the web proposal and PDF generator.
+
+Do not perform financial calculations separately inside React components.
+
+Do not let the PDF recalculate values independently.
+
+==================================================
+3. RECOMMENDED SCENARIO VALIDATION
+==================================================
+
+Before publishing a proposal, validate:
+
+- A recommended scenario has been selected.
+- The recommended scenario is approved.
+- Occupancy is between 0% and 100%.
+- Monthly revenue totals reconcile with annual revenue.
+- Net income reconciles with gross revenue less expenses.
+- Long-term comparison uses the approved LTR benchmark.
+- The narrative references the same scenario.
+- The PDF preview references the same scenario.
+- The proposal hero references the same scenario.
+
+Add a pre-publication consistency check showing:
+
+Proposal Data Consistency
+- Cover scenario: 80%
+- Financial summary scenario: 80%
+- Monthly chart scenario: 80%
+- Narrative scenario: 80%
+- PDF scenario: 80%
+- Acceptance scenario: 80%
+
+Status:
+- Passed
+- Warning
+- Failed
+
+Prevent publication when the status is Failed.
+
+==================================================
+4. FIX OWNER NAME AND SALUTATION LOGIC
+==================================================
+
+The current proposal shows:
+
+“Mr. Mr. Amine Natik”
+
+This must be fixed.
+
+Store owner fields separately:
+
+- title
+- firstName
+- middleName
+- lastName
+- displayName
+- companyName
+- ownerType
+
+Create one formatting function:
+
+formatOwnerDisplayName(owner)
+
+Rules:
+
+For an individual:
+- If title exists, show title once.
+- Do not add a title if displayName already begins with the same title.
+- Remove duplicated title prefixes.
+- Do not display empty middle names.
+- Do not use “Owner(s)” in personalized narrative text.
+
+Correct examples:
+
+Mr. Amine Natik
+Ms. Fatin Al [Surname]
+Dr. [Full Name]
+
+Incorrect examples:
+
+Mr. Mr. Amine Natik
+Mr Mr Amine Natik
+Dear Mr. Mr. Amine
+
+For the hero:
+
+Exclusively Prepared For
+Mr. Amine Natik
+
+For the narrative:
+
+Dear Mr. Amine,
+
+or, based on admin preference:
+
+Dear Amine,
+
+Create a proposal setting:
+
+narrativeSalutationStyle:
+- formal
+- first_name
+- full_name
+- company
+
+==================================================
+5. REBUILD AS ONE CONTINUOUS LANDING PAGE
+==================================================
+
+Remove the current separate content-tab experience as the primary navigation.
+
+Build one continuous landing page with sections in the following order:
+
+1. Sticky Proposal Header
+2. Hero and Personalized Financial Summary
+3. Property Overview
+4. Personalized Cover Narrative
+5. Executive Financial Summary
+6. Interactive Scenario Comparison
+7. Detailed Income Calculator
+8. Monthly STR Versus LTR Forecast
+9. Gross Revenue Versus Net Income
+10. Seasonal Revenue Strategy
+11. Why Short-Term Rental
+12. Owner Benefits
+13. How Royal Holiday Homes Works
+14. Why Royal Holiday Homes
+15. Portfolio and Distribution
+16. Important Forecast Notes
+17. Next Steps and Proposal Acceptance
+18. Contact and Footer
+
+The top navigation may retain labels such as:
+
+- Overview
+- Financials
+- Why STR
+- Our Process
+- Next Steps
+
+However, these must be anchor links that smoothly scroll to sections on the same page.
+
+Do not hide proposal sections behind tabs.
+
+Desktop:
+- Sticky top navigation
+- Smooth anchor scrolling
+- Active-section highlighting
+
+Mobile:
+- Compact sticky header
+- Dropdown section navigation or horizontal scroll anchors
+- Persistent “Proceed” CTA where appropriate
+
+==================================================
+6. STICKY PROPOSAL HEADER
+==================================================
+
+Create a premium sticky header containing:
+
+Left:
+- Royal Holiday Homes logo
+- Royal Holiday Homes name
+
+Centre or right:
+- Proposal reference
+- Proposal date
+- Optional validity date
+
+Actions:
+- Download PDF
+- Request a Call
+- Proceed to Next Steps
+
+Do not make the header too tall.
+
+Once the owner scrolls beyond the hero, reduce the header height.
+
+Ensure the header works well on laptop, tablet and mobile.
+
+==================================================
+7. HERO SECTION
+==================================================
+
+The hero should be visually premium, personalized and immediately explain the opportunity.
+
+Use:
+
+- Dark charcoal or black background
+- Warm Royal gold accents
+- White typography
+- Subtle gradient
+- Optional low-opacity Abu Dhabi skyline
+- Optional property image or development image
+- Elegant serif heading paired with a clean sans-serif body font
+
+Hero content:
+
+Eyebrow:
+EXCLUSIVELY PREPARED FOR
+
+Owner:
+Mr. Amine Natik
+
+Subtitle:
+Property Management Proposal
+
+Property location card:
+Mamsha, Building Lilac 5, Saadiyat Island, Abu Dhabi
+
+Optional property information:
+- 2 Bedroom
+- Number of bathrooms
+- Size
+- View
+- Floor
+- Furnishing level
+
+Primary financial strip:
+
+- Annual Net Owner Income
+- Average Monthly Net Payout
+- Recommended Occupancy
+- Increase Versus Long-Term Rental
+
+All hero figures must come from the 80% Realistic recommended scenario.
+
+Also include:
+
+- Weighted Average Daily Rate
+- Gross Annual Revenue
+
+Use the wording:
+
+Recommended Forecast
+Realistic Scenario at 80% Occupancy
+
+Do not use “Occupancy Assumed” without context.
+
+Suggested wording:
+
+Recommended Occupancy
+80%
+
+Do not show the 85% scenario in the hero unless it has explicitly been selected as the recommended scenario by an authorized user.
+
+==================================================
+8. PERSONALIZED COVER NARRATIVE
+==================================================
+
+Preserve the existing Cover Narrative admin tool because it is valuable.
+
+However, its variables must resolve exclusively from recommendedScenarioId.
+
+Narrative variables should include:
+
+{{owner_salutation}}
+{{owner_first_name}}
+{{owner_full_name}}
+{{property_type}}
+{{bedrooms}}
+{{bathrooms}}
+{{size}}
+{{view}}
+{{building}}
+{{development}}
+{{area}}
+{{weighted_average_adr}}
+{{recommended_occupancy}}
+{{gross_annual_revenue}}
+{{annual_net_owner_income}}
+{{average_monthly_payout}}
+{{net_ltr_income}}
+{{uplift_amount}}
+{{uplift_percentage}}
+{{standout_property_feature}}
+{{forecast_year}}
+
+For the current proposal, the narrative must pull from the 80% scenario.
+
+Do not allow the narrative generator to automatically use the 75% scenario.
+
+Create a clear label inside the admin tool:
+
+Narrative Financial Reference
+Realistic Scenario, 80% Occupancy
+
+Add a button:
+
+Regenerate from Recommended Scenario
+
+When the recommended scenario changes:
+
+- Show that the existing narrative may be outdated.
+- Do not silently rewrite an approved manual narrative.
+- Offer to regenerate it.
+- Highlight financial values that no longer match.
+- Prevent publishing until mismatches are resolved.
+
+Suggested narrative style:
+
+- 2 to 4 concise paragraphs
+- Personalized
+- Owner-focused
+- Professional
+- Confident but not exaggerated
+- Specific to the building and area
+- Explain why the property is suitable for STR
+- Reference the recommended occupancy and financial outcome
+- Avoid guarantees
+- Avoid excessive AI language
+- Avoid generic filler
+- Avoid unnecessary use of long dashes
+- Use AED formatting consistently
+
+Example structure:
+
+Dear Mr. Amine,
+
+Based on our analysis of comparable short-term rental properties in Mamsha, Saadiyat Island, your two-bedroom property is well positioned to benefit from the area’s premium waterfront positioning, year-round leisure demand and strong event-driven travel market.
+
+Under our recommended Realistic scenario at 80% occupancy, the property is forecast to achieve a weighted average daily rate of AED [ADR], generating approximately AED [gross] in annual gross revenue and AED [net] in estimated annual net owner income.
+
+This represents an estimated [uplift]% improvement over the adjusted long-term rental benchmark, while retaining greater flexibility over the property and benefiting from active pricing, guest management, inspections and ongoing operational oversight.
+
+==================================================
+9. PROPERTY OVERVIEW SECTION
+==================================================
+
+Create an elegant property summary section after the hero or narrative.
+
+Display:
+
+- Full address
+- Development
+- Building
+- Unit number, if owner-facing permission is enabled
+- Property type
+- Bedrooms
+- Bathrooms
+- Size
+- Floor
+- View
+- Furnishing
+- Property condition
+- Parking
+- Balcony
+- Standout features
+
+Use icons and a clean grid.
+
+Allow:
+
+- Property hero photo
+- Floorplan
+- Gallery
+- Development image
+- No-image fallback with a premium Abu Dhabi skyline illustration
+
+Do not show incorrect pluralization.
+
+Correct examples:
+
+1 Bathroom
+2 Bathrooms
+
+1 Bedroom
+2 Bedrooms
+
+==================================================
+10. EXECUTIVE FINANCIAL SUMMARY
+==================================================
+
+Recreate the financial hierarchy from the standard proposal but make it more refined and web-friendly.
+
+The standard proposal prioritizes:
+
+- ADR
+- Occupancy
+- Gross annual revenue
+- Annual net profit forecast
+- Monthly average net payout
+- Increase versus long-term rental
+
+Use the same hierarchy in the landing page. The attached proposal’s executive summary uses an 80% occupancy scenario and pairs it with ADR, gross annual revenue, annual net income, monthly payout and yield uplift. :contentReference[oaicite:3]{index=3}
+
+Display:
+
+Top cards:
+- Weighted Average Daily Rate
+- Recommended Occupancy
+
+Main number:
+- Gross Annual Revenue
+
+Prominent net-income card:
+- Annual Net Owner Income
+
+Secondary cards:
+- Average Monthly Net Payout
+- Net Long-Term Rental Benchmark
+- Additional Annual Income
+- Increase Versus LTR
+
+Use:
+
+AED 370,660
+
+not:
+
+370660
+AED370,660
+AED 370,660.00
+
+Owner-facing values should normally be rounded to the nearest AED.
+
+Tooltips can show precise internal values if necessary.
+
+==================================================
+11. SCENARIO COMPARISON
+==================================================
+
+Include all approved scenarios for comparison:
+
+- Conservative, 75%
+- Realistic, 80%
+- Confident, 85%
+- Optimistic, 90%
+
+The Realistic 80% scenario must be selected and visually marked:
+
+Recommended
+
+Do not call 85% “Reference” if 80% is the approved reference.
+
+Each scenario card should show:
+
+- Scenario name
+- Occupancy
+- Weighted ADR
+- Gross annual revenue
+- Total annual expenses
+- Net owner income
+- Monthly average payout
+- Increase versus LTR
+
+The owner may click other scenarios to explore them.
+
+However:
+
+- Exploring another scenario must not change the official proposal recommendation.
+- The hero must remain based on the recommended scenario.
+- The narrative must remain based on the recommended scenario.
+- PDF must remain based on the recommended scenario.
+- Acceptance must explicitly state the recommended scenario.
+- Optional scenario exploration must be clearly labelled “Illustrative Comparison.”
+
+Add explanatory text:
+
+“The scenarios below illustrate potential performance at different occupancy levels. The Realistic 80% scenario is Royal Holiday Homes’ recommended planning forecast for this proposal.”
+
+==================================================
+12. INCOME CALCULATOR
+==================================================
+
+Create a detailed, readable web version of the standard proposal’s income calculator.
+
+The standard proposal compares 75%, 80%, 85% and 90% scenarios against the long-term rental benchmark, showing gross revenue, costs, management fees, net income and uplift. :contentReference[oaicite:4]{index=4}
+
+At the top display:
+
+Long-Term Rental
+Average Market Rate
+
+Long-Term Rental
+Adjusted for Vacancy
+
+Show the actual vacancy assumption, for example:
+
+Adjusted for 10% Vacancy
+
+Table rows:
+
+Income:
+- Gross Annual Revenue
+
+Operating Costs:
+- Internet and Telecommunications
+- Utility Bills
+- Maintenance Allowance
+- Miscellaneous Expenses
+- Other Owner-Paid Expenses
+
+Fees:
+- RHH Property Management Fee
+- Applicable percentage
+
+Net Outcome:
+- Total Annual Expenses
+- Net Annual Owner Income
+- Average Monthly Owner Payout
+
+Comparison:
+- Additional Income Versus LTR
+- Percentage Increase Versus LTR
+
+The 80% recommended column must be highlighted in Royal gold.
+
+Do not highlight the 85% column unless it becomes recommendedScenarioId.
+
+Mobile behavior:
+
+Do not force the owner to horizontally scroll through a large desktop table.
+
+On mobile, use:
+
+- Scenario selector
+- One-column financial breakdown
+- Expandable cost details
+- Comparison cards
+
+==================================================
+13. MONTHLY FORECAST SECTION
+==================================================
+
+The standard proposal presents monthly short-term revenue against a fixed monthly long-term benchmark and explicitly identifies the chart as based on the Realistic 80% scenario. :contentReference[oaicite:5]{index=5}
+
+Create an interactive monthly chart based on the recommended scenario.
+
+Show January through December.
+
+Chart controls:
+
+- Gross STR Revenue versus LTR
+- Net STR Owner Income versus LTR
+- Occupancy by Month
+- ADR by Month
+
+Default view:
+
+Monthly Net Owner Income Versus Adjusted Long-Term Rental
+
+Include:
+
+- Month
+- Seasonal classification
+- ADR
+- Occupancy
+- Occupied nights
+- Gross revenue
+- Estimated net owner income
+- LTR monthly benchmark
+- Main event indicator
+
+Tooltips must explain unusual peaks.
+
+Example:
+
+December
+Peak Season / Main Event Period
+ADR: AED X
+Occupancy: X%
+Gross Revenue: AED X
+Net Owner Income: AED X
+
+Add a short explanation below the chart:
+
+“Short-term rental revenue is expected to vary by month as pricing responds to seasonal demand, holidays, events and market conditions. The annual forecast reflects the combined performance of all twelve months.”
+
+==================================================
+14. GROSS REVENUE VERSUS NET INCOME
+==================================================
+
+Create a grouped bar chart based on the standard proposal’s scenario comparison structure. The source document compares gross revenue and net income for Conservative 75%, Realistic 80%, Confident 85% and Optimistic 90% scenarios. :contentReference[oaicite:6]{index=6}
+
+Display:
+
+- Gross Revenue
+- Total Expenses
+- Net Owner Income
+
+For:
+
+- Conservative 75%
+- Realistic 80%
+- Confident 85%
+- Optimistic 90%
+
+Highlight the recommended scenario subtly.
+
+Do not make the chart visually misleading.
+
+The y-axis must begin at zero unless there is a clear reason otherwise.
+
+Show complete values in tooltips.
+
+==================================================
+15. SEASONAL REVENUE STRATEGY
+==================================================
+
+The existing PDF includes a section explaining why the property earns more through pricing across low, shoulder and peak periods. :contentReference[oaicite:7]{index=7}
+
+Improve this section by showing:
+
+- Low-Season ADR
+- Shoulder-Season ADR
+- Peak-Season ADR
+- Main-Event ADR
+- Weighted Average Annual ADR
+
+Do not omit shoulder season or main-event pricing.
+
+Do not use “Accuracy.”
+
+Use:
+
+Recommendation Confidence
+
+or:
+
+Market Data Confidence
+
+Example:
+
+Low Season
+AED 1,250
+Recommendation Confidence: 82%
+
+Shoulder Season
+AED 1,500
+Recommendation Confidence: 85%
+
+Peak Season
+AED 1,900
+Recommendation Confidence: 88%
+
+Main Events
+AED 2,600
+Recommendation Confidence: 78%
+
+Weighted Annual ADR
+AED 1,681
+
+Add an explanation of the weighted ADR:
+
+“The weighted average ADR reflects the expected mix of occupied nights across low, shoulder, peak and main-event periods. It is not a simple average of the four seasonal rates.”
+
+==================================================
+16. WHY SHORT-TERM RENTAL
+==================================================
+
+Translate the standard proposal’s holiday-home versus long-term comparison into a refined web section.
+
+The source proposal compares higher seasonal earning potential, asset monitoring and owner flexibility with the fixed pricing and long commitment associated with traditional leasing. :contentReference[oaicite:8]{index=8}
+
+Use a balanced comparison.
+
+Holiday Home Management:
+
+- Demand-based pricing
+- Potential for higher annual returns
+- Event and peak-season upside
+- Regular cleaning and property oversight
+- Greater owner-use flexibility
+- Multi-platform distribution
+- Active revenue management
+- Monthly performance reporting
+
+Traditional Long-Term Rental:
+
+- Fixed annual income
+- Limited pricing flexibility
+- Longer tenancy commitment
+- Vacancy risk between leases
+- Less flexibility for owner use
+- Limited ability to benefit from events
+- Tenant and renewal dependency
+- Less frequent operational oversight
+
+Avoid absolute claims such as:
+
+“Short-term rental always earns more.”
+
+Use:
+
+“Potentially higher returns”
+
+or:
+
+“Based on this forecast, the short-term rental model is projected to outperform the adjusted long-term rental benchmark.”
+
+==================================================
+17. OWNER BENEFITS
+==================================================
+
+Create premium icon cards for:
+
+- Dynamic Revenue Capture
+- Market Intelligence
+- Transparent Analytics
+- Consistent Operational Oversight
+- Owner Usage Flexibility
+- Property Protection
+- Multi-Platform Distribution
+- Monthly Reporting
+- Guest Communication
+- Housekeeping Coordination
+- Maintenance Coordination
+- Compliance Support
+
+Keep descriptions concise and owner-focused.
+
+==================================================
+18. HOW IT WORKS
+==================================================
+
+The source proposal currently presents seven stages: onboarding, licensing, setup, listing and pricing, operations, revenue management and monthly payout. :contentReference[oaicite:9]{index=9}
+
+Expand the web version into a clear end-to-end journey:
+
+1. Proposal Acceptance
+2. Consultation and Property Review
+3. Management Agreement
+4. Documentation and DCT Licensing
+5. Property Inspection
+6. Setup and Improvement Plan
+7. Professional Photography
+8. Listing Creation and Distribution
+9. Dynamic Pricing and Launch
+10. Guest Communication and Operations
+11. Housekeeping and Maintenance
+12. Monthly Reporting and Owner Payout
+
+Use a responsive timeline.
+
+Desktop:
+- Horizontal or alternating vertical timeline
+
+Mobile:
+- Simple vertical stepper
+
+Include expected status or timing only where configured.
+
+Do not promise exact licensing or launch timing without admin-entered timelines.
+
+==================================================
+19. WHY ROYAL HOLIDAY HOMES
+==================================================
+
+The source proposal positions Royal Holiday Homes as “Operators, Not Just Agents” and emphasizes Abu Dhabi expertise, in-house teams, compliance, aligned performance and transparent value. :contentReference[oaicite:10]{index=10}
+
+Use that positioning but improve the wording:
+
+Heading:
+Why Royal Holiday Homes?
+
+Subheading:
+We Are Operators, Not Just Agents
+
+Points:
+
+Abu Dhabi Specialists
+Deep local knowledge of Abu Dhabi developments, guest demand, regulations and operational requirements.
+
+Licensed and Compliant
+Experienced in holiday-home licensing, documentation and DCT requirements.
+
+Performance-Aligned
+Our management model is directly linked to the property’s revenue performance.
+
+End-to-End Operations
+Guest communication, property readiness, housekeeping coordination, maintenance oversight and owner reporting.
+
+Revenue Management
+Pricing is actively adjusted based on seasonality, events, demand and property performance.
+
+Multi-Platform Distribution
+Professional positioning across leading booking and travel channels.
+
+Transparent Owner Reporting
+Clear monthly performance and payout visibility.
+
+Owner-Focused Service
+One point of coordination from onboarding through ongoing management.
+
+Do not include outdated operational statements unless confirmed in company settings.
+
+==================================================
+20. PORTFOLIO AND DISTRIBUTION
+==================================================
+
+Display editable company statistics.
+
+The source proposal currently includes managed properties, five-star reviews, monthly bookings, hosted travelers, managed assets and trusted owners. :contentReference[oaicite:11]{index=11}
+
+All figures must come from company settings.
+
+Do not hardcode them into the component.
+
+Example setting fields:
+
+- managedProperties
+- fiveStarReviews
+- monthlyBookings
+- monthlyHostedTravelers
+- managedAssetValue
+- trustedOwners
+- companyRating
+- yearsOfExperience
+
+Distribution logos should also be managed from the backend.
+
+Possible platforms:
+
+- Airbnb
+- Booking.com
+- Expedia
+- Vrbo
+- Agoda
+- Google Vacation Rentals
+- Other approved channels
+
+Do not show inactive or outdated logos.
+
+==================================================
+21. IMPORTANT FORECAST NOTES
+==================================================
+
+Add a clearly styled but unobtrusive forecast notice.
+
+Initial wording:
+
+“This forecast is an estimate prepared using the property information available, Royal Holiday Homes’ internal market benchmarks, comparable property data and current market conditions. Actual occupancy, average daily rate, expenses, gross revenue and net owner income may differ due to supply, demand, seasonality, events, property condition, platform performance and other market factors. This proposal does not represent a guarantee of future rental income.”
+
+Also state:
+
+- Currency is AED.
+- Figures may be rounded.
+- The proposal has a defined validity period.
+- Final management terms are subject to the property management agreement.
+- DCT eligibility and property readiness may affect launch timing.
+- Owner-blocked dates may affect annual revenue.
+- Unplanned repairs and extraordinary expenses may affect net income.
+
+Allow admin control over disclaimer wording.
+
+==================================================
+22. NEXT STEPS AND CONVERSION SECTION
+==================================================
+
+Create a strong final conversion section.
+
+Heading:
+
+Ready to Maximize Your Property’s Potential?
+
+Supporting text:
+
+“Proceed to the next step and our team will contact you to review the proposal, confirm the property requirements and prepare the management and onboarding documentation.”
+
+Primary CTA:
+
+Accept Proposal and Proceed
+
+Secondary CTA:
+
+Request a Call
+
+Tertiary CTA:
+
+Ask a Question
+
+Additional action:
+
+Download PDF
+
+Use clear language showing that acceptance is an expression of intent and not automatically the final management agreement.
+
+Under the primary CTA display:
+
+“By proceeding, you confirm your interest in moving to the onboarding and agreement stage. The financial forecast remains an estimate and is not a guarantee of future income.”
+
+==================================================
+23. ACCEPT PROPOSAL FLOW
+==================================================
+
+When the owner clicks:
+
+Accept Proposal and Proceed
+
+Open a premium modal or dedicated inline step.
+
+Show a summary:
+
+Proposal:
+RHH-2026-K9S1
+
+Property:
+Mamsha, Building Lilac 5, Saadiyat Island, Abu Dhabi
+
+Recommended Scenario:
+Realistic, 80% Occupancy
+
+Forecast:
+- Gross Annual Revenue
+- Net Annual Owner Income
+- Average Monthly Payout
+- Increase Versus LTR
+
+Collect:
+
+- Owner full name
+- Email
+- Mobile number
+- WhatsApp number
+- Preferred contact method
+- Preferred contact time
+- Preferred onboarding date
+- Whether the property is vacant
+- Expected availability date
+- Optional comments
+- Confirmation checkbox
+
+Checkbox text:
+
+“I confirm my interest in proceeding to the onboarding and property management agreement stage based on the proposal presented.”
+
+Button:
+
+Confirm and Proceed
+
+After submission:
+
+1. Record the exact published proposal version.
+2. Record the recommended scenario.
+3. Record the displayed financial figures.
+4. Store timestamp.
+5. Store owner details.
+6. Store acceptance source.
+7. Change proposal status to Accepted.
+8. Create an onboarding lead.
+9. Notify assigned sales and client relations users.
+10. Send an acknowledgment email to the owner.
+11. Display a success page.
+
+Success message:
+
+“Thank you, Mr. Amine. Your interest has been submitted successfully. A member of the Royal Holiday Homes team will contact you to review the next steps and begin the onboarding process.”
+
+Do not call this a legally binding electronic signature unless a proper agreement and e-signature process is implemented.
+
+==================================================
+24. REQUEST A CALL FLOW
+==================================================
+
+Collect:
+
+- Name
+- Email
+- Mobile
+- Preferred date
+- Preferred time window
+- Preferred contact channel
+- Question or topic
+- Consent to be contacted
+
+Allow options:
+
+- Morning
+- Afternoon
+- Evening
+- Specific time
+
+Create an internal task assigned to the proposal owner or sales representative.
+
+Send internal notification.
+
+Change proposal engagement status to:
+
+Call Requested
+
+Do not change the proposal to Accepted.
+
+==================================================
+25. ASK A QUESTION FLOW
+==================================================
+
+Create a simple message form:
+
+- Name
+- Email
+- Mobile, optional
+- Question
+- Category:
+  - Financial Forecast
+  - Management Fee
+  - Licensing
+  - Property Setup
+  - Owner Usage
+  - Onboarding
+  - Other
+
+Attach the question to:
+
+- Proposal
+- Proposal version
+- Owner
+- Assigned team member
+
+Notify the assigned user.
+
+==================================================
+26. OWNER CONTACT SECTION
+==================================================
+
+Use the company contact details from backend settings.
+
+The standard proposal’s closing page includes the website, toll-free contact, office address and separate owner and guest emails. :contentReference[oaicite:12]{index=12}
+
+Show:
+
+Royal Holiday Homes
+800 RHH
+www.royalholidayhomes.ae
+
+Office:
+Suite 503, Al Neyadi Building
+Sheikh Rashid Bin Saeed Street
+Al Manhal, Abu Dhabi
+
+Owners:
+owners@royalholidayhomes.ae
+
+General or guest contact:
+bookings@royalholidayhomes.ae
+
+Allow an assigned advisor card:
+
+- Advisor photo
+- Name
+- Position
+- Direct phone
+- Email
+- WhatsApp button
+
+Only show public contact details explicitly approved for display.
+
+==================================================
+27. PDF GENERATION
+==================================================
+
+The proposal must generate a premium PDF from the same published proposal data.
+
+Important:
+
+The PDF must not simply print the desktop webpage without layout control.
+
+Create a dedicated print renderer that uses the same ProposalViewModel.
+
+PDF structure:
+
+1. Cover
+2. Property and Personalized Narrative
+3. Executive Financial Summary
+4. Income Calculator
+5. Monthly Revenue Comparison
+6. Scenario Comparison
+7. Seasonal Pricing Strategy
+8. Why Short-Term Rental
+9. How It Works
+10. Why Royal Holiday Homes
+11. Portfolio and Distribution
+12. Next Steps and Contact
+13. Forecast Disclaimer
+
+PDF requirements:
+
+- A4 portrait
+- Consistent margins
+- Royal gold border or subtle premium frame
+- Royal Holiday Homes logo
+- Proposal reference
+- Proposal date
+- Confidential footer
+- Page numbers
+- No broken charts
+- No cut-off tables
+- No orphan headings
+- No interactive-only controls
+- No acceptance form fields unless designed for PDF
+- High-resolution charts
+- Suitable for email and printing
+- Reasonable file size
+
+The web and PDF must display identical:
+
+- Recommended scenario
+- ADR
+- Occupancy
+- Gross revenue
+- Net income
+- Monthly payout
+- LTR uplift
+- Monthly data
+- Expense values
+
+Add a PDF consistency test.
+
+==================================================
+28. PRINT AND PDF DATA SNAPSHOT
+==================================================
+
+Once a proposal is published:
+
+- Create an immutable published version.
+- Store a financial snapshot.
+- Store narrative snapshot.
+- Store property-detail snapshot.
+- Store company-statistics snapshot.
+- Store disclaimer snapshot.
+- Store recommendedScenarioId.
+- Store all monthly forecast values.
+
+The PDF must use this snapshot.
+
+Future changes to:
+
+- Company statistics
+- Market database
+- Owner name
+- Property data
+- AI prompts
+- Forecast formulas
+
+must not silently alter an already published proposal.
+
+To update a proposal:
+
+- Create a new version.
+- Approve it.
+- Publish it.
+- Issue a new or updated share link.
+- Preserve the old version in history.
+
+==================================================
+29. OWNER-FACING LANGUAGE RULES
+==================================================
+
+Use:
+
+- Net Owner Income
+- Estimated Annual Net Income
+- Recommended Occupancy
+- Weighted Average Daily Rate
+- Estimated Monthly Payout
+- Adjusted Long-Term Rental Benchmark
+- Projected Increase Versus LTR
+- Recommended Scenario
+
+Avoid:
+
+- Guaranteed return
+- Guaranteed income
+- Certain profit
+- Accuracy 92%
+- Net profit, where the more precise phrase is net owner income
+- AI recommended, unless helpful
+- Technical database terms
+- Reference scenario, unless defined
+- Excessive decimal places
+- Internal expense codes
+- Internal employee notes
+
+Use British English consistently:
+
+- Personalised
+- Optimisation
+- Recognised
+- Authorised
+
+Ensure the company’s preferred spelling conventions are configurable.
+
+==================================================
+30. RESPONSIVE DESIGN
+==================================================
+
+Desktop:
+- Maximum content width approximately 1,300 to 1,500 pixels
+- Full hero
+- Two- and three-column grids
+- Sticky navigation
+- Detailed charts
+- Generous spacing
+
+Tablet:
+- Two-column cards
+- Simplified navigation
+- Charts fit without clipping
+
+Mobile:
+- One-column layout
+- No oversized headings
+- No table overflow
+- Collapsible financial breakdowns
+- Scenario cards
+- Touch-friendly buttons
+- Sticky bottom CTA:
+  “Proceed to Next Steps”
+- Download PDF available in menu
+- Forms optimized for mobile keyboard
+- Charts converted to mobile-friendly layouts
+
+Test at:
+
+- 375 px
+- 390 px
+- 430 px
+- 768 px
+- 1024 px
+- 1366 px
+- 1440 px
+- 1920 px
+
+==================================================
+31. ACCESSIBILITY
+==================================================
+
+Ensure:
+
+- Keyboard navigation
+- Visible focus states
+- Correct semantic heading order
+- Alt text for relevant images
+- Accessible chart summaries
+- Adequate contrast
+- Buttons have clear accessible labels
+- Modals trap focus
+- Forms show inline errors
+- No meaning conveyed only through colour
+- PDF remains readable in grayscale
+
+==================================================
+32. PERFORMANCE
+==================================================
+
+The proposal should load quickly even when it contains charts and images.
+
+Use:
+
+- Server-rendered initial proposal content
+- Optimised images
+- Lazy-load lower sections
+- Avoid excessive animation libraries
+- Cache immutable published proposal data
+- Pre-generate or cache PDFs
+- Load charts only when needed
+- Use skeleton loading carefully
+- Avoid layout shifts
+
+Do not allow the proposal to display partial financial data while loading.
+
+The server should return the complete proposal view model before showing headline figures.
+
+==================================================
+33. ENGAGEMENT TRACKING
+==================================================
+
+Track:
+
+- First view
+- Last view
+- Unique views
+- Total views
+- PDF downloads
+- CTA clicks
+- Acceptance
+- Call request
+- Question submission
+- Section engagement, if privacy-compliant
+- Device category
+- Link expiry
+- Invalid-token attempts
+
+Do not display invasive tracking notices unless required.
+
+Do not use third-party advertising trackers.
+
+==================================================
+34. EMAIL NOTIFICATIONS
+==================================================
+
+Send internal notifications when:
+
+- Proposal is first opened
+- Proposal is opened three or more times
+- PDF is downloaded
+- Owner requests a call
+- Owner asks a question
+- Owner accepts
+- Proposal expires without action
+
+Owner acknowledgment emails:
+
+After call request:
+“Your call request has been received.”
+
+After question:
+“Your question has been shared with our team.”
+
+After acceptance:
+“Thank you for confirming your interest in proceeding.”
+
+Do not include financial values in email subject lines.
+
+==================================================
+35. ADMIN CONTROLS
+==================================================
+
+In the internal proposal editor, add:
+
+Recommended Scenario:
+- Conservative 75%
+- Realistic 80%
+- Confident 85%
+- Optimistic 90%
+- Custom
+
+Default:
+Realistic 80%
+
+Display:
+
+Owner-Facing Financial Reference
+Realistic, 80%
+
+Add:
+
+- Set as Recommended
+- Recalculate Proposal
+- Regenerate Narrative
+- Preview Landing Page
+- Preview PDF
+- Run Consistency Check
+- Publish New Version
+
+Add a lock icon to an approved recommended scenario.
+
+When the recommended scenario changes, show:
+
+“This change will affect the hero, narrative, financial summary, charts, PDF and owner acceptance summary.”
+
+Require confirmation.
+
+==================================================
+36. COVER NARRATIVE ADMIN IMPROVEMENTS
+==================================================
+
+Keep the current high-quality narrative editor.
+
+Add beside it:
+
+Financial Source:
+Realistic, 80%
+
+Last regenerated:
+Date and time
+
+Narrative status:
+- Synced
+- Manual Edit
+- Financial Mismatch
+- Review Required
+
+Add dynamic token highlighting.
+
+For financial tokens:
+
+- ADR
+- Occupancy
+- Gross revenue
+- Net income
+- Monthly payout
+- LTR uplift
+
+Show whether each token matches the current recommended scenario.
+
+If the narrative includes hardcoded financial figures rather than variables, compare them to the current scenario and flag mismatches.
+
+Add buttons:
+
+- Insert Dynamic Value
+- Regenerate from Scenario
+- Compare with Current Forecast
+- Restore Approved Narrative
+
+==================================================
+37. FINANCIAL CONSISTENCY TESTS
+==================================================
+
+Add automated tests for:
+
+Test 1:
+When recommendedScenarioId is the 80% scenario, the hero displays 80%.
+
+Test 2:
+When recommendedScenarioId is the 80% scenario, the narrative receives the 80% financial values.
+
+Test 3:
+The hero net income equals the 80% scenario net income.
+
+Test 4:
+The monthly chart total equals the 80% annual gross revenue.
+
+Test 5:
+The PDF displays the same 80% scenario as the web proposal.
+
+Test 6:
+The owner acceptance summary displays the 80% scenario.
+
+Test 7:
+Selecting the 85% comparison card does not modify the official recommendation.
+
+Test 8:
+Changing recommendedScenarioId to 85% updates all official proposal sections only after approval and republication.
+
+Test 9:
+The owner’s title is not duplicated.
+
+Test 10:
+If owner.displayName already includes “Mr.”, the formatter does not add another “Mr.”
+
+Test 11:
+Published proposal versions remain unchanged when the draft is edited.
+
+Test 12:
+The proposal cannot publish when the narrative and headline figures use different scenarios.
+
+==================================================
+38. CONTENT QUALITY CORRECTIONS
+==================================================
+
+Correct the following possible issues throughout the system:
+
+- “Mr. Mr.” duplication
+- “1 Bathrooms”
+- “1 Bedrooms”
+- Inconsistent use of net profit versus net owner income
+- Unformatted AED values
+- Excessive decimal places
+- Different scenarios used across sections
+- 75% scenario feeding the 80% narrative
+- 85% displayed as recommended when 80% is intended
+- Hardcoded scenario names
+- “Accuracy” used for AI estimates
+- Unsupported guaranteed-return statements
+- Tables that overflow on mobile
+- PDF values that differ from the webpage
+- Repeated owner name
+- Missing proposal validity
+- Missing acceptance disclaimer
+- Incorrect or duplicated property address fields
+
+==================================================
+39. DESIGN DIRECTION
+==================================================
+
+Preserve the strongest elements of the current Replit design:
+
+- Dark luxury hero
+- Gold accents
+- Serif display typography
+- Clean financial cards
+- Premium sticky header
+- Minimal and professional styling
+
+Improve:
+
+- More white space
+- Better section transitions
+- Clearer hierarchy
+- Stronger financial storytelling
+- Better mobile presentation
+- More refined charts
+- More obvious recommended scenario
+- Stronger owner CTA
+- More consistent gold tones
+- Less dashboard-like appearance
+- Less reliance on tabs
+- More visual continuity from hero to final CTA
+
+Suggested palette:
+
+- Charcoal: #1D1D1D
+- Near black: #121212
+- Royal gold: use official brand gold from uploaded logo
+- Light gold background
+- Warm ivory
+- Soft grey
+- Green only for positive uplift, used sparingly
+- Red only for critical warnings in internal screens
+
+Do not overuse gradients or glowing effects.
+
+==================================================
+40. FINAL ACCEPTANCE CRITERIA
+==================================================
+
+This upgrade is complete only when:
+
+1. The public proposal is one continuous landing page.
+2. The navigation scrolls to page sections.
+3. The Realistic 80% scenario is the official recommendation.
+4. The cover narrative uses the 80% scenario.
+5. The hero uses the 80% scenario.
+6. All charts use the 80% scenario by default.
+7. The PDF uses the 80% scenario.
+8. The acceptance summary uses the 80% scenario.
+9. Other scenarios remain available only as comparisons.
+10. “Mr. Mr.” is fixed.
+11. Singular and plural labels are correct.
+12. Web and PDF values reconcile exactly.
+13. An owner can accept and proceed.
+14. An owner can request a call.
+15. An owner can ask a question.
+16. Accepted proposals create an onboarding lead.
+17. Published versions remain immutable.
+18. The page is fully responsive.
+19. The page follows Royal Holiday Homes branding.
+20. The experience feels like a premium personalized sales proposal, not a generic application dashboard.
+
+Please begin by auditing the current implementation and identifying:
+
+- Where each component retrieves its scenario
+- Why the Cover Narrative currently retrieves the 75% scenario
+- Why the hero currently shows 85%
+- Why the owner title is duplicated
+- Whether the PDF uses a separate calculation source
+- Whether scenario values are calculated in frontend components
+- Whether published proposal data is mutable
+
+Then implement the shared ProposalViewModel and scenario consistency logic before redesigning the public landing page.

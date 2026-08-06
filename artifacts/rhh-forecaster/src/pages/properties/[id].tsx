@@ -171,6 +171,14 @@ export default function PropertyDetail() {
                   <span className="text-muted-foreground">Private Pool</span>
                   <span className="font-medium">{property.hasPrivatePool ? 'Yes' : 'No'}</span>
                 </div>
+                <div className="flex justify-between py-2 border-b border-border/50">
+                  <span className="text-muted-foreground">Main Room</span>
+                  <span className="font-medium">{(property as any).hasMainRoom ? 'Yes' : 'No'}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-border/50">
+                  <span className="text-muted-foreground">Study Room</span>
+                  <span className="font-medium">{(property as any).hasStudy ? 'Yes' : 'No'}</span>
+                </div>
               </div>
             </CardContent>
           </Card>

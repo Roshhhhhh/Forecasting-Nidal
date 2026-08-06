@@ -142,6 +142,8 @@ router.get("/forecasts/:id", requireAuth, async (req, res): Promise<void> => {
   let projectBuilding: string | null = null;
   let unitNumber: string | null = null;
   let advisorName: string | null = null;
+  let hasMainRoom: boolean = false;
+  let hasStudy: boolean = false;
 
   if (f.ownerId) {
     const [o] = await db.select().from(ownersTable).where(eq(ownersTable.id, f.ownerId));
@@ -166,6 +168,8 @@ router.get("/forecasts/:id", requireAuth, async (req, res): Promise<void> => {
       projectBuilding = p.projectBuilding ?? null;
       unitNumber      = p.unitNumber ?? null;
       propertyAddress = [p.projectBuilding, p.area].filter(Boolean).join(", ");
+      hasMainRoom     = (p as any).hasMainRoom ?? false;
+      hasStudy        = (p as any).hasStudy ?? false;
     }
   }
   if (f.assignedToId) {
@@ -179,7 +183,7 @@ router.get("/forecasts/:id", requireAuth, async (req, res): Promise<void> => {
     ownerTitle, ownerFirstName, ownerLastName, ownerName,
     // Joined property fields
     propertyAddress, propertyType, bedrooms, bathrooms, internalArea, view,
-    floor, furnishingStatus, area, projectBuilding, unitNumber,
+    floor, furnishingStatus, area, projectBuilding, unitNumber, hasMainRoom, hasStudy,
     // Joined representative
     advisorName,
     // Forecast fields

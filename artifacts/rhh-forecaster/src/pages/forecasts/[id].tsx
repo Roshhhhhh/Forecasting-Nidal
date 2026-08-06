@@ -964,6 +964,20 @@ export default function ForecastDetail() {
                           </div>
                         )}
                       </div>
+                      {((forecast as any).hasMainRoom || (forecast as any).hasStudy) && (
+                        <div className="flex flex-wrap gap-1.5 mt-1">
+                          {(forecast as any).hasMainRoom && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-700">
+                              Main Room
+                            </span>
+                          )}
+                          {(forecast as any).hasStudy && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-200 dark:border-amber-700">
+                              Study Room
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Location column */}

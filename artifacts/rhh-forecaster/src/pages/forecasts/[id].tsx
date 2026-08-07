@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { ResponsiveContainer, BarChart, Bar, LineChart, Line, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { parseNarrative } from "@/lib/narrative";
 import {
   useGetForecast, useUpdateForecast, useCalculateForecast,

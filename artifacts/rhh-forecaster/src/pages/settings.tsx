@@ -26,6 +26,12 @@ const settingsSchema = z.object({
   defaultLtrVacancyPercent: z.coerce.number().min(0).max(100),
   proposalValidityDays: z.coerce.number().min(1),
   disclaimer: z.string().optional(),
+  portfolioManagedProperties: z.coerce.number().int().min(0).optional(),
+  portfolioFiveStarReviews: z.coerce.number().int().min(0).optional(),
+  portfolioMonthlyBookings: z.coerce.number().int().min(0).optional(),
+  portfolioMonthlyTravelers: z.coerce.number().int().min(0).optional(),
+  portfolioAssetsUnderManagement: z.string().optional(),
+  portfolioTrustedOwners: z.coerce.number().int().min(0).optional(),
 });
 
 type SettingsFormValues = z.infer<typeof settingsSchema>;
@@ -63,6 +69,12 @@ function GeneralTab() {
         defaultLtrVacancyPercent: settings.defaultLtrVacancyPercent || 5,
         proposalValidityDays: settings.proposalValidityDays || 14,
         disclaimer: settings.disclaimer || "",
+        portfolioManagedProperties: (settings as any).portfolioManagedProperties ?? undefined,
+        portfolioFiveStarReviews: (settings as any).portfolioFiveStarReviews ?? undefined,
+        portfolioMonthlyBookings: (settings as any).portfolioMonthlyBookings ?? undefined,
+        portfolioMonthlyTravelers: (settings as any).portfolioMonthlyTravelers ?? undefined,
+        portfolioAssetsUnderManagement: (settings as any).portfolioAssetsUnderManagement ?? "",
+        portfolioTrustedOwners: (settings as any).portfolioTrustedOwners ?? undefined,
       });
       formInitialized.current = true;
     }
@@ -230,6 +242,69 @@ function GeneralTab() {
                 )}
               />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-border/50 shadow-sm">
+          <CardHeader className="border-b border-border bg-muted/20">
+            <CardTitle className="text-lg font-serif">Portfolio Stats</CardTitle>
+            <CardDescription>Numbers shown in the "Our Portfolio" section on every public proposal.</CardDescription>
+          </CardHeader>
+          <CardContent className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <FormField control={form.control} name="portfolioManagedProperties"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Managed Properties</FormLabel>
+                  <FormControl><Input type="number" min="0" placeholder="160" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField control={form.control} name="portfolioFiveStarReviews"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Five-Star Reviews</FormLabel>
+                  <FormControl><Input type="number" min="0" placeholder="5000" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField control={form.control} name="portfolioMonthlyBookings"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Bookings per Month</FormLabel>
+                  <FormControl><Input type="number" min="0" placeholder="1000" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField control={form.control} name="portfolioMonthlyTravelers"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Travellers Hosted Monthly</FormLabel>
+                  <FormControl><Input type="number" min="0" placeholder="3500" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField control={form.control} name="portfolioAssetsUnderManagement"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Assets Under Management</FormLabel>
+                  <FormControl><Input placeholder="AED 250M" {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField control={form.control} name="portfolioTrustedOwners"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Trusted Home Owners</FormLabel>
+                  <FormControl><Input type="number" min="0" placeholder="100" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
 

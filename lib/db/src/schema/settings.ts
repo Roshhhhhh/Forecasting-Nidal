@@ -46,6 +46,7 @@ export const companySettingsTable = pgTable("company_settings", {
   portfolioFiveStarReviews: integer("portfolio_five_star_reviews"),
   portfolioMonthlyBookings: integer("portfolio_monthly_bookings"),
   portfolioMonthlyTravelers: integer("portfolio_monthly_travelers"),
+  portfolioAssetsUnderManagement: text("portfolio_assets_under_management"),
   portfolioTrustedOwners: integer("portfolio_trusted_owners"),
 
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),

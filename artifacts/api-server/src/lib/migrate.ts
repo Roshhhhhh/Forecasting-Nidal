@@ -80,6 +80,12 @@ export async function runStartupMigration() {
       )
     `);
 
+    // Add portfolio_assets_under_management to company_settings
+    await db.execute(sql`
+      ALTER TABLE company_settings
+        ADD COLUMN IF NOT EXISTS portfolio_assets_under_management TEXT
+    `);
+
     // 6. Add baseAdr to forecasts (single-ADR model, March = multiplier 1.0)
     await db.execute(sql`
       ALTER TABLE forecasts

@@ -1971,6 +1971,8 @@ export const GetCompanySettingsResponse = zod.object({
   "portfolioManagedProperties": zod.number().nullish(),
   "portfolioFiveStarReviews": zod.number().nullish(),
   "portfolioMonthlyBookings": zod.number().nullish(),
+  "portfolioMonthlyTravelers": zod.number().nullish(),
+  "portfolioAssetsUnderManagement": zod.string().nullish(),
   "portfolioTrustedOwners": zod.number().nullish()
 })
 
@@ -1996,6 +1998,8 @@ export const UpdateCompanySettingsBody = zod.object({
   "portfolioManagedProperties": zod.number().optional(),
   "portfolioFiveStarReviews": zod.number().optional(),
   "portfolioMonthlyBookings": zod.number().optional(),
+  "portfolioMonthlyTravelers": zod.number().optional(),
+  "portfolioAssetsUnderManagement": zod.string().optional(),
   "portfolioTrustedOwners": zod.number().optional()
 })
 
@@ -2018,6 +2022,8 @@ export const UpdateCompanySettingsResponse = zod.object({
   "portfolioManagedProperties": zod.number().nullish(),
   "portfolioFiveStarReviews": zod.number().nullish(),
   "portfolioMonthlyBookings": zod.number().nullish(),
+  "portfolioMonthlyTravelers": zod.number().nullish(),
+  "portfolioAssetsUnderManagement": zod.string().nullish(),
   "portfolioTrustedOwners": zod.number().nullish()
 })
 

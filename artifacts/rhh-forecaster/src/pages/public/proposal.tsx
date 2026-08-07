@@ -107,14 +107,19 @@ const OWNER_BENEFITS = [
 ];
 
 // ── Portfolio ─────────────────────────────────────────────────────────────────
-const PORTFOLIO = [
-  { v: "160+",    l: "Managed Premium Properties", icon: Building2 },
-  { v: "5,000+",  l: "Five-Star Guest Reviews",    icon: Star },
-  { v: "1,000+",  l: "Bookings per Month",         icon: Calendar },
-  { v: "3,500+",  l: "Travellers Hosted Monthly",  icon: Users },
-  { v: "AED 250M",l: "Assets Under Management",    icon: Award },
-  { v: "100+",    l: "Trusted Home Owners",        icon: Shield },
-];
+// Values sourced from company settings; hardcoded strings are fallbacks only.
+function buildPortfolio(p: any) {
+  const fmt = (n: number | null | undefined, fallback: string) =>
+    n != null ? `${n.toLocaleString()}+` : fallback;
+  return [
+    { v: fmt(p?.portfolioManagedProperties, "160+"),   l: "Managed Premium Properties", icon: Building2 },
+    { v: fmt(p?.portfolioFiveStarReviews,   "5,000+"), l: "Five-Star Guest Reviews",    icon: Star },
+    { v: fmt(p?.portfolioMonthlyBookings,   "1,000+"), l: "Bookings per Month",         icon: Calendar },
+    { v: fmt(p?.portfolioMonthlyTravelers,  "3,500+"), l: "Travellers Hosted Monthly",  icon: Users },
+    { v: p?.portfolioAssetsUnderManagement || "AED 250M", l: "Assets Under Management", icon: Award },
+    { v: fmt(p?.portfolioTrustedOwners,     "100+"),   l: "Trusted Home Owners",        icon: Shield },
+  ];
+}
 
 const NAV_SECTIONS = [
   { id: "overview",   label: "Overview" },
@@ -1323,7 +1328,7 @@ export default function PublicProposal() {
           <div style={{ fontSize:11, fontWeight:700, letterSpacing:4, textTransform:"uppercase", color:GOLD, marginBottom:10 }}>Track Record</div>
           <h2 style={{ fontFamily:"serif", fontSize:isMobile?24:32, fontWeight:800, color:DARK, marginBottom:28 }}>Our Portfolio</h2>
           <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr 1fr":"repeat(3, 1fr)", gap:16, marginBottom:20 }}>
-            {PORTFOLIO.map(({ v, l, icon:Icon }) => (
+            {buildPortfolio(proposal).map(({ v, l, icon:Icon }) => (
               <div key={l} style={{ textAlign:"center", padding:isMobile?"24px 16px":"36px 24px", border:`1px solid ${BORDER}`, borderRadius:12, background:WHITE }}>
                 <div style={{ width:36, height:36, borderRadius:8, background:`${GOLD}12`, margin:"0 auto 12px", display:"flex", alignItems:"center", justifyContent:"center" }}>
                   <Icon style={{ width:16, height:16, color:GOLD }} />

@@ -99,6 +99,9 @@ export async function runStartupMigration() {
       `));
     }
 
+    // Add project_building to unit_benchmarks (stores which project each benchmark row belongs to)
+    await db.execute(sql`ALTER TABLE unit_benchmarks ADD COLUMN IF NOT EXISTS project_building TEXT`);
+
     // 6. Add baseAdr to forecasts (single-ADR model, March = multiplier 1.0)
     await db.execute(sql`
       ALTER TABLE forecasts

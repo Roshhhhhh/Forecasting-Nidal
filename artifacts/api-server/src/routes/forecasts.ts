@@ -472,7 +472,7 @@ router.patch("/forecasts/:id/monthly/:monthNum", requireAuth, async (req, res): 
 async function fetchMarketBenchmarks(bedrooms: number, areaName: string | null) {
   const cols = {
     area: marketAreasTable.area,
-    project: marketAreasTable.projectBuilding,
+    project: unitBenchmarksTable.projectBuilding,
     typicalAdr: unitBenchmarksTable.typicalAdr,
     shoulderSeasonAdr: unitBenchmarksTable.shoulderSeasonAdr,
     lowSeasonAdr: unitBenchmarksTable.lowSeasonAdr,

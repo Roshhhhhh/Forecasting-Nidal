@@ -42,6 +42,7 @@ export const unitBenchmarksTable = pgTable("unit_benchmarks", {
   avgInternet: real("avg_internet"),
   avgMaintenance: real("avg_maintenance"),
   recommendedManagementFee: real("recommended_management_fee"),
+  projectBuilding: text("project_building"),
   confidenceLevel: text("confidence_level"),
   dataSource: text("data_source"),
   sourceDate: text("source_date"),

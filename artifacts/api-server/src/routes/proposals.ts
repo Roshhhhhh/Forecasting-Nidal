@@ -93,33 +93,35 @@ router.get("/proposals", requireAuth, async (_req, res): Promise<void> => {
 router.get("/proposals/:id", requireAuth, async (req, res): Promise<void> => {
   const params = GetProposalActivityParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
-    const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, forecast.propertyId));
-  if (!p) { res.status(404).json({ error: "Proposal not found" }); return; }
-  res.json(formatProposal(p));
+  const [proposal] = await db.select().from(proposalsTable).where(eq(proposalsTable.id, params.data.id));
+  if (!proposal) { res.status(404).json({ error: "Proposal not found" }); return; }
+  res.json(formatProposal(proposal));
 });
 
 router.patch("/proposals/:id", requireAuth, async (req, res): Promise<void> => {
-  const params = GetProposalActivityParams.safeParse(req.params);
+  const params = UpdateProposalParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
-  const parsed = SubmitProposalActionBody.safeParse(req.body);
+  const parsed = UpdateProposalBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
   const updateData: any = { ...parsed.data };
   if (parsed.data.expiresAt) updateData.expiresAt = new Date(parsed.data.expiresAt);
-    const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, forecast.propertyId));
-  if (!p) { res.status(404).json({ error: "Proposal not found" }); return; }
-  res.json(formatProposal(p));
+  const [updated] = await db.update(proposalsTable).set(updateData)
+    .where(eq(proposalsTable.id, params.data.id))
+    .returning();
+  if (!updated) { res.status(404).json({ error: "Proposal not found" }); return; }
+  res.json(formatProposal(updated));
 });
 
 router.post("/proposals/:id/publish", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
-  const parsed = SubmitProposalActionBody.safeParse(req.body);
+  const parsed = PublishProposalBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const [proposal] = await db.select().from(proposalsTable).where(eq(proposalsTable.shareToken, token));
+  const [proposal] = await db.select().from(proposalsTable).where(eq(proposalsTable.id, id));
   if (!proposal) { res.status(404).json({ error: "Proposal not found" }); return; }
 
-  const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
+  const token = crypto.randomUUID();
   const expiresInDays = parsed.data.expiresInDays ?? 30;
   const expiresAt = new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000);
   const shareUrl = `/p/${token}`;

@@ -1968,12 +1968,12 @@ export const GetCompanySettingsResponse = zod.object({
   "defaultLtrVacancyPercent": zod.number().optional(),
   "proposalValidityDays": zod.number().optional(),
   "disclaimer": zod.string().optional(),
-  "portfolioManagedProperties": zod.number().nullish(),
-  "portfolioFiveStarReviews": zod.number().nullish(),
-  "portfolioMonthlyBookings": zod.number().nullish(),
-  "portfolioMonthlyTravelers": zod.number().nullish(),
+  "portfolioManagedProperties": zod.string().nullish(),
+  "portfolioFiveStarReviews": zod.string().nullish(),
+  "portfolioMonthlyBookings": zod.string().nullish(),
+  "portfolioMonthlyTravelers": zod.string().nullish(),
   "portfolioAssetsUnderManagement": zod.string().nullish(),
-  "portfolioTrustedOwners": zod.number().nullish()
+  "portfolioTrustedOwners": zod.string().nullish()
 })
 
 
@@ -1995,12 +1995,12 @@ export const UpdateCompanySettingsBody = zod.object({
   "defaultLtrVacancyPercent": zod.number().optional(),
   "proposalValidityDays": zod.number().optional(),
   "disclaimer": zod.string().optional(),
-  "portfolioManagedProperties": zod.number().optional(),
-  "portfolioFiveStarReviews": zod.number().optional(),
-  "portfolioMonthlyBookings": zod.number().optional(),
-  "portfolioMonthlyTravelers": zod.number().optional(),
+  "portfolioManagedProperties": zod.string().optional(),
+  "portfolioFiveStarReviews": zod.string().optional(),
+  "portfolioMonthlyBookings": zod.string().optional(),
+  "portfolioMonthlyTravelers": zod.string().optional(),
   "portfolioAssetsUnderManagement": zod.string().optional(),
-  "portfolioTrustedOwners": zod.number().optional()
+  "portfolioTrustedOwners": zod.string().optional()
 })
 
 export const UpdateCompanySettingsResponse = zod.object({
@@ -2019,12 +2019,12 @@ export const UpdateCompanySettingsResponse = zod.object({
   "defaultLtrVacancyPercent": zod.number().optional(),
   "proposalValidityDays": zod.number().optional(),
   "disclaimer": zod.string().optional(),
-  "portfolioManagedProperties": zod.number().nullish(),
-  "portfolioFiveStarReviews": zod.number().nullish(),
-  "portfolioMonthlyBookings": zod.number().nullish(),
-  "portfolioMonthlyTravelers": zod.number().nullish(),
+  "portfolioManagedProperties": zod.string().nullish(),
+  "portfolioFiveStarReviews": zod.string().nullish(),
+  "portfolioMonthlyBookings": zod.string().nullish(),
+  "portfolioMonthlyTravelers": zod.string().nullish(),
   "portfolioAssetsUnderManagement": zod.string().nullish(),
-  "portfolioTrustedOwners": zod.number().nullish()
+  "portfolioTrustedOwners": zod.string().nullish()
 })
 
 

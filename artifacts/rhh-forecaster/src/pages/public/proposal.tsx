@@ -107,17 +107,18 @@ const OWNER_BENEFITS = [
 ];
 
 // ── Portfolio ─────────────────────────────────────────────────────────────────
-// Values sourced from company settings; hardcoded strings are fallbacks only.
+// Values sourced from company settings (stored as text, e.g. "150+").
+// Hardcoded strings are fallbacks only when the DB value is empty/null.
 function buildPortfolio(p: any) {
-  const fmt = (n: number | null | undefined, fallback: string) =>
-    n != null ? `${n.toLocaleString()}+` : fallback;
+  const v = (field: string, fallback: string) =>
+    (p?.[field] && String(p[field]).trim()) || fallback;
   return [
-    { v: fmt(p?.portfolioManagedProperties, "160+"),   l: "Managed Premium Properties", icon: Building2 },
-    { v: fmt(p?.portfolioFiveStarReviews,   "5,000+"), l: "Five-Star Guest Reviews",    icon: Star },
-    { v: fmt(p?.portfolioMonthlyBookings,   "1,000+"), l: "Bookings per Month",         icon: Calendar },
-    { v: fmt(p?.portfolioMonthlyTravelers,  "3,500+"), l: "Travellers Hosted Monthly",  icon: Users },
-    { v: p?.portfolioAssetsUnderManagement || "AED 250M", l: "Assets Under Management", icon: Award },
-    { v: fmt(p?.portfolioTrustedOwners,     "100+"),   l: "Trusted Home Owners",        icon: Shield },
+    { v: v("portfolioManagedProperties",    "160+"),     l: "Managed Premium Properties", icon: Building2 },
+    { v: v("portfolioFiveStarReviews",      "5,000+"),   l: "Five-Star Guest Reviews",    icon: Star },
+    { v: v("portfolioMonthlyBookings",      "1,000+"),   l: "Bookings per Month",         icon: Calendar },
+    { v: v("portfolioMonthlyTravelers",     "3,500+"),   l: "Travellers Hosted Monthly",  icon: Users },
+    { v: v("portfolioAssetsUnderManagement","AED 250M"), l: "Assets Under Management",    icon: Award },
+    { v: v("portfolioTrustedOwners",        "100+"),     l: "Trusted Home Owners",        icon: Shield },
   ];
 }
 

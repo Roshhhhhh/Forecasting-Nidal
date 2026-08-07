@@ -41,13 +41,13 @@ export const companySettingsTable = pgTable("company_settings", {
     "This forecast is an estimate prepared using the property information available, internal market benchmarks, comparable property data and current market conditions. Actual occupancy, average daily rate, expenses, gross revenue and net income may differ due to changes in supply, demand, seasonality, events, property condition, platform performance and other market factors. This proposal does not represent a guarantee of future rental income."
   ),
 
-  // Portfolio stats
-  portfolioManagedProperties: integer("portfolio_managed_properties"),
-  portfolioFiveStarReviews: integer("portfolio_five_star_reviews"),
-  portfolioMonthlyBookings: integer("portfolio_monthly_bookings"),
-  portfolioMonthlyTravelers: integer("portfolio_monthly_travelers"),
+  // Portfolio stats (stored as text so values like "150+" display as-is on the proposal)
+  portfolioManagedProperties: text("portfolio_managed_properties"),
+  portfolioFiveStarReviews: text("portfolio_five_star_reviews"),
+  portfolioMonthlyBookings: text("portfolio_monthly_bookings"),
+  portfolioMonthlyTravelers: text("portfolio_monthly_travelers"),
   portfolioAssetsUnderManagement: text("portfolio_assets_under_management"),
-  portfolioTrustedOwners: integer("portfolio_trusted_owners"),
+  portfolioTrustedOwners: text("portfolio_trusted_owners"),
 
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

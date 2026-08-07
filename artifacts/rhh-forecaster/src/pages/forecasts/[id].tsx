@@ -11,7 +11,7 @@ import {
 import DuplicateForecastModal from "@/components/DuplicateForecastModal";
 import ProposalSharePanel from "@/components/ProposalSharePanel";
 import { useParams, Link } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import ProposalCoverPreview from "@/components/ProposalCoverPreview";
 import ProposalPreviewModal from "@/components/ProposalPreviewModal";
@@ -26,7 +26,7 @@ import {
   ArrowLeft, Save, Share, Copy, TrendingUp, DollarSign, Target,
   Building, Calendar, Sparkles, Calculator, Loader2, CheckCircle2,
   Send, FileText, Globe, Eye, Printer, User, MapPin, Ruler, Home,
-  Sofa, Wind, Plus, Trash2, ExternalLink, BarChart2,
+  Sofa, Wind, Plus, Trash2, ExternalLink, BarChart2, TrendingDown, Info,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -379,6 +379,18 @@ export default function ForecastDetail() {
 
   const { data: actuals, refetch: refetchActuals } = useListForecastActuals(forecastId);
   const upsertActual = useUpsertMonthlyActual();
+
+  // Market benchmark suggestions for this forecast
+  const { data: mktSuggestions } = useQuery({
+    queryKey: ["market-suggestions", forecastId],
+    queryFn: async () => {
+      const res = await fetch(`/api/forecasts/${forecastId}/market-suggestions`, { credentials: "include" });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: !!forecastId,
+  });
   // Local editable state for the actuals tab: monthNum → input string
   const [actualsInput, setActualsInput] = useState<Record<number, string>>({});
   const [actualsSaving, setActualsSaving] = useState<Record<number, boolean>>({});
@@ -1101,6 +1113,41 @@ export default function ForecastDetail() {
                         className="h-11 text-base"
                       />
                       <p className="text-xs text-muted-foreground">Traditional annual rent value from market</p>
+                      {mktSuggestions?.ltr && (
+                        <div className="mt-2 rounded-lg border border-blue-200/70 bg-blue-50/60 dark:border-blue-800/40 dark:bg-blue-950/20 p-3 space-y-2">
+                          <div className="flex items-center gap-1.5">
+                            <TrendingDown className="h-3.5 w-3.5 text-blue-500" />
+                            <span className="text-[11px] font-bold uppercase tracking-wide text-blue-700 dark:text-blue-400">
+                              Market LTR{mktSuggestions.areaMatched ? ` · ${mktSuggestions.area}` : " · Abu Dhabi avg"}
+                            </span>
+                            {!mktSuggestions.areaMatched && (
+                              <span title="No benchmarks found for this area — showing Abu Dhabi average">
+                                <Info className="h-3 w-3 text-muted-foreground" />
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-blue-800 dark:text-blue-300">
+                            Range: <strong>AED {mktSuggestions.ltr.min.toLocaleString()}</strong> – <strong>AED {mktSuggestions.ltr.max.toLocaleString()}</strong>
+                            <span className="mx-2 text-blue-400">·</span>
+                            Median: <strong>AED {mktSuggestions.ltr.median.toLocaleString()}</strong>
+                            <span className="ml-2 text-blue-400">({mktSuggestions.ltr.count} comps)</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            <button type="button" onClick={() => form.setValue("annualLtr", mktSuggestions.ltr.min)}
+                              className="rounded px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-blue-900/40 border border-blue-300/70 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800/50 transition-colors">
+                              Apply min
+                            </button>
+                            <button type="button" onClick={() => form.setValue("annualLtr", mktSuggestions.ltr.median)}
+                              className="rounded px-2 py-0.5 text-[11px] font-semibold bg-blue-600 dark:bg-blue-700 text-white hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors">
+                              Apply median ✓
+                            </button>
+                            <button type="button" onClick={() => form.setValue("annualLtr", mktSuggestions.ltr.max)}
+                              className="rounded px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-blue-900/40 border border-blue-300/70 dark:border-blue-700 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800/50 transition-colors">
+                              Apply max
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm font-medium">Lease Vacancy Gap (%)</Label>
@@ -1161,6 +1208,41 @@ export default function ForecastDetail() {
                       <p className="text-xs text-muted-foreground">
                         March rate = 1.0× reference. All other months are derived automatically using RHH seasonal multipliers.
                       </p>
+                      {mktSuggestions?.adr && (
+                        <div className="mt-2 rounded-lg border border-amber-200/70 bg-amber-50/60 dark:border-amber-800/40 dark:bg-amber-950/20 p-3 space-y-2">
+                          <div className="flex items-center gap-1.5">
+                            <TrendingUp className="h-3.5 w-3.5 text-amber-500" />
+                            <span className="text-[11px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
+                              Market ADR{mktSuggestions.areaMatched ? ` · ${mktSuggestions.area}` : " · Abu Dhabi avg"}
+                            </span>
+                            {!mktSuggestions.areaMatched && (
+                              <span title="No benchmarks found for this area — showing Abu Dhabi average">
+                                <Info className="h-3 w-3 text-muted-foreground" />
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs text-amber-800 dark:text-amber-300">
+                            Range: <strong>AED {mktSuggestions.adr.min.toLocaleString()}</strong> – <strong>AED {mktSuggestions.adr.max.toLocaleString()}</strong>
+                            <span className="mx-2 text-amber-400">·</span>
+                            Median: <strong>AED {mktSuggestions.adr.median.toLocaleString()}</strong>
+                            <span className="ml-2 text-amber-400">({mktSuggestions.adr.count} comps)</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            <button type="button" onClick={() => form.setValue("baseAdr", mktSuggestions.adr.min)}
+                              className="rounded px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-amber-900/40 border border-amber-300/70 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-800/50 transition-colors">
+                              Apply min
+                            </button>
+                            <button type="button" onClick={() => form.setValue("baseAdr", mktSuggestions.adr.median)}
+                              className="rounded px-2 py-0.5 text-[11px] font-semibold bg-amber-500 dark:bg-amber-600 text-white hover:bg-amber-600 dark:hover:bg-amber-500 transition-colors">
+                              Apply median ✓
+                            </button>
+                            <button type="button" onClick={() => form.setValue("baseAdr", mktSuggestions.adr.max)}
+                              className="rounded px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-amber-900/40 border border-amber-300/70 dark:border-amber-700 text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-800/50 transition-colors">
+                              Apply max
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Right-side panels stacked */}

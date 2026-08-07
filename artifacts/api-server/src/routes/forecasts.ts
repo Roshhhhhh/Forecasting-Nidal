@@ -1,9 +1,10 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, ilike } from "drizzle-orm";
 import {
   db, forecastsTable, forecastScenariosTable, monthlyProjectionsTable,
   aiRecommendationsTable, ownersTable, propertiesTable, usersTable, proposalsTable,
   amenitiesTable, propertyAmenitiesTable, forecastComparablesTable, monthlyActualsTable,
+  unitBenchmarksTable, marketAreasTable,
 } from "@workspace/db";
 import {
   CreateForecastBody, UpdateForecastBody, GetForecastParams,
@@ -467,46 +468,145 @@ router.patch("/forecasts/:id/monthly/:monthNum", requireAuth, async (req, res): 
   res.json(updated);
 });
 
+// ── Market suggestions (inline benchmark panel) ───────────────────────────────
+async function fetchMarketBenchmarks(bedrooms: number, areaName: string | null) {
+  const cols = {
+    area: marketAreasTable.area,
+    project: marketAreasTable.projectBuilding,
+    typicalAdr: unitBenchmarksTable.typicalAdr,
+    shoulderSeasonAdr: unitBenchmarksTable.shoulderSeasonAdr,
+    lowSeasonAdr: unitBenchmarksTable.lowSeasonAdr,
+    peakSeasonAdr: unitBenchmarksTable.peakSeasonAdr,
+    annualLtr: unitBenchmarksTable.annualLtr,
+    minLtr: unitBenchmarksTable.minLtr,
+    maxLtr: unitBenchmarksTable.maxLtr,
+    expectedOccupancy: unitBenchmarksTable.expectedOccupancy,
+  };
+
+  let rows: any[] = [];
+  if (areaName) {
+    rows = await db.select(cols)
+      .from(unitBenchmarksTable)
+      .leftJoin(marketAreasTable, eq(unitBenchmarksTable.marketAreaId, marketAreasTable.id))
+      .where(and(ilike(marketAreasTable.area, `%${areaName}%`), eq(unitBenchmarksTable.bedrooms, bedrooms)))
+      .limit(30);
+  }
+  // Fallback: all benchmarks for this bedroom count (no area filter)
+  const areaMatched = rows.length > 0;
+  if (!areaMatched) {
+    rows = await db.select(cols)
+      .from(unitBenchmarksTable)
+      .leftJoin(marketAreasTable, eq(unitBenchmarksTable.marketAreaId, marketAreasTable.id))
+      .where(eq(unitBenchmarksTable.bedrooms, bedrooms))
+      .limit(30);
+  }
+  return { rows, areaMatched };
+}
+
+function benchmarkStats(vals: (number | null | undefined)[]) {
+  const arr = vals.filter((v): v is number => v != null && v > 0);
+  if (!arr.length) return null;
+  arr.sort((a, b) => a - b);
+  return {
+    min: arr[0],
+    max: arr[arr.length - 1],
+    avg: Math.round(arr.reduce((s, v) => s + v, 0) / arr.length),
+    median: arr[Math.floor(arr.length / 2)],
+    count: arr.length,
+  };
+}
+
+router.get("/forecasts/:id/market-suggestions", requireAuth, async (req, res): Promise<void> => {
+  const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const id = parseInt(raw, 10);
+  const [f] = await db.select().from(forecastsTable).where(eq(forecastsTable.id, id));
+  if (!f) { res.status(404).json({ error: "Forecast not found" }); return; }
+
+  let propertyData: any = null;
+  if (f.propertyId) {
+    const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, f.propertyId));
+    propertyData = p;
+  }
+
+  const bedrooms: number = propertyData?.bedrooms ?? 1;
+  const areaName: string | null = propertyData?.area ?? propertyData?.community ?? null;
+
+  const { rows, areaMatched } = await fetchMarketBenchmarks(bedrooms, areaName);
+
+  const adrs = rows.map(r => r.typicalAdr ?? r.shoulderSeasonAdr);
+  const ltrs = rows.map(r => r.annualLtr);
+  const occs = rows.map(r => r.expectedOccupancy);
+
+  res.json({
+    bedrooms,
+    area: areaName,
+    areaMatched,
+    adr: benchmarkStats(adrs),
+    ltr: benchmarkStats(ltrs),
+    occupancy: benchmarkStats(occs),
+    samples: rows.slice(0, 12).map(r => ({
+      area: r.area, project: r.project,
+      adr: r.typicalAdr ?? r.shoulderSeasonAdr,
+      ltr: r.annualLtr,
+      minLtr: r.minLtr, maxLtr: r.maxLtr,
+    })),
+  });
+});
+
 router.post("/forecasts/:id/ai-recommend", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   const [f] = await db.select().from(forecastsTable).where(eq(forecastsTable.id, id));
   if (!f) { res.status(404).json({ error: "Forecast not found" }); return; }
 
-  // Get benchmark data for the property
   let propertyInfo: any = null;
   if (f.propertyId) {
     const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, f.propertyId));
     propertyInfo = p;
   }
 
-  // Generate AI-style recommendations based on benchmark data with realistic Abu Dhabi values
-  const bedrooms = propertyInfo?.bedrooms ?? 1;
-  const baseAdr = bedrooms === 0 ? 350 : bedrooms === 1 ? 500 : bedrooms === 2 ? 700 : bedrooms === 3 ? 1000 : 1400;
-  const baseLtr = bedrooms === 0 ? 55000 : bedrooms === 1 ? 80000 : bedrooms === 2 ? 110000 : bedrooms === 3 ? 150000 : 200000;
+  const bedrooms: number = propertyInfo?.bedrooms ?? 1;
+  const areaName: string | null = propertyInfo?.area ?? propertyInfo?.community ?? null;
 
-  // baseAdrSuggested = March shoulder reference (multiplier 1.0)
-  // Use bedroom-based benchmark directly as the March base ADR
+  // Pull real benchmark data from DB
+  const { rows, areaMatched } = await fetchMarketBenchmarks(bedrooms, areaName);
+
+  // Compute ADR + LTR from real benchmark data; fall back to hardcoded Abu Dhabi averages
+  const adrStats = benchmarkStats(rows.map(r => r.typicalAdr ?? r.shoulderSeasonAdr));
+  const ltrStats = benchmarkStats(rows.map(r => r.annualLtr));
+  const occupancyStats = benchmarkStats(rows.map(r => r.expectedOccupancy));
+
+  const FALLBACK_ADR: Record<number, number> = { 0: 350, 1: 500, 2: 700, 3: 1000, 4: 1400 };
+  const FALLBACK_LTR: Record<number, number> = { 0: 55000, 1: 80000, 2: 110000, 3: 150000, 4: 200000 };
+  const baseAdr = adrStats?.median ?? adrStats?.avg ?? (FALLBACK_ADR[bedrooms] ?? 700);
+  const baseLtr = ltrStats?.median ?? ltrStats?.avg ?? (FALLBACK_LTR[bedrooms] ?? 110000);
+  const baseOcc = occupancyStats?.avg != null ? occupancyStats.avg / 100 : REFERENCE_OCCUPANCY;
+  const confidence = areaMatched ? 0.87 : 0.72;
+  const sampleCount = rows.length;
+  const dataSource = areaMatched
+    ? `RHH Market Database (${sampleCount} comparable${sampleCount !== 1 ? "s" : ""} in ${areaName})`
+    : `RHH Market Database (${sampleCount} comparable${sampleCount !== 1 ? "s" : ""} across Abu Dhabi — no exact area match)`;
+
   const recommendation = {
     forecastId: id,
     status: "generated",
     annualLtrSuggested: baseLtr,
-    annualLtrConfidence: 0.82,
-    lowSeasonAdrSuggested: Math.round(baseAdr * 0.75),    // June–Aug (multiplier 0.75)
-    shoulderSeasonAdrSuggested: baseAdr,                   // March reference (multiplier 1.0)
-    peakSeasonAdrSuggested: Math.round(baseAdr * 1.75),   // January (multiplier 1.75)
-    eventAdrSuggested: Math.round(baseAdr * 2.125),       // December (multiplier 2.125)
-    occupancySuggested: REFERENCE_OCCUPANCY,
+    annualLtrConfidence: confidence,
+    lowSeasonAdrSuggested: Math.round(baseAdr * 0.75),
+    shoulderSeasonAdrSuggested: baseAdr,
+    peakSeasonAdrSuggested: Math.round(baseAdr * 1.75),
+    eventAdrSuggested: Math.round(baseAdr * 2.125),
+    occupancySuggested: baseOcc,
     internetCostSuggested: 7200,
     utilityCostSuggested: 15000,
     maintenanceCostSuggested: 8000,
     managementFeeSuggested: 20,
-    narrativeSuggested: `Based on comparable properties in ${propertyInfo?.area ?? "the area"}, this ${bedrooms}-bedroom unit presents strong short-term rental potential. The Abu Dhabi STR market shows resilient demand driven by business travel, major events, and tourism growth.`,
+    narrativeSuggested: `Based on ${sampleCount} comparable ${bedrooms}-bedroom properties${areaName ? ` in ${areaName}` : " across Abu Dhabi"}, this unit shows strong short-term rental potential. ${adrStats ? `Market ADR ranges AED ${adrStats.min.toLocaleString()}–${adrStats.max.toLocaleString()} with a median of AED ${adrStats.median.toLocaleString()}.` : ""} The Abu Dhabi STR market is driven by business travel, major events, and growing tourism.`,
     keyRisks: "Seasonal demand fluctuation in summer months. Increasing STR supply in the area. Regulatory changes to DCT licensing requirements.",
     keyDrivers: "Premium location with strong event-driven demand. Quality furnishing commands above-average ADR. F1/NYE events significantly boost Q4 performance.",
-    overallConfidence: 0.78,
-    modelUsed: "GPT-4o",
-    dataSources: "RHH Internal Benchmark Database, Abu Dhabi STR Market Data 2024, CBRE Abu Dhabi Hospitality Report",
+    overallConfidence: confidence,
+    modelUsed: "RHH Market Database",
+    dataSources: dataSource,
   };
 
   const [rec] = await db.insert(aiRecommendationsTable).values(recommendation).returning();

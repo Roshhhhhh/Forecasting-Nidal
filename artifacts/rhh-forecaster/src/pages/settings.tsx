@@ -26,12 +26,12 @@ const settingsSchema = z.object({
   defaultLtrVacancyPercent: z.coerce.number().min(0).max(100),
   proposalValidityDays: z.coerce.number().min(1),
   disclaimer: z.string().optional(),
-  portfolioManagedProperties: z.coerce.number().int().min(0).optional(),
-  portfolioFiveStarReviews: z.coerce.number().int().min(0).optional(),
-  portfolioMonthlyBookings: z.coerce.number().int().min(0).optional(),
-  portfolioMonthlyTravelers: z.coerce.number().int().min(0).optional(),
+  portfolioManagedProperties: z.string().optional(),
+  portfolioFiveStarReviews: z.string().optional(),
+  portfolioMonthlyBookings: z.string().optional(),
+  portfolioMonthlyTravelers: z.string().optional(),
   portfolioAssetsUnderManagement: z.string().optional(),
-  portfolioTrustedOwners: z.coerce.number().int().min(0).optional(),
+  portfolioTrustedOwners: z.string().optional(),
 });
 
 type SettingsFormValues = z.infer<typeof settingsSchema>;
@@ -69,12 +69,12 @@ function GeneralTab() {
         defaultLtrVacancyPercent: settings.defaultLtrVacancyPercent || 5,
         proposalValidityDays: settings.proposalValidityDays || 14,
         disclaimer: settings.disclaimer || "",
-        portfolioManagedProperties: (settings as any).portfolioManagedProperties ?? undefined,
-        portfolioFiveStarReviews: (settings as any).portfolioFiveStarReviews ?? undefined,
-        portfolioMonthlyBookings: (settings as any).portfolioMonthlyBookings ?? undefined,
-        portfolioMonthlyTravelers: (settings as any).portfolioMonthlyTravelers ?? undefined,
+        portfolioManagedProperties: (settings as any).portfolioManagedProperties ?? "",
+        portfolioFiveStarReviews: (settings as any).portfolioFiveStarReviews ?? "",
+        portfolioMonthlyBookings: (settings as any).portfolioMonthlyBookings ?? "",
+        portfolioMonthlyTravelers: (settings as any).portfolioMonthlyTravelers ?? "",
         portfolioAssetsUnderManagement: (settings as any).portfolioAssetsUnderManagement ?? "",
-        portfolioTrustedOwners: (settings as any).portfolioTrustedOwners ?? undefined,
+        portfolioTrustedOwners: (settings as any).portfolioTrustedOwners ?? "",
       });
       formInitialized.current = true;
     }
@@ -255,7 +255,7 @@ function GeneralTab() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Managed Properties</FormLabel>
-                  <FormControl><Input type="number" min="0" placeholder="160" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormControl><Input placeholder="160+" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -264,7 +264,7 @@ function GeneralTab() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Five-Star Reviews</FormLabel>
-                  <FormControl><Input type="number" min="0" placeholder="5000" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormControl><Input placeholder="5,000+" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -273,7 +273,7 @@ function GeneralTab() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Bookings per Month</FormLabel>
-                  <FormControl><Input type="number" min="0" placeholder="1000" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormControl><Input placeholder="1,000+" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -282,7 +282,7 @@ function GeneralTab() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Travellers Hosted Monthly</FormLabel>
-                  <FormControl><Input type="number" min="0" placeholder="3500" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormControl><Input placeholder="3,500+" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -291,7 +291,7 @@ function GeneralTab() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Assets Under Management</FormLabel>
-                  <FormControl><Input placeholder="AED 250M" {...field} /></FormControl>
+                  <FormControl><Input placeholder="AED 250M+" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -300,7 +300,7 @@ function GeneralTab() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Trusted Home Owners</FormLabel>
-                  <FormControl><Input type="number" min="0" placeholder="100" {...field} value={field.value ?? ""} /></FormControl>
+                  <FormControl><Input placeholder="100+" {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}

@@ -80,11 +80,24 @@ export async function runStartupMigration() {
       )
     `);
 
-    // Add portfolio_assets_under_management to company_settings
+    // Add portfolio stats columns (text, idempotent) and convert any integer ones to text
     await db.execute(sql`
       ALTER TABLE company_settings
         ADD COLUMN IF NOT EXISTS portfolio_assets_under_management TEXT
     `);
+    // Convert integer portfolio columns to text so values like "150+" are stored verbatim
+    for (const col of [
+      "portfolio_managed_properties",
+      "portfolio_five_star_reviews",
+      "portfolio_monthly_bookings",
+      "portfolio_monthly_travelers",
+      "portfolio_trusted_owners",
+    ]) {
+      await db.execute(sql.raw(`
+        ALTER TABLE company_settings
+          ALTER COLUMN ${col} TYPE TEXT USING ${col}::TEXT
+      `));
+    }
 
     // 6. Add baseAdr to forecasts (single-ADR model, March = multiplier 1.0)
     await db.execute(sql`

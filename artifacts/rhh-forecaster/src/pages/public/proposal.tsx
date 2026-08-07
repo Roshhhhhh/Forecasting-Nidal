@@ -186,6 +186,27 @@ export default function PublicProposal() {
   const [formQuestion, setFormQuestion]           = useState("");
   const [formCategory, setFormCategory]           = useState("Financial Forecast");
 
+  // ── AI Property Description ─────────────────────────────────────────────────
+  const [aiDescription, setAiDescription]         = useState<string | null>(null);
+  const [aiGenerating, setAiGenerating]           = useState(false);
+
+  // Seed from cached value if available, else trigger generation on load
+  useEffect(() => {
+    if (!proposal) return;
+    const cached = (proposal as any).aiPropertyDescription;
+    if (cached) {
+      setAiDescription(cached);
+      return;
+    }
+    if (!token) return;
+    setAiGenerating(true);
+    fetch(`/api/p/${token}/property-description`, { method: "POST" })
+      .then(r => r.json())
+      .then(data => { if (data.description) setAiDescription(data.description); })
+      .catch(() => {})
+      .finally(() => setAiGenerating(false));
+  }, [!!proposal]);
+
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener("resize", handler);
@@ -562,85 +583,72 @@ export default function PublicProposal() {
           </div>
         </div>
 
-        {/* ── Property Highlights (amenities) ── */}
-        {(() => {
-          const amenities: any[] = (proposal as any).amenities ?? [];
-          if (!amenities.length) return null;
-          const highlights = amenities.filter((a: any) => a.isProposalHighlight);
-          const rest       = amenities.filter((a: any) => !a.isProposalHighlight);
-          const grouped: Record<string, any[]> = {};
-          rest.forEach((a: any) => {
-            if (!grouped[a.category]) grouped[a.category] = [];
-            grouped[a.category].push(a);
-          });
-          const totalRest = rest.length;
-          return (
-            <div style={{ maxWidth:1200, margin:"0 auto", padding:isMobile?"32px 16px 0":"40px 48px 0" }}>
-              <div style={{ border:`1px solid ${BORDER}`, borderRadius:16, padding:isMobile?"24px 20px":"36px 40px", background:WHITE, position:"relative", overflow:"hidden" }}>
-                {/* Gold side bar */}
-                <div style={{ position:"absolute", top:0, left:0, width:4, height:"100%", background:`linear-gradient(180deg, ${GOLD} 0%, ${GOLD2} 100%)` }} />
-                <div style={{ fontSize:10, fontWeight:700, letterSpacing:3, textTransform:"uppercase", color:MUTED, marginBottom:20 }}>Property Highlights</div>
+        {/* ── AI Property Description ── */}
+        {(aiDescription || aiGenerating || (proposal as any).amenities?.length > 0) && (
+          <div style={{ maxWidth:1200, margin:"0 auto", padding:isMobile?"32px 16px 0":"40px 48px 0" }}>
+            <div style={{ border:`1px solid ${BORDER}`, borderRadius:16, padding:isMobile?"24px 20px":"40px 48px", background:WHITE, position:"relative", overflow:"hidden" }}>
+              {/* Gold side bar */}
+              <div style={{ position:"absolute", top:0, left:0, width:4, height:"100%", background:`linear-gradient(180deg, ${GOLD} 0%, ${GOLD2} 100%)` }} />
 
-                {/* Top-featured amenity pills — always visible */}
-                {highlights.length > 0 && (
-                  <div style={{ marginBottom: totalRest ? 20 : 0 }}>
-                    <div style={{ fontSize:11, fontWeight:700, color:GOLD, letterSpacing:1.5, textTransform:"uppercase", marginBottom:12 }}>
-                      Top Features
+              <div style={{ fontSize:10, fontWeight:700, letterSpacing:3, textTransform:"uppercase", color:MUTED, marginBottom:20 }}>
+                Property Overview
+              </div>
+
+              {aiGenerating && !aiDescription ? (
+                /* Skeleton while generating */
+                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+                  {[100, 95, 88, 100, 92, 70].map((w, i) => (
+                    <div key={i} style={{ height:14, borderRadius:4, background:`linear-gradient(90deg, ${BORDER} 0%, #f5f2ec 50%, ${BORDER} 100%)`, backgroundSize:"200% 100%", width:`${w}%`, animation:"shimmer 1.4s ease-in-out infinite", animationDelay:`${i * 0.1}s` }} />
+                  ))}
+                  <div style={{ height:14, borderRadius:4, background:`linear-gradient(90deg, ${BORDER} 0%, #f5f2ec 50%, ${BORDER} 100%)`, backgroundSize:"200% 100%", width:"55%", animation:"shimmer 1.4s ease-in-out infinite", animationDelay:"0.6s" }} />
+                  <div style={{ marginTop:6 }} />
+                  {[100, 97, 84, 100, 91].map((w, i) => (
+                    <div key={i+6} style={{ height:14, borderRadius:4, background:`linear-gradient(90deg, ${BORDER} 0%, #f5f2ec 50%, ${BORDER} 100%)`, backgroundSize:"200% 100%", width:`${w}%`, animation:"shimmer 1.4s ease-in-out infinite", animationDelay:`${(i+6) * 0.1}s` }} />
+                  ))}
+                  <style>{`@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
+                  <p style={{ marginTop:12, fontSize:12, color:MUTED, fontStyle:"italic" }}>Generating property description…</p>
+                </div>
+              ) : aiDescription ? (
+                /* Rendered prose */
+                <div style={{ fontSize:isMobile?14:15, lineHeight:1.85, color:"#333", fontFamily:"serif" }}>
+                  {aiDescription.split("\n\n").filter(Boolean).map((para, i) => (
+                    <p key={i} style={{ marginBottom: i < aiDescription.split("\n\n").filter(Boolean).length - 1 ? 18 : 0 }}>
+                      {para.trim()}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+
+              {/* Amenity tags — compact footer row beneath the prose */}
+              {(() => {
+                const amenities: any[] = (proposal as any).amenities ?? [];
+                if (!amenities.length) return null;
+                const highlights = amenities.filter((a: any) => a.isProposalHighlight);
+                const shown = highlights.length ? highlights : amenities.slice(0, 8);
+                return (
+                  <div style={{ marginTop: aiDescription ? 28 : 0, paddingTop: aiDescription ? 20 : 0, borderTop: aiDescription ? `1px solid ${BORDER}` : "none" }}>
+                    <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:MUTED, marginBottom:12 }}>
+                      Key Features
                     </div>
-                    <div style={{ display:"flex", flexWrap:"wrap", gap:10 }}>
-                      {highlights.map((a: any) => (
-                        <div key={a.id} style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"10px 16px", borderRadius:30, background:`linear-gradient(135deg, ${GOLD}18, ${GOLD2}0D)`, border:`1px solid ${GOLD}50` }}>
-                          <span style={{ fontSize:15 }}>{a.icon}</span>
-                          <span style={{ fontSize:13, fontWeight:700, color:DARK }}>{a.name}</span>
+                    <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+                      {shown.map((a: any) => (
+                        <div key={a.id} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"6px 12px", borderRadius:20, background:CREAM, border:`1px solid ${BORDER}` }}>
+                          <span style={{ fontSize:12 }}>{a.icon}</span>
+                          <span style={{ fontSize:11, color:DARK, fontWeight:600 }}>{a.name}</span>
                         </div>
                       ))}
+                      {amenities.length > shown.length && (
+                        <div style={{ display:"inline-flex", alignItems:"center", padding:"6px 12px", borderRadius:20, background:CREAM, border:`1px solid ${BORDER}` }}>
+                          <span style={{ fontSize:11, color:MUTED, fontWeight:500 }}>+{amenities.length - shown.length} more</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                )}
-
-                {/* Toggle button — only shown when there are additional features */}
-                {totalRest > 0 && (
-                  <button
-                    onClick={() => setShowAllAmenities(v => !v)}
-                    style={{
-                      display:"inline-flex", alignItems:"center", gap:6,
-                      marginTop: highlights.length ? 4 : 0,
-                      padding:"8px 16px", borderRadius:20,
-                      border:`1px solid ${GOLD}60`, background:"transparent",
-                      color:GOLD, fontSize:12, fontWeight:700, cursor:"pointer",
-                      transition:"all 0.2s",
-                    }}
-                  >
-                    <span style={{ fontSize:14 }}>{showAllAmenities ? "▲" : "▼"}</span>
-                    {showAllAmenities
-                      ? "Hide features"
-                      : `View all ${totalRest + highlights.length} property features`}
-                  </button>
-                )}
-
-                {/* Full grouped list — collapsible */}
-                {showAllAmenities && Object.keys(grouped).length > 0 && (
-                  <div style={{ display:"flex", flexDirection:"column", gap:16, marginTop:24 }}>
-                    <div style={{ height:1, background:BORDER }} />
-                    {Object.entries(grouped).map(([cat, items]: [string, any[]]) => (
-                      <div key={cat}>
-                        <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:MUTED, marginBottom:8 }}>{cat}</div>
-                        <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-                          {items.map((a: any) => (
-                            <div key={a.id} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"7px 12px", borderRadius:20, background:CREAM, border:`1px solid ${BORDER}` }}>
-                              <span style={{ fontSize:13 }}>{a.icon}</span>
-                              <span style={{ fontSize:12, color:DARK, fontWeight:500 }}>{a.name}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                );
+              })()}
             </div>
-          );
-        })()}
+          </div>
+        )}
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════

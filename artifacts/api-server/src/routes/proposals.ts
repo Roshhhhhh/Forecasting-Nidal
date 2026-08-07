@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, desc, sql } from "drizzle-orm";
 import crypto from "crypto";
+import OpenAI from "openai";
 import {
   db, proposalsTable, proposalViewEventsTable, forecastsTable,
   forecastScenariosTable, monthlyProjectionsTable, ownersTable, propertiesTable, usersTable, companySettingsTable,
@@ -303,7 +304,121 @@ router.get("/p/:token", async (req, res): Promise<void> => {
     ownerAction: proposal.ownerAction ?? null,
     amenities: propertyAmenities,
     comparables,
+    aiPropertyDescription: proposal.aiPropertyDescription ?? null,
   });
+});
+
+// ── Generate & cache AI property description (public, token-gated) ──────────
+router.post("/p/:token/property-description", async (req, res): Promise<void> => {
+  const token = Array.isArray(req.params.token) ? req.params.token[0] : req.params.token;
+  const [proposal] = await db.select().from(proposalsTable).where(eq(proposalsTable.shareToken, token));
+  if (!proposal || !proposal.isLinkActive) { res.status(404).json({ error: "Not found" }); return; }
+
+  // Return cached version if it exists
+  if (proposal.aiPropertyDescription) {
+    res.json({ description: proposal.aiPropertyDescription, source: "cache" });
+    return;
+  }
+
+  const [forecast] = await db.select().from(forecastsTable).where(eq(forecastsTable.id, proposal.forecastId));
+  if (!forecast) { res.status(404).json({ error: "Forecast not found" }); return; }
+
+  let propertyData: any = null;
+  let propertyAmenities: any[] = [];
+  if (forecast.propertyId) {
+    const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, forecast.propertyId));
+    propertyData = p;
+    propertyAmenities = await db
+      .select({ name: amenitiesTable.name, category: amenitiesTable.category, isProposalHighlight: amenitiesTable.isProposalHighlight })
+      .from(propertyAmenitiesTable)
+      .innerJoin(amenitiesTable, eq(amenitiesTable.id, propertyAmenitiesTable.amenityId))
+      .where(eq(propertyAmenitiesTable.propertyId, forecast.propertyId))
+      .orderBy(amenitiesTable.category, amenitiesTable.sortOrder);
+  }
+
+  // Group amenities by category for the prompt
+  const amenityGroups: Record<string, string[]> = {};
+  for (const a of propertyAmenities) {
+    const cat = a.category ?? "General";
+    if (!amenityGroups[cat]) amenityGroups[cat] = [];
+    amenityGroups[cat].push(a.name);
+  }
+  const amenityBlock = Object.entries(amenityGroups)
+    .map(([cat, items]) => `  ${cat}: ${items.join(", ")}`)
+    .join("\n");
+
+  const bedLabel = propertyData?.bedrooms === 0 ? "Studio" : `${propertyData?.bedrooms ?? 1}-Bedroom`;
+  const propType = propertyData?.propertyType ?? "apartment";
+  const building = propertyData?.projectBuilding ?? null;
+  const area = propertyData?.area ?? "Abu Dhabi";
+  const community = propertyData?.community ?? null;
+  const view = propertyData?.view ?? null;
+  const floor = propertyData?.floor ?? null;
+  const internalArea = propertyData?.internalArea ?? null;
+  const bathrooms = propertyData?.bathrooms ?? null;
+  const furnishing = propertyData?.furnishingStatus?.replace(/_/g, " ") ?? "fully furnished";
+
+  const dataBlock = [
+    `Property type: ${bedLabel} ${propType}`,
+    building ? `Building / Project: ${building}` : null,
+    `Area: ${area}${community ? `, ${community}` : ""}`,
+    `Emirate: Abu Dhabi, UAE`,
+    bathrooms ? `Bathrooms: ${bathrooms}` : null,
+    internalArea ? `Internal area: ${internalArea} sqft` : null,
+    floor ? `Floor: ${floor}` : null,
+    view ? `View: ${view}` : null,
+    `Furnishing: ${furnishing}`,
+    propertyAmenities.length
+      ? `Amenities by category:\n${amenityBlock}`
+      : null,
+  ].filter(Boolean).join("\n");
+
+  const systemPrompt = `You are a luxury property writer for Royal Holiday Homes (RHH), a premium short-term rental management company in Abu Dhabi, UAE. 
+
+Write a compelling ~500-word property description that will appear on an owner investment proposal. The description should cover four areas in natural flowing prose (no bullet points, no headers, no numbered lists):
+
+1. The property itself: size, bedrooms, bathrooms, view, furnishing quality, and standout interior features.
+2. The building and community: developer, building name, architecture, shared facilities, and residential amenities.
+3. The location and area: what the neighbourhood offers, proximity to landmarks, beaches, attractions, and lifestyle appeal.
+4. The tourism opportunity: who visits Abu Dhabi, what type of guests this property attracts, peak seasons, and why STR performs well here.
+
+Style: confident, premium, factual (don't invent things not in the data). Write for a property owner evaluating their investment — not a guest. Avoid estate-agent clichés like "stunning", "gorgeous", "dream home". Aim for tone similar to Knight Frank or Savills property notes.
+
+Output only the prose description. No title, no salutation, no sign-off.`;
+
+  const userPrompt = `Write the property description using this data:\n\n${dataBlock}`;
+
+  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY;
+  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ?? undefined;
+  if (!apiKey) {
+    res.status(503).json({ error: "AI generation not configured" });
+    return;
+  }
+
+  try {
+    const openai = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4o",
+      max_tokens: 700,
+      temperature: 0.5,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+    });
+    const description = completion.choices[0]?.message?.content?.trim();
+    if (!description) { res.status(500).json({ error: "No content from AI" }); return; }
+
+    // Cache it in the DB
+    await db.update(proposalsTable)
+      .set({ aiPropertyDescription: description })
+      .where(eq(proposalsTable.id, proposal.id));
+
+    res.json({ description, source: "ai" });
+  } catch (err) {
+    console.error("[property-description] OpenAI error:", err);
+    res.status(500).json({ error: "AI generation failed" });
+  }
 });
 
 router.post("/p/:token/action", async (req, res): Promise<void> => {

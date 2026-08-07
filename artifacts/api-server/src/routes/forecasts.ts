@@ -847,10 +847,11 @@ router.post("/forecasts/:id/narrative-draft", requireAuth, async (req, res): Pro
   }
 
   // ── Attempt AI generation ───────────────────────────────────────────────────
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY ?? process.env.OPENAI_API_KEY;
+  const baseURL = process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ?? undefined;
   if (apiKey) {
     try {
-      const openai = new OpenAI({ apiKey });
+      const openai = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
 
       // Build a structured data block so the AI has every figure it needs
       const highlightAmenities = propertyAmenities.filter((a: any) => a.isProposalHighlight).map((a: any) => a.name);

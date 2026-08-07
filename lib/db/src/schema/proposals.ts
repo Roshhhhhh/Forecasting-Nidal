@@ -44,6 +44,7 @@ export const proposalsTable = pgTable("proposals", {
 
   // Content
   coverNarrative: text("cover_narrative"),
+  aiPropertyDescription: text("ai_property_description"),
 
   createdById: integer("created_by_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

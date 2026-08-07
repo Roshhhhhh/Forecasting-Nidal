@@ -1,4 +1,5 @@
-import { useGetCompanySettings, useUpdateCompanySettings } from "@workspace/api-client-react";
+import { useGetCompanySettings, useUpdateCompanySettings, getGetCompanySettingsQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,7 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { Save } from "lucide-react";
 import { AmenitiesTab } from "./settings/amenities-tab";
 
@@ -38,9 +39,9 @@ type SettingsFormValues = z.infer<typeof settingsSchema>;
 
 function GeneralTab() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const { data: settings, isLoading } = useGetCompanySettings();
   const updateSettings = useUpdateCompanySettings();
-  const formInitialized = useRef(false);
 
   const form = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
@@ -54,35 +55,37 @@ function GeneralTab() {
     },
   });
 
+  // Sync form to server data every time it (re)loads — no one-shot guard so
+  // navigating away and back always shows the latest saved values.
   useEffect(() => {
-    if (settings && !formInitialized.current) {
-      form.reset({
-        companyName: settings.companyName,
-        brandName: settings.brandName,
-        currency: settings.currency,
-        phone: settings.phone || "",
-        website: settings.website || "",
-        ownerEmail: settings.ownerEmail || "",
-        guestEmail: settings.guestEmail || "",
-        address: settings.address || "",
-        defaultManagementFeePercent: settings.defaultManagementFeePercent || 20,
-        defaultLtrVacancyPercent: settings.defaultLtrVacancyPercent || 5,
-        proposalValidityDays: settings.proposalValidityDays || 14,
-        disclaimer: settings.disclaimer || "",
-        portfolioManagedProperties: (settings as any).portfolioManagedProperties ?? "",
-        portfolioFiveStarReviews: (settings as any).portfolioFiveStarReviews ?? "",
-        portfolioMonthlyBookings: (settings as any).portfolioMonthlyBookings ?? "",
-        portfolioMonthlyTravelers: (settings as any).portfolioMonthlyTravelers ?? "",
-        portfolioAssetsUnderManagement: (settings as any).portfolioAssetsUnderManagement ?? "",
-        portfolioTrustedOwners: (settings as any).portfolioTrustedOwners ?? "",
-      });
-      formInitialized.current = true;
-    }
-  }, [settings, form]);
+    if (!settings) return;
+    form.reset({
+      companyName: settings.companyName,
+      brandName: settings.brandName,
+      currency: settings.currency,
+      phone: settings.phone || "",
+      website: settings.website || "",
+      ownerEmail: settings.ownerEmail || "",
+      guestEmail: settings.guestEmail || "",
+      address: settings.address || "",
+      defaultManagementFeePercent: settings.defaultManagementFeePercent || 20,
+      defaultLtrVacancyPercent: settings.defaultLtrVacancyPercent || 5,
+      proposalValidityDays: settings.proposalValidityDays || 14,
+      disclaimer: settings.disclaimer || "",
+      portfolioManagedProperties: (settings as any).portfolioManagedProperties ?? "",
+      portfolioFiveStarReviews: (settings as any).portfolioFiveStarReviews ?? "",
+      portfolioMonthlyBookings: (settings as any).portfolioMonthlyBookings ?? "",
+      portfolioMonthlyTravelers: (settings as any).portfolioMonthlyTravelers ?? "",
+      portfolioAssetsUnderManagement: (settings as any).portfolioAssetsUnderManagement ?? "",
+      portfolioTrustedOwners: (settings as any).portfolioTrustedOwners ?? "",
+    });
+  }, [settings]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onSubmit = async (data: SettingsFormValues) => {
     try {
       await updateSettings.mutateAsync({ data: data as any });
+      // Invalidate cache so the next mount always fetches fresh data from the server.
+      await queryClient.invalidateQueries({ queryKey: getGetCompanySettingsQueryKey() });
       toast({ title: "Settings Saved", description: "Company configuration updated successfully." });
     } catch (error) {
       toast({ title: "Error", description: "Failed to save settings.", variant: "destructive" });

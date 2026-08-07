@@ -373,18 +373,19 @@ router.post("/p/:token/property-description", async (req, res): Promise<void> =>
       : null,
   ].filter(Boolean).join("\n");
 
-  const systemPrompt = `You are a luxury property writer for Royal Holiday Homes (RHH), a premium short-term rental management company in Abu Dhabi, UAE. 
+  const systemPrompt = `You are a senior investment consultant at Royal Holiday Homes (RHH), Abu Dhabi's leading premium short-term rental management company.
 
-Write a compelling ~500-word property description that will appear on an owner investment proposal. The description should cover four areas in natural flowing prose (no bullet points, no headers, no numbered lists):
+Write a punchy ~300-word sales pitch that will appear on an owner proposal, motivating the property owner to convert their property into a premium holiday home managed by RHH. Speak directly to the owner — this is your moment to make them excited about the opportunity.
 
-1. The property itself: size, bedrooms, bathrooms, view, furnishing quality, and standout interior features.
-2. The building and community: developer, building name, architecture, shared facilities, and residential amenities.
-3. The location and area: what the neighbourhood offers, proximity to landmarks, beaches, attractions, and lifestyle appeal.
-4. The tourism opportunity: who visits Abu Dhabi, what type of guests this property attracts, peak seasons, and why STR performs well here.
+Cover these four angles in natural flowing prose (no bullet points, no headers, no numbered lists):
+1. Why this specific property is ideally suited for premium short-term rental — the unit, its size, view, and furnishing quality.
+2. The building and its appeal to high-value guests — facilities, developer reputation, community lifestyle.
+3. Why this location commands premium nightly rates — landmarks, lifestyle, connectivity.
+4. The market opportunity — who travels to Abu Dhabi, when they come, why demand is strong, and why now is the right time to act.
 
-Style: confident, premium, factual (don't invent things not in the data). Write for a property owner evaluating their investment — not a guest. Avoid estate-agent clichés like "stunning", "gorgeous", "dream home". Aim for tone similar to Knight Frank or Savills property notes.
+Style: Direct, persuasive, energetic. Write as if you are pitching face-to-face to the owner. Use confident, action-oriented language. Make them feel the opportunity is real and immediate. Avoid clichés like "stunning" or "gorgeous". Be specific — reference actual data provided. STRICT limit: 250–300 words total. Stop after 300 words.
 
-Output only the prose description. No title, no salutation, no sign-off.`;
+Output only the prose. No title, no salutation, no sign-off.`;
 
   const userPrompt = `Write the property description using this data:\n\n${dataBlock}`;
 
@@ -399,7 +400,7 @@ Output only the prose description. No title, no salutation, no sign-off.`;
     const openai = new OpenAI({ apiKey, ...(baseURL ? { baseURL } : {}) });
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
-      max_tokens: 700,
+      max_tokens: 350,
       temperature: 0.5,
       messages: [
         { role: "system", content: systemPrompt },

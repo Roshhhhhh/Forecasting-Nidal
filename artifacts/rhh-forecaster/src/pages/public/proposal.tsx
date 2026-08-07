@@ -130,6 +130,88 @@ const NAV_SECTIONS = [
   { id: "next-steps", label: "Next Steps" },
 ];
 
+// ── Property Overview Section ──────────────────────────────────────────────────
+function PropertyOverviewSection({ aiDescription, aiGenerating, amenities, amenityPreview, isMobile, BORDER, GOLD, GOLD2, WHITE, CREAM, DARK, MUTED }: {
+  aiDescription: string | null; aiGenerating: boolean; amenities: any[];
+  amenityPreview: number; isMobile: boolean;
+  BORDER: string; GOLD: string; GOLD2: string; WHITE: string; CREAM: string; DARK: string; MUTED: string;
+}) {
+  const [textExpanded, setTextExpanded] = useState(false);
+  const [amenitiesExpanded, setAmenitiesExpanded] = useState(false);
+
+  const paras = aiDescription ? aiDescription.split("\n\n").filter(Boolean) : [];
+  // Show first paragraph collapsed, all when expanded
+  const visibleParas = textExpanded ? paras : paras.slice(0, 1);
+
+  const shownAmenities = amenitiesExpanded ? amenities : amenities.slice(0, amenityPreview);
+  const hiddenCount = amenities.length - amenityPreview;
+
+  return (
+    <div style={{ maxWidth:1200, margin:"0 auto", padding:isMobile?"28px 16px 0":"36px 48px 0" }}>
+      <div style={{ border:`1px solid ${BORDER}`, borderRadius:16, padding:isMobile?"20px 18px":"28px 36px", background:WHITE, position:"relative", overflow:"hidden" }}>
+        {/* Gold side bar */}
+        <div style={{ position:"absolute", top:0, left:0, width:4, height:"100%", background:`linear-gradient(180deg, ${GOLD} 0%, ${GOLD2} 100%)` }} />
+
+        <div style={{ fontSize:10, fontWeight:700, letterSpacing:3, textTransform:"uppercase", color:MUTED, marginBottom:14 }}>
+          Property Overview
+        </div>
+
+        {/* Prose */}
+        {aiGenerating && !aiDescription ? (
+          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            {[100, 95, 88, 100, 92, 70].map((w, i) => (
+              <div key={i} style={{ height:13, borderRadius:4, background:`linear-gradient(90deg, ${BORDER} 0%, #f5f2ec 50%, ${BORDER} 100%)`, backgroundSize:"200% 100%", width:`${w}%`, animation:"shimmer 1.4s ease-in-out infinite", animationDelay:`${i * 0.1}s` }} />
+            ))}
+            <style>{`@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
+            <p style={{ marginTop:8, fontSize:12, color:MUTED, fontStyle:"italic" }}>Generating property overview…</p>
+          </div>
+        ) : aiDescription ? (
+          <div>
+            <div style={{ fontSize:isMobile?13:14, lineHeight:1.8, color:"#333", fontFamily:"serif" }}>
+              {visibleParas.map((para, i) => (
+                <p key={i} style={{ margin:0, marginBottom: i < visibleParas.length - 1 ? 14 : 0 }}>{para.trim()}</p>
+              ))}
+            </div>
+            {paras.length > 1 && (
+              <button
+                onClick={() => setTextExpanded(e => !e)}
+                style={{ marginTop:10, background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, color:GOLD, letterSpacing:0.5, display:"flex", alignItems:"center", gap:4 }}
+              >
+                {textExpanded ? "Show less ↑" : "Read more ↓"}
+              </button>
+            )}
+          </div>
+        ) : null}
+
+        {/* Amenity tags */}
+        {amenities.length > 0 && (
+          <div style={{ marginTop:aiDescription ? 20 : 0, paddingTop:aiDescription ? 16 : 0, borderTop:aiDescription ? `1px solid ${BORDER}` : "none" }}>
+            <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:MUTED, marginBottom:10 }}>
+              Key Features
+            </div>
+            <div style={{ display:"flex", flexWrap:"wrap", gap:7 }}>
+              {shownAmenities.map((a: any) => (
+                <div key={a.id} style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"5px 11px", borderRadius:20, background:CREAM, border:`1px solid ${BORDER}` }}>
+                  <span style={{ fontSize:11 }}>{a.icon}</span>
+                  <span style={{ fontSize:11, color:DARK, fontWeight:600 }}>{a.name}</span>
+                </div>
+              ))}
+            </div>
+            {hiddenCount > 0 && (
+              <button
+                onClick={() => setAmenitiesExpanded(e => !e)}
+                style={{ marginTop:10, background:"none", border:"none", padding:0, cursor:"pointer", fontSize:12, fontWeight:700, color:GOLD, letterSpacing:0.5, display:"flex", alignItems:"center", gap:4 }}
+              >
+                {amenitiesExpanded ? "Show fewer ↑" : `+${hiddenCount} more features ↓`}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Main Component ─────────────────────────────────────────────────────────────
 export default function PublicProposal() {
   const { token } = useParams<{ token: string }>();
@@ -584,71 +666,20 @@ export default function PublicProposal() {
         </div>
 
         {/* ── AI Property Description ── */}
-        {(aiDescription || aiGenerating || (proposal as any).amenities?.length > 0) && (
-          <div style={{ maxWidth:1200, margin:"0 auto", padding:isMobile?"32px 16px 0":"40px 48px 0" }}>
-            <div style={{ border:`1px solid ${BORDER}`, borderRadius:16, padding:isMobile?"24px 20px":"40px 48px", background:WHITE, position:"relative", overflow:"hidden" }}>
-              {/* Gold side bar */}
-              <div style={{ position:"absolute", top:0, left:0, width:4, height:"100%", background:`linear-gradient(180deg, ${GOLD} 0%, ${GOLD2} 100%)` }} />
-
-              <div style={{ fontSize:10, fontWeight:700, letterSpacing:3, textTransform:"uppercase", color:MUTED, marginBottom:20 }}>
-                Property Overview
-              </div>
-
-              {aiGenerating && !aiDescription ? (
-                /* Skeleton while generating */
-                <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                  {[100, 95, 88, 100, 92, 70].map((w, i) => (
-                    <div key={i} style={{ height:14, borderRadius:4, background:`linear-gradient(90deg, ${BORDER} 0%, #f5f2ec 50%, ${BORDER} 100%)`, backgroundSize:"200% 100%", width:`${w}%`, animation:"shimmer 1.4s ease-in-out infinite", animationDelay:`${i * 0.1}s` }} />
-                  ))}
-                  <div style={{ height:14, borderRadius:4, background:`linear-gradient(90deg, ${BORDER} 0%, #f5f2ec 50%, ${BORDER} 100%)`, backgroundSize:"200% 100%", width:"55%", animation:"shimmer 1.4s ease-in-out infinite", animationDelay:"0.6s" }} />
-                  <div style={{ marginTop:6 }} />
-                  {[100, 97, 84, 100, 91].map((w, i) => (
-                    <div key={i+6} style={{ height:14, borderRadius:4, background:`linear-gradient(90deg, ${BORDER} 0%, #f5f2ec 50%, ${BORDER} 100%)`, backgroundSize:"200% 100%", width:`${w}%`, animation:"shimmer 1.4s ease-in-out infinite", animationDelay:`${(i+6) * 0.1}s` }} />
-                  ))}
-                  <style>{`@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }`}</style>
-                  <p style={{ marginTop:12, fontSize:12, color:MUTED, fontStyle:"italic" }}>Generating property description…</p>
-                </div>
-              ) : aiDescription ? (
-                /* Rendered prose */
-                <div style={{ fontSize:isMobile?14:15, lineHeight:1.85, color:"#333", fontFamily:"serif" }}>
-                  {aiDescription.split("\n\n").filter(Boolean).map((para, i) => (
-                    <p key={i} style={{ marginBottom: i < aiDescription.split("\n\n").filter(Boolean).length - 1 ? 18 : 0 }}>
-                      {para.trim()}
-                    </p>
-                  ))}
-                </div>
-              ) : null}
-
-              {/* Amenity tags — compact footer row beneath the prose */}
-              {(() => {
-                const amenities: any[] = (proposal as any).amenities ?? [];
-                if (!amenities.length) return null;
-                const highlights = amenities.filter((a: any) => a.isProposalHighlight);
-                const shown = highlights.length ? highlights : amenities.slice(0, 8);
-                return (
-                  <div style={{ marginTop: aiDescription ? 28 : 0, paddingTop: aiDescription ? 20 : 0, borderTop: aiDescription ? `1px solid ${BORDER}` : "none" }}>
-                    <div style={{ fontSize:10, fontWeight:700, letterSpacing:2, textTransform:"uppercase", color:MUTED, marginBottom:12 }}>
-                      Key Features
-                    </div>
-                    <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
-                      {shown.map((a: any) => (
-                        <div key={a.id} style={{ display:"inline-flex", alignItems:"center", gap:6, padding:"6px 12px", borderRadius:20, background:CREAM, border:`1px solid ${BORDER}` }}>
-                          <span style={{ fontSize:12 }}>{a.icon}</span>
-                          <span style={{ fontSize:11, color:DARK, fontWeight:600 }}>{a.name}</span>
-                        </div>
-                      ))}
-                      {amenities.length > shown.length && (
-                        <div style={{ display:"inline-flex", alignItems:"center", padding:"6px 12px", borderRadius:20, background:CREAM, border:`1px solid ${BORDER}` }}>
-                          <span style={{ fontSize:11, color:MUTED, fontWeight:500 }}>+{amenities.length - shown.length} more</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        )}
+        {(aiDescription || aiGenerating || (proposal as any).amenities?.length > 0) && (() => {
+          const amenities: any[] = (proposal as any).amenities ?? [];
+          const AMENITY_PREVIEW = 9;
+          return (
+            <PropertyOverviewSection
+              aiDescription={aiDescription}
+              aiGenerating={aiGenerating}
+              amenities={amenities}
+              amenityPreview={AMENITY_PREVIEW}
+              isMobile={isMobile}
+              BORDER={BORDER} GOLD={GOLD} GOLD2={GOLD2} WHITE={WHITE} CREAM={CREAM} DARK={DARK} MUTED={MUTED}
+            />
+          );
+        })()}
       </section>
 
       {/* ══════════════════════════════════════════════════════════════════════

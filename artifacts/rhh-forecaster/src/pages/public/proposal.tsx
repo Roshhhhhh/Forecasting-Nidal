@@ -710,34 +710,6 @@ export default function PublicProposal() {
           ))}
         </div>
 
-        {/* Override footnote — shown when any month uses a manually adjusted assumption */}
-        {overrideMonthCount > 0 && (
-          <div style={{ display:"flex", alignItems:"flex-start", gap:10, padding:"14px 16px", borderRadius:10, background:`${GOLD}0D`, border:`1px solid ${GOLD}30`, marginBottom:32, marginTop:-8 }}>
-            <span style={{ color:GOLD, fontSize:13, flexShrink:0, marginTop:2 }}>✦</span>
-            <div>
-              <p style={{ fontSize:12, color:DARK, fontWeight:600, margin:"0 0 6px" }}>
-                {overrideMonthCount === 1 ? "One month uses" : `${overrideMonthCount} months use`} refined assumptions
-              </p>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:8 }}>
-                {overriddenMonths.map((m: any) => {
-                  const hasOcc = m.occupancyOverride != null;
-                  const hasAdr = m.adrOverride != null;
-                  const tag = hasOcc && hasAdr ? "Occ + ADR" : hasOcc ? "Occupancy" : "ADR";
-                  return (
-                    <span key={m.month} style={{ display:"inline-flex", alignItems:"center", gap:5, padding:"3px 10px", borderRadius:20, background:`${GOLD}18`, border:`1px solid ${GOLD}40`, fontSize:11, color:DARK, fontWeight:600 }}>
-                      {MONTH_LABELS[(m.month - 1) % 12]}
-                      <span style={{ color:MUTED, fontWeight:400 }}>· {tag}</span>
-                    </span>
-                  );
-                })}
-              </div>
-              <p style={{ fontSize:11, color:MUTED, margin:0, lineHeight:1.6 }}>
-                The occupancy rate or daily rate for {overrideMonthCount === 1 ? "this month has" : "these months have"} been individually refined to reflect specific market conditions. All figures in this proposal incorporate these adjustments.
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* LTR comparison strip */}
         {hasLtr && (
           <div style={{ display:"grid", gridTemplateColumns:isMobile?"1fr":"repeat(3, 1fr)", gap:16, marginBottom:48 }}>

@@ -206,9 +206,11 @@ router.get("/p/:token", async (req, res): Promise<void> => {
   const settings = await db.query.companySettingsTable.findFirst();
 
   let advisorName: string | null = null;
+  let advisorPhone: string | null = null;
   if (forecast.assignedToId) {
-    const [u] = await db.select({ name: usersTable.name }).from(usersTable).where(eq(usersTable.id, forecast.assignedToId));
+    const [u] = await db.select({ name: usersTable.name, phone: usersTable.phone }).from(usersTable).where(eq(usersTable.id, forecast.assignedToId));
     advisorName = u?.name ?? null;
+    advisorPhone = u?.phone ?? null;
   }
 
   // Track view
@@ -288,6 +290,7 @@ router.get("/p/:token", async (req, res): Promise<void> => {
     proposalDate: new Date().toISOString().split("T")[0],
     expiresAt: proposal.expiresAt?.toISOString() ?? "",
     advisorName,
+    advisorPhone,
     companyPhone: settings?.phone ?? null,
     companyEmail: settings?.ownerEmail ?? null,
     disclaimer: settings?.disclaimer ?? "This forecast is an estimate prepared using available property information, Royal Holiday Homes' internal market benchmarks and current conditions. Actual occupancy, ADR, expenses, gross revenue and net owner income may differ. This proposal does not represent a guarantee of future rental income.",

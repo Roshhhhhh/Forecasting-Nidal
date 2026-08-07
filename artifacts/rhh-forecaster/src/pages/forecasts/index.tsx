@@ -8,7 +8,7 @@ import {
   Plus, Search, MoreHorizontal, X, TrendingUp, TrendingDown, Eye, Pencil,
   FileText, CheckCircle, Copy,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
@@ -18,6 +18,8 @@ import { DataTable, ColumnDef } from "@/components/DataTable";
 import { SmartReport } from "@/components/SmartReport";
 import { PageTabs } from "@/components/PageTabs";
 import DuplicateForecastModal from "@/components/DuplicateForecastModal";
+import { useDeleteForecast, getListForecastsQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 const STATUSES = [
   { value: "all",       label: "All" },
@@ -206,6 +208,27 @@ export default function ForecastsList() {
   const [revenueMax, setRevenueMax] = useState("");
   const [duplicateForecast, setDuplicateForecast] = useState<Forecast | null>(null);
   const [isDuplicating, setIsDuplicating]         = useState(false);
+  // Synchronous in-flight guard — checked before awaiting, so rapid clicks both
+  // see it populated without waiting for a React re-render.
+  const archivingGuard = useRef(new Set<number>());
+  // State copy drives the disabled/loading UI; updated after the sync guard.
+  const [archivingIds, setArchivingIds] = useState<Set<number>>(new Set());
+
+  const queryClient = useQueryClient();
+  const { mutateAsync: archiveForecast } = useDeleteForecast();
+
+  const handleArchive = useCallback(async (forecast: Forecast) => {
+    if (archivingGuard.current.has(forecast.id)) return;
+    archivingGuard.current.add(forecast.id);
+    setArchivingIds(prev => new Set(prev).add(forecast.id));
+    try {
+      await archiveForecast({ id: forecast.id });
+      await queryClient.invalidateQueries({ queryKey: getListForecastsQueryKey() });
+    } finally {
+      archivingGuard.current.delete(forecast.id);
+      setArchivingIds(prev => { const next = new Set(prev); next.delete(forecast.id); return next; });
+    }
+  }, [archiveForecast, queryClient]);
 
   // ── SmartReport metrics ────────────────────────────────────────────────────
   const metrics = useMemo(() => {
@@ -407,7 +430,13 @@ export default function ForecastsList() {
                         <Copy className="h-4 w-4" /> Duplicate
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive focus:text-destructive">Archive</DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => handleArchive(forecast)}
+                        disabled={archivingIds.has(forecast.id)}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        {archivingIds.has(forecast.id) ? "Archiving…" : "Archive"}
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}

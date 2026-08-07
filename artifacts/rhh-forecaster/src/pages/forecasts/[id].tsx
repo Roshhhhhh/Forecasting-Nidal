@@ -398,6 +398,8 @@ export default function ForecastDetail() {
   const canRefreshPortal = PORTAL_REFRESH_ROLES.includes((me as any)?.role ?? "");
 
   const [portalRefreshing, setPortalRefreshing] = useState(false);
+  const [showLtrComps, setShowLtrComps] = useState(false);
+  const [showAdrComps, setShowAdrComps] = useState(false);
   async function refreshPortalListings() {
     setPortalRefreshing(true);
     try {
@@ -1173,6 +1175,56 @@ export default function ForecastDetail() {
                               Apply max
                             </button>
                           </div>
+                          {mktSuggestions.samples?.some((s: any) => s.ltr) && (
+                            <button
+                              type="button"
+                              onClick={() => setShowLtrComps(v => !v)}
+                              className="text-[11px] text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1 mt-0.5"
+                            >
+                              {showLtrComps ? "Hide comps ↑" : "See all comps ↓"}
+                            </button>
+                          )}
+                          {showLtrComps && mktSuggestions.samples?.length > 0 && (
+                            <div className="mt-2 rounded border border-blue-200/60 dark:border-blue-800/40 overflow-hidden">
+                              <table className="w-full text-[11px]">
+                                <thead className="bg-blue-100/60 dark:bg-blue-900/30">
+                                  <tr>
+                                    <th className="px-2 py-1.5 text-left font-semibold text-blue-800 dark:text-blue-300">Project / Building</th>
+                                    <th className="px-2 py-1.5 text-right font-semibold text-blue-800 dark:text-blue-300">Annual LTR</th>
+                                    <th className="px-2 py-1.5 text-right font-semibold text-blue-800 dark:text-blue-300">ADR</th>
+                                    <th className="px-2 py-1.5 w-16" />
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-blue-100/60 dark:divide-blue-800/30">
+                                  {[...mktSuggestions.samples]
+                                    .filter((s: any) => s.ltr)
+                                    .sort((a: any, b: any) => (b.ltr ?? 0) - (a.ltr ?? 0))
+                                    .map((s: any, i: number) => (
+                                      <tr key={i} className="hover:bg-blue-50/60 dark:hover:bg-blue-900/20 transition-colors">
+                                        <td className="px-2 py-1.5 text-foreground font-medium leading-tight">
+                                          {s.project || s.area || "—"}
+                                        </td>
+                                        <td className="px-2 py-1.5 text-right font-semibold tabular-nums">
+                                          AED {(s.ltr ?? 0).toLocaleString()}
+                                        </td>
+                                        <td className="px-2 py-1.5 text-right text-muted-foreground tabular-nums">
+                                          {s.adr ? `AED ${s.adr.toLocaleString()}` : "—"}
+                                        </td>
+                                        <td className="px-2 py-1.5 text-right">
+                                          <button
+                                            type="button"
+                                            onClick={() => { form.setValue("annualLtr", s.ltr); setShowLtrComps(false); }}
+                                            className="text-[10px] px-1.5 py-0.5 rounded bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800/60 font-semibold transition-colors"
+                                          >
+                                            Apply
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
                         </div>
                       )}
                       {/* Portal live listings (Property Finder + Bayut) */}
@@ -1330,6 +1382,56 @@ export default function ForecastDetail() {
                               Apply max
                             </button>
                           </div>
+                          {mktSuggestions.samples?.some((s: any) => s.adr) && (
+                            <button
+                              type="button"
+                              onClick={() => setShowAdrComps(v => !v)}
+                              className="text-[11px] text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1 mt-0.5"
+                            >
+                              {showAdrComps ? "Hide comps ↑" : "See all comps ↓"}
+                            </button>
+                          )}
+                          {showAdrComps && mktSuggestions.samples?.length > 0 && (
+                            <div className="mt-2 rounded border border-amber-200/60 dark:border-amber-800/40 overflow-hidden">
+                              <table className="w-full text-[11px]">
+                                <thead className="bg-amber-100/60 dark:bg-amber-900/30">
+                                  <tr>
+                                    <th className="px-2 py-1.5 text-left font-semibold text-amber-800 dark:text-amber-300">Project / Building</th>
+                                    <th className="px-2 py-1.5 text-right font-semibold text-amber-800 dark:text-amber-300">ADR</th>
+                                    <th className="px-2 py-1.5 text-right font-semibold text-amber-800 dark:text-amber-300">Annual LTR</th>
+                                    <th className="px-2 py-1.5 w-16" />
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-amber-100/60 dark:divide-amber-800/30">
+                                  {[...mktSuggestions.samples]
+                                    .filter((s: any) => s.adr)
+                                    .sort((a: any, b: any) => (b.adr ?? 0) - (a.adr ?? 0))
+                                    .map((s: any, i: number) => (
+                                      <tr key={i} className="hover:bg-amber-50/60 dark:hover:bg-amber-900/20 transition-colors">
+                                        <td className="px-2 py-1.5 text-foreground font-medium leading-tight">
+                                          {s.project || s.area || "—"}
+                                        </td>
+                                        <td className="px-2 py-1.5 text-right font-semibold tabular-nums">
+                                          AED {(s.adr ?? 0).toLocaleString()}
+                                        </td>
+                                        <td className="px-2 py-1.5 text-right text-muted-foreground tabular-nums">
+                                          {s.ltr ? `AED ${s.ltr.toLocaleString()}` : "—"}
+                                        </td>
+                                        <td className="px-2 py-1.5 text-right">
+                                          <button
+                                            type="button"
+                                            onClick={() => { form.setValue("baseAdr", s.adr); setShowAdrComps(false); }}
+                                            className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-800/60 font-semibold transition-colors"
+                                          >
+                                            Apply
+                                          </button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
                         </div>
                       )}
                       {/* Portal live ADR (nightly rates from Property Finder / Bayut holiday listings) */}

@@ -13,6 +13,7 @@ import refereesRouter from "./referees";
 import rolesRouter from "./roles";
 import amenitiesRouter from "./amenities";
 import pipelineRouter from "./pipeline";
+import notificationsRouter from "./notifications";
 
 const router: IRouter = Router();
 
@@ -30,5 +31,6 @@ router.use(settingsRouter);
 router.use(refereesRouter);
 router.use(amenitiesRouter);
 router.use(pipelineRouter);
+router.use(notificationsRouter);
 
 export default router;

@@ -6,7 +6,7 @@ import {
   useListForecastScenarios, useGetForecastMonthly, useUpdateMonthlyOverride,
   useGenerateAiRecommendation, useGenerateNarrativeDraft, useListProposals, usePublishProposal,
   useUpdateProposal, useListForecastComparables, useCreateForecastComparable, useDeleteForecastComparable,
-  useListForecastActuals, useUpsertMonthlyActual,
+  useListForecastActuals, useUpsertMonthlyActual, useGetMe,
 } from "@workspace/api-client-react";
 import DuplicateForecastModal from "@/components/DuplicateForecastModal";
 import ProposalSharePanel from "@/components/ProposalSharePanel";
@@ -380,8 +380,8 @@ export default function ForecastDetail() {
   const { data: actuals, refetch: refetchActuals } = useListForecastActuals(forecastId);
   const upsertActual = useUpsertMonthlyActual();
 
-  // Market benchmark suggestions for this forecast
-  const { data: mktSuggestions } = useQuery({
+  // Market benchmark suggestions for this forecast (includes internal + portal data)
+  const { data: mktSuggestions, refetch: refetchMarketSuggestions } = useQuery({
     queryKey: ["market-suggestions", forecastId],
     queryFn: async () => {
       const res = await fetch(`/api/forecasts/${forecastId}/market-suggestions`, { credentials: "include" });
@@ -391,6 +391,33 @@ export default function ForecastDetail() {
     staleTime: 5 * 60 * 1000,
     enabled: !!forecastId,
   });
+
+  // Portal refresh is restricted to market-data managers on the API; mirror that here
+  const { data: me } = useGetMe();
+  const PORTAL_REFRESH_ROLES = ["super_admin", "admin", "revenue_manager"];
+  const canRefreshPortal = PORTAL_REFRESH_ROLES.includes((me as any)?.role ?? "");
+
+  const [portalRefreshing, setPortalRefreshing] = useState(false);
+  async function refreshPortalListings() {
+    setPortalRefreshing(true);
+    try {
+      const res = await fetch(`/api/forecasts/${forecastId}/portal-listings/refresh`, {
+        method: "POST",
+        credentials: "include",
+      });
+      if (res.ok) {
+        await refetchMarketSuggestions();
+        toast({ title: "Portal data refreshed", description: "Live listings from Property Finder & Bayut have been updated." });
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast({ title: "Portal refresh failed", description: err.error ?? "Could not fetch live portal data.", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Portal refresh failed", description: "Network error.", variant: "destructive" });
+    } finally {
+      setPortalRefreshing(false);
+    }
+  }
   // Local editable state for the actuals tab: monthNum → input string
   const [actualsInput, setActualsInput] = useState<Record<number, string>>({});
   const [actualsSaving, setActualsSaving] = useState<Record<number, boolean>>({});
@@ -1118,7 +1145,7 @@ export default function ForecastDetail() {
                           <div className="flex items-center gap-1.5">
                             <TrendingDown className="h-3.5 w-3.5 text-blue-500" />
                             <span className="text-[11px] font-bold uppercase tracking-wide text-blue-700 dark:text-blue-400">
-                              Market LTR{mktSuggestions.areaMatched ? ` · ${mktSuggestions.area}` : " · Abu Dhabi avg"}
+                              RHH Market LTR{mktSuggestions.areaMatched ? ` · ${mktSuggestions.area}` : " · Abu Dhabi avg"}
                             </span>
                             {!mktSuggestions.areaMatched && (
                               <span title="No benchmarks found for this area — showing Abu Dhabi average">
@@ -1147,6 +1174,68 @@ export default function ForecastDetail() {
                             </button>
                           </div>
                         </div>
+                      )}
+                      {/* Portal live listings (Property Finder + Bayut) */}
+                      {mktSuggestions?.portal?.ltr && (
+                        <div className="mt-2 rounded-lg border border-emerald-200/70 bg-emerald-50/60 dark:border-emerald-800/40 dark:bg-emerald-950/20 p-3 space-y-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Globe className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                            <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                              Portal Live LTR · {mktSuggestions.portal.sources?.join(" & ")}
+                            </span>
+                            <span className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70 ml-auto">
+                              {new Date(mktSuggestions.portal.fetchedAt).toLocaleDateString("en-AE", { day: "numeric", month: "short" })}
+                            </span>
+                          </div>
+                          <div className="text-xs text-emerald-800 dark:text-emerald-300">
+                            Range: <strong>AED {mktSuggestions.portal.ltr.min.toLocaleString()}</strong> – <strong>AED {mktSuggestions.portal.ltr.max.toLocaleString()}</strong>
+                            <span className="mx-2 text-emerald-400">·</span>
+                            Avg: <strong>AED {mktSuggestions.portal.ltr.avg.toLocaleString()}</strong>
+                            {mktSuggestions.portal.ltr.count > 0 && (
+                              <span className="ml-2 text-emerald-500/80">({mktSuggestions.portal.ltr.count} active listings)</span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            <button type="button" onClick={() => form.setValue("annualLtr", mktSuggestions.portal.ltr.min)}
+                              className="rounded px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-emerald-900/40 border border-emerald-300/70 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-800/50 transition-colors">
+                              Apply min
+                            </button>
+                            <button type="button" onClick={() => form.setValue("annualLtr", mktSuggestions.portal.ltr.avg)}
+                              className="rounded px-2 py-0.5 text-[11px] font-semibold bg-emerald-600 dark:bg-emerald-700 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors">
+                              Apply avg ✓
+                            </button>
+                            <button type="button" onClick={() => form.setValue("annualLtr", mktSuggestions.portal.ltr.max)}
+                              className="rounded px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-emerald-900/40 border border-emerald-300/70 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-800/50 transition-colors">
+                              Apply max
+                            </button>
+                            {canRefreshPortal && (
+                              <button
+                                type="button"
+                                onClick={refreshPortalListings}
+                                disabled={portalRefreshing}
+                                className="rounded px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-200 flex items-center gap-1 transition-colors ml-1"
+                              >
+                                {portalRefreshing ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Globe className="h-2.5 w-2.5" />}
+                                Refresh
+                              </button>
+                            )}
+                          </div>
+                          {mktSuggestions.portal.note && (
+                            <p className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70 italic">{mktSuggestions.portal.note}</p>
+                          )}
+                        </div>
+                      )}
+                      {/* Offer to fetch portal data if not yet loaded — only shown to authorised roles */}
+                      {canRefreshPortal && mktSuggestions && !mktSuggestions?.portal?.ltr && (forecast as any).area && (
+                        <button
+                          type="button"
+                          onClick={refreshPortalListings}
+                          disabled={portalRefreshing}
+                          className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {portalRefreshing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Globe className="h-3 w-3" />}
+                          {portalRefreshing ? "Fetching portal data…" : "Load live data from Property Finder & Bayut"}
+                        </button>
                       )}
                     </div>
                     <div className="space-y-2">
@@ -1213,7 +1302,7 @@ export default function ForecastDetail() {
                           <div className="flex items-center gap-1.5">
                             <TrendingUp className="h-3.5 w-3.5 text-amber-500" />
                             <span className="text-[11px] font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">
-                              Market ADR{mktSuggestions.areaMatched ? ` · ${mktSuggestions.area}` : " · Abu Dhabi avg"}
+                              RHH Market ADR{mktSuggestions.areaMatched ? ` · ${mktSuggestions.area}` : " · Abu Dhabi avg"}
                             </span>
                             {!mktSuggestions.areaMatched && (
                               <span title="No benchmarks found for this area — showing Abu Dhabi average">
@@ -1242,6 +1331,68 @@ export default function ForecastDetail() {
                             </button>
                           </div>
                         </div>
+                      )}
+                      {/* Portal live ADR (nightly rates from Property Finder / Bayut holiday listings) */}
+                      {mktSuggestions?.portal?.adr && (
+                        <div className="mt-2 rounded-lg border border-emerald-200/70 bg-emerald-50/60 dark:border-emerald-800/40 dark:bg-emerald-950/20 p-3 space-y-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Globe className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                            <span className="text-[11px] font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">
+                              Portal Live Nightly · {mktSuggestions.portal.sources?.join(" & ")}
+                            </span>
+                            <span className="text-[10px] text-emerald-600/70 dark:text-emerald-500/70 ml-auto">
+                              {new Date(mktSuggestions.portal.fetchedAt).toLocaleDateString("en-AE", { day: "numeric", month: "short" })}
+                            </span>
+                          </div>
+                          <div className="text-xs text-emerald-800 dark:text-emerald-300">
+                            Range: <strong>AED {mktSuggestions.portal.adr.min.toLocaleString()}</strong> – <strong>AED {mktSuggestions.portal.adr.max.toLocaleString()}</strong>
+                            <span className="mx-2 text-emerald-400">·</span>
+                            Avg: <strong>AED {mktSuggestions.portal.adr.avg.toLocaleString()}</strong>
+                            {mktSuggestions.portal.adr.count > 0 && (
+                              <span className="ml-2 text-emerald-500/80">({mktSuggestions.portal.adr.count} active listings)</span>
+                            )}
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 items-center">
+                            <button type="button" onClick={() => form.setValue("baseAdr", mktSuggestions.portal.adr.min)}
+                              className="rounded px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-emerald-900/40 border border-emerald-300/70 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-800/50 transition-colors">
+                              Apply min
+                            </button>
+                            <button type="button" onClick={() => form.setValue("baseAdr", mktSuggestions.portal.adr.avg)}
+                              className="rounded px-2 py-0.5 text-[11px] font-semibold bg-emerald-600 dark:bg-emerald-700 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 transition-colors">
+                              Apply avg ✓
+                            </button>
+                            <button type="button" onClick={() => form.setValue("baseAdr", mktSuggestions.portal.adr.max)}
+                              className="rounded px-2 py-0.5 text-[11px] font-semibold bg-white dark:bg-emerald-900/40 border border-emerald-300/70 dark:border-emerald-700 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100 dark:hover:bg-emerald-800/50 transition-colors">
+                              Apply max
+                            </button>
+                            {canRefreshPortal && (
+                              <button
+                                type="button"
+                                onClick={refreshPortalListings}
+                                disabled={portalRefreshing}
+                                className="rounded px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-200 flex items-center gap-1 transition-colors ml-1"
+                              >
+                                {portalRefreshing ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Globe className="h-2.5 w-2.5" />}
+                                Refresh
+                              </button>
+                            )}
+                          </div>
+                          <p className="text-[10px] text-emerald-600/60 dark:text-emerald-500/60 italic">
+                            Nightly rate = shoulder-season reference · apply as Base ADR
+                          </p>
+                        </div>
+                      )}
+                      {/* Offer to fetch portal data if not yet loaded — only shown to authorised roles */}
+                      {canRefreshPortal && mktSuggestions && !mktSuggestions?.portal?.adr && !mktSuggestions?.portal?.ltr && (forecast as any).area && (
+                        <button
+                          type="button"
+                          onClick={refreshPortalListings}
+                          disabled={portalRefreshing}
+                          className="mt-2 flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {portalRefreshing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Globe className="h-3 w-3" />}
+                          {portalRefreshing ? "Fetching portal data…" : "Load live data from Property Finder & Bayut"}
+                        </button>
                       )}
                     </div>
 

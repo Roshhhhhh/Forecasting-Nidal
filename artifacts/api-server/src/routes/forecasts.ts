@@ -11,10 +11,11 @@ import {
   UpdateForecastParams, DeleteForecastParams,
   ApproveForecastBody, CreateScenarioBody,
 } from "@workspace/api-zod";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireRole } from "../middlewares/auth";
 import { calculateMonthlyProjections, calculateScenario, type MonthlyOverrides, REFERENCE_OCCUPANCY } from "../lib/calculate";
 import { bustCommissionCache } from "./referees";
 import OpenAI from "openai";
+import { fetchPortalListings, fetchPortalListingsWithCooldown, getPortalCache, invalidatePortalCache } from "../lib/portalScraper";
 
 /** Bust the server-side commission cache for whichever referee is linked to this forecast's owner. */
 async function bustCacheForForecast(ownerId: number | null | undefined): Promise<void> {
@@ -516,22 +517,35 @@ function benchmarkStats(vals: (number | null | undefined)[]) {
   };
 }
 
+/** Resolve area + bedrooms from linked property, falling back to forecast-level fields. */
+async function resolveAreaBedrooms(f: { propertyId?: number | null; area?: string | null; bedrooms?: number | null }): Promise<{ bedrooms: number; areaName: string | null }> {
+  if (f.propertyId) {
+    const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, f.propertyId));
+    if (p) {
+      return {
+        bedrooms: p.bedrooms ?? (f.bedrooms ?? 1),
+        areaName: p.area ?? p.community ?? f.area ?? null,
+      };
+    }
+  }
+  // No linked property — fall back to forecast-level fields
+  return { bedrooms: (f.bedrooms as number | null) ?? 1, areaName: (f.area as string | null) ?? null };
+}
+
 router.get("/forecasts/:id/market-suggestions", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
   const id = parseInt(raw, 10);
   const [f] = await db.select().from(forecastsTable).where(eq(forecastsTable.id, id));
   if (!f) { res.status(404).json({ error: "Forecast not found" }); return; }
 
-  let propertyData: any = null;
-  if (f.propertyId) {
-    const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, f.propertyId));
-    propertyData = p;
-  }
+  const { bedrooms, areaName } = await resolveAreaBedrooms(f);
 
-  const bedrooms: number = propertyData?.bedrooms ?? 1;
-  const areaName: string | null = propertyData?.area ?? propertyData?.community ?? null;
-
-  const { rows, areaMatched } = await fetchMarketBenchmarks(bedrooms, areaName);
+  // Fetch internal benchmarks; portal data is cache-only on the read path
+  // (no OpenAI call triggered here — use the privileged POST …/refresh to populate it)
+  const [{ rows, areaMatched }, portalData] = await Promise.all([
+    fetchMarketBenchmarks(bedrooms, areaName),
+    areaName ? getPortalCache(areaName, bedrooms) : Promise.resolve(null),
+  ]);
 
   const adrs = rows.map(r => r.typicalAdr ?? r.shoulderSeasonAdr);
   const ltrs = rows.map(r => r.annualLtr);
@@ -550,8 +564,51 @@ router.get("/forecasts/:id/market-suggestions", requireAuth, async (req, res): P
       ltr: r.annualLtr,
       minLtr: r.minLtr, maxLtr: r.maxLtr,
     })),
+    // Live portal data (Property Finder + Bayut) — null if unavailable
+    portal: portalData,
   });
 });
+
+// POST /forecasts/:id/portal-listings/refresh — trigger a fresh portal fetch
+// Restricted to staff who manage market data; any authenticated user cannot exhaust portal quota
+router.post(
+  "/forecasts/:id/portal-listings/refresh",
+  requireAuth,
+  requireRole("super_admin", "admin", "revenue_manager"),
+  async (req, res): Promise<void> => {
+    const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const id = parseInt(raw, 10);
+    const [f] = await db.select().from(forecastsTable).where(eq(forecastsTable.id, id));
+    if (!f) { res.status(404).json({ error: "Forecast not found" }); return; }
+
+    const { bedrooms, areaName } = await resolveAreaBedrooms(f);
+
+    if (!areaName) {
+      res.status(400).json({ error: "No area set on this forecast — cannot query portals" });
+      return;
+    }
+
+    // fetchPortalListings handles single-flight coalescing and cooldown enforcement internally.
+    // invalidatePortalCache is intentionally NOT called here — the scraper's forceRefresh=true
+    // path respects the cooldown and returns the cached result with a 429 if refreshed too recently.
+    const { result: portalData, cooldownActive } = await fetchPortalListingsWithCooldown(areaName, bedrooms);
+
+    if (cooldownActive) {
+      res.status(429).json({
+        error: "Portal data was refreshed recently — please wait before refreshing again",
+        retryAfterSeconds: 60,
+      });
+      return;
+    }
+
+    if (!portalData) {
+      res.status(503).json({ error: "Portal data unavailable — OpenAI key may not be configured" });
+      return;
+    }
+
+    res.json(portalData);
+  },
+);
 
 router.post("/forecasts/:id/ai-recommend", requireAuth, async (req, res): Promise<void> => {
   const raw = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
@@ -559,17 +616,13 @@ router.post("/forecasts/:id/ai-recommend", requireAuth, async (req, res): Promis
   const [f] = await db.select().from(forecastsTable).where(eq(forecastsTable.id, id));
   if (!f) { res.status(404).json({ error: "Forecast not found" }); return; }
 
-  let propertyInfo: any = null;
-  if (f.propertyId) {
-    const [p] = await db.select().from(propertiesTable).where(eq(propertiesTable.id, f.propertyId));
-    propertyInfo = p;
-  }
+  const { bedrooms, areaName } = await resolveAreaBedrooms(f);
 
-  const bedrooms: number = propertyInfo?.bedrooms ?? 1;
-  const areaName: string | null = propertyInfo?.area ?? propertyInfo?.community ?? null;
-
-  // Pull real benchmark data from DB
-  const { rows, areaMatched } = await fetchMarketBenchmarks(bedrooms, areaName);
+  // Pull real benchmark data from DB; portal is cache-only here (no external call)
+  const [{ rows, areaMatched }] = await Promise.all([
+    fetchMarketBenchmarks(bedrooms, areaName),
+  ]);
+  const portalData = areaName ? getPortalCache(areaName, bedrooms) : null;
 
   // Compute ADR + LTR from real benchmark data; fall back to hardcoded Abu Dhabi averages
   const adrStats = benchmarkStats(rows.map(r => r.typicalAdr ?? r.shoulderSeasonAdr));
@@ -578,14 +631,43 @@ router.post("/forecasts/:id/ai-recommend", requireAuth, async (req, res): Promis
 
   const FALLBACK_ADR: Record<number, number> = { 0: 350, 1: 500, 2: 700, 3: 1000, 4: 1400 };
   const FALLBACK_LTR: Record<number, number> = { 0: 55000, 1: 80000, 2: 110000, 3: 150000, 4: 200000 };
-  const baseAdr = adrStats?.median ?? adrStats?.avg ?? (FALLBACK_ADR[bedrooms] ?? 700);
-  const baseLtr = ltrStats?.median ?? ltrStats?.avg ?? (FALLBACK_LTR[bedrooms] ?? 110000);
+
+  // Blend internal benchmark data with portal data for better accuracy
+  const portalAdrAvg = portalData?.adr?.avg ?? null;
+  const portalLtrAvg = portalData?.ltr?.avg ?? null;
+  const internalAdrBase = adrStats?.median ?? adrStats?.avg ?? null;
+  const internalLtrBase = ltrStats?.median ?? ltrStats?.avg ?? null;
+
+  // When portal data is available, blend 50/50 with internal data; otherwise use internal only
+  const baseAdr = portalAdrAvg && internalAdrBase
+    ? Math.round((portalAdrAvg + internalAdrBase) / 2)
+    : internalAdrBase ?? portalAdrAvg ?? (FALLBACK_ADR[bedrooms] ?? 700);
+  const baseLtr = portalLtrAvg && internalLtrBase
+    ? Math.round((portalLtrAvg + internalLtrBase) / 2)
+    : internalLtrBase ?? portalLtrAvg ?? (FALLBACK_LTR[bedrooms] ?? 110000);
+
   const baseOcc = occupancyStats?.avg != null ? occupancyStats.avg / 100 : REFERENCE_OCCUPANCY;
-  const confidence = areaMatched ? 0.87 : 0.72;
+  const confidence = areaMatched ? (portalData ? 0.92 : 0.87) : (portalData ? 0.80 : 0.72);
   const sampleCount = rows.length;
-  const dataSource = areaMatched
-    ? `RHH Market Database (${sampleCount} comparable${sampleCount !== 1 ? "s" : ""} in ${areaName})`
-    : `RHH Market Database (${sampleCount} comparable${sampleCount !== 1 ? "s" : ""} across Abu Dhabi — no exact area match)`;
+
+  // Build data source string describing what was used
+  const dataSources: string[] = [];
+  if (sampleCount > 0) {
+    dataSources.push(areaMatched
+      ? `RHH Market Database (${sampleCount} comparable${sampleCount !== 1 ? "s" : ""} in ${areaName})`
+      : `RHH Market Database (${sampleCount} comparable${sampleCount !== 1 ? "s" : ""} across Abu Dhabi — no exact area match)`
+    );
+  }
+  if (portalData) {
+    const portals = portalData.sources?.join(" & ") ?? "Property Finder & Bayut";
+    dataSources.push(`${portals} live listings (${portalData.ltr?.count ?? 0} LTR, fetched ${new Date(portalData.fetchedAt).toLocaleDateString("en-AE")})`);
+  }
+  const dataSource = dataSources.length > 0 ? dataSources.join("; ") : "No market data found";
+
+  // Build narrative including portal data if available
+  const portalLtrLine = portalData?.ltr
+    ? ` Portal listings (${portalData.sources?.join(" & ")}) show active LTR prices ranging AED ${portalData.ltr.min.toLocaleString()}–${portalData.ltr.max.toLocaleString()}.`
+    : "";
 
   const recommendation = {
     forecastId: id,
@@ -601,11 +683,11 @@ router.post("/forecasts/:id/ai-recommend", requireAuth, async (req, res): Promis
     utilityCostSuggested: 15000,
     maintenanceCostSuggested: 8000,
     managementFeeSuggested: 20,
-    narrativeSuggested: `Based on ${sampleCount} comparable ${bedrooms}-bedroom properties${areaName ? ` in ${areaName}` : " across Abu Dhabi"}, this unit shows strong short-term rental potential. ${adrStats ? `Market ADR ranges AED ${adrStats.min.toLocaleString()}–${adrStats.max.toLocaleString()} with a median of AED ${adrStats.median.toLocaleString()}.` : ""} The Abu Dhabi STR market is driven by business travel, major events, and growing tourism.`,
+    narrativeSuggested: `Based on ${sampleCount} comparable ${bedrooms}-bedroom properties${areaName ? ` in ${areaName}` : " across Abu Dhabi"}, this unit shows strong short-term rental potential. ${adrStats ? `Market ADR ranges AED ${adrStats.min.toLocaleString()}–${adrStats.max.toLocaleString()} with a median of AED ${adrStats.median.toLocaleString()}.` : ""}${portalLtrLine} The Abu Dhabi STR market is driven by business travel, major events, and growing tourism.`,
     keyRisks: "Seasonal demand fluctuation in summer months. Increasing STR supply in the area. Regulatory changes to DCT licensing requirements.",
     keyDrivers: "Premium location with strong event-driven demand. Quality furnishing commands above-average ADR. F1/NYE events significantly boost Q4 performance.",
     overallConfidence: confidence,
-    modelUsed: "RHH Market Database",
+    modelUsed: portalData ? "RHH Market Database + Portal Live Data" : "RHH Market Database",
     dataSources: dataSource,
   };
 

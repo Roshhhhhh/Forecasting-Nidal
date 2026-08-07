@@ -128,7 +128,7 @@ function MonthlyProjectionsTab({ forecastId, monthly }: {
     setSaving(prev => ({ ...prev, [key]: true }));
     try {
       await updateOverride.mutateAsync({
-        forecastId,
+        id: forecastId,
         monthNum: key,
         data: { occupancyOverride: occPct / 100, adrOverride: adrVal },
       });
@@ -149,7 +149,7 @@ function MonthlyProjectionsTab({ forecastId, monthly }: {
     setSaving(prev => ({ ...prev, [key]: true }));
     try {
       await updateOverride.mutateAsync({
-        forecastId,
+        id: forecastId,
         monthNum: key,
         data: { occupancyOverride: null, adrOverride: null },
       });

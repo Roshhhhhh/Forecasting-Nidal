@@ -291,8 +291,8 @@ router.get(
   "/market/portal/cache-status",
   requireAuth,
   requireRole("super_admin", "admin", "revenue_manager"),
-  (_req, res): void => {
-    res.json(getAllPortalCacheEntries());
+  async (_req, res): Promise<void> => {
+    res.json(await getAllPortalCacheEntries());
   },
 );
 

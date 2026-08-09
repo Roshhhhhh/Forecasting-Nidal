@@ -619,10 +619,10 @@ router.post("/forecasts/:id/ai-recommend", requireAuth, async (req, res): Promis
   const { bedrooms, areaName } = await resolveAreaBedrooms(f);
 
   // Pull real benchmark data from DB; portal is cache-only here (no external call)
-  const [{ rows, areaMatched }] = await Promise.all([
+  const [{ rows, areaMatched }, portalData] = await Promise.all([
     fetchMarketBenchmarks(bedrooms, areaName),
+    areaName ? getPortalCache(areaName, bedrooms) : Promise.resolve(null),
   ]);
-  const portalData = areaName ? getPortalCache(areaName, bedrooms) : null;
 
   // Compute ADR + LTR from real benchmark data; fall back to hardcoded Abu Dhabi averages
   const adrStats = benchmarkStats(rows.map(r => r.typicalAdr ?? r.shoulderSeasonAdr));

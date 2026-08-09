@@ -497,6 +497,21 @@ export async function runStartupMigration() {
       )
     `);
 
+    // Persistent cache for portal listing data (Property Finder / Bayut)
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS portal_listings_cache (
+        id          SERIAL PRIMARY KEY,
+        area        TEXT NOT NULL,
+        bedrooms    INTEGER NOT NULL,
+        fetched_at  TIMESTAMPTZ NOT NULL,
+        ltr         JSONB,
+        adr         JSONB,
+        sources     TEXT[] NOT NULL DEFAULT '{}',
+        note        TEXT,
+        UNIQUE (area, bedrooms)
+      )
+    `);
+
     logger.info("Startup migration complete");
   } catch (err) {
     logger.error({ err }, "Startup migration failed");

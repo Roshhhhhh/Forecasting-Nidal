@@ -18,6 +18,8 @@
  */
 
 import OpenAI from "openai";
+import { sql } from "drizzle-orm";
+import { db } from "@workspace/db";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -51,7 +53,7 @@ const PORTAL_DOMAINS: Record<string, string[]> = {
 };
 const ALLOWED_SOURCES = new Set(Object.keys(PORTAL_DOMAINS));
 
-// ── In-memory store ───────────────────────────────────────────────────────────
+// ── In-memory store (L1) ──────────────────────────────────────────────────────
 
 interface CacheEntry {
   result: PortalListingsResult;
@@ -66,15 +68,102 @@ function makeKey(area: string, bedrooms: number) {
   return `${area.toLowerCase().trim()}:${bedrooms}`;
 }
 
-function readCache(key: string): CacheEntry | null {
+function readMemoryCache(key: string): CacheEntry | null {
   const entry = cache.get(key);
   if (!entry) return null;
   if (Date.now() > entry.expiresAt) { cache.delete(key); return null; }
   return entry;
 }
 
-function writeCache(key: string, result: PortalListingsResult) {
+function writeMemoryCache(key: string, result: PortalListingsResult) {
   cache.set(key, { result, expiresAt: Date.now() + CACHE_TTL_MS, refreshedAt: Date.now() });
+}
+
+// ── DB cache (L2) ─────────────────────────────────────────────────────────────
+
+/** Read a portal listing cache entry from the database (TTL enforced). */
+async function readDBCache(area: string, bedrooms: number): Promise<CacheEntry | null> {
+  try {
+    const rows = await db.execute(sql`
+      SELECT area, bedrooms, fetched_at, ltr, adr, sources, note
+      FROM portal_listings_cache
+      WHERE area = ${area.toLowerCase().trim()} AND bedrooms = ${bedrooms}
+      LIMIT 1
+    `);
+    const row = rows.rows[0];
+    if (!row) return null;
+
+    const fetchedAt = new Date(row.fetched_at as string);
+    const expiresAt = fetchedAt.getTime() + CACHE_TTL_MS;
+    if (Date.now() > expiresAt) return null;
+
+    const result: PortalListingsResult = {
+      area:         row.area as string,
+      bedrooms:     row.bedrooms as number,
+      fetchedAt:    fetchedAt.toISOString(),
+      ltr:          row.ltr ? (row.ltr as PortalStats) : null,
+      adr:          row.adr ? (row.adr as PortalStats) : null,
+      listingCount: ((row.ltr as PortalStats | null)?.count ?? 0) +
+                    ((row.adr as PortalStats | null)?.count ?? 0),
+      sources:      (row.sources as string[]) ?? [],
+      note:         row.note as string | undefined,
+    };
+
+    return { result, expiresAt, refreshedAt: fetchedAt.getTime() };
+  } catch (err) {
+    console.error("[portalScraper] DB read error:", err);
+    return null;
+  }
+}
+
+/** Upsert a portal listing result into the database. */
+async function writeDBCache(result: PortalListingsResult): Promise<void> {
+  try {
+    const ltrJson = result.ltr ? JSON.stringify(result.ltr) : null;
+    const adrJson = result.adr ? JSON.stringify(result.adr) : null;
+    const sourcesLiteral = `{${result.sources.map(s => `"${s.replace(/"/g, '\\"')}"`).join(",")}}`;
+
+    await db.execute(sql`
+      INSERT INTO portal_listings_cache (area, bedrooms, fetched_at, ltr, adr, sources, note)
+      VALUES (
+        ${result.area.toLowerCase().trim()},
+        ${result.bedrooms},
+        ${result.fetchedAt}::timestamptz,
+        ${ltrJson}::jsonb,
+        ${adrJson}::jsonb,
+        ${sourcesLiteral}::text[],
+        ${result.note ?? null}
+      )
+      ON CONFLICT (area, bedrooms) DO UPDATE
+        SET fetched_at = EXCLUDED.fetched_at,
+            ltr        = EXCLUDED.ltr,
+            adr        = EXCLUDED.adr,
+            sources    = EXCLUDED.sources,
+            note       = EXCLUDED.note
+    `);
+  } catch (err) {
+    console.error("[portalScraper] DB write error:", err);
+  }
+}
+
+/** Read through memory (L1) then DB (L2). Populates L1 on DB hit. */
+async function readCache(key: string, area: string, bedrooms: number): Promise<CacheEntry | null> {
+  const mem = readMemoryCache(key);
+  if (mem) return mem;
+
+  const dbEntry = await readDBCache(area, bedrooms);
+  if (dbEntry) {
+    cache.set(key, dbEntry); // warm L1
+    return dbEntry;
+  }
+
+  return null;
+}
+
+/** Write to both L1 memory and L2 DB. */
+async function writeCache(key: string, result: PortalListingsResult): Promise<void> {
+  writeMemoryCache(key, result);
+  await writeDBCache(result);
 }
 
 // ── Validation ────────────────────────────────────────────────────────────────
@@ -302,15 +391,17 @@ If a section has no data on either portal, omit it entirely. Only include portal
 /**
  * Read the portal cache for this area+bedrooms. Returns null if not cached.
  * Never triggers an external OpenAI call — safe for GET read paths.
+ * Checks in-memory cache first (L1), then DB (L2).
  */
-export function getPortalCache(area: string, bedrooms: number): PortalListingsResult | null {
+export async function getPortalCache(area: string, bedrooms: number): Promise<PortalListingsResult | null> {
   if (!area || bedrooms == null) return null;
-  return readCache(makeKey(area, bedrooms))?.result ?? null;
+  const entry = await readCache(makeKey(area, bedrooms), area, bedrooms);
+  return entry?.result ?? null;
 }
 
 /**
  * Fetch portal listings, using the TTL cache to avoid repeated calls.
- * On a cache miss, triggers OpenAI web search.
+ * On a cache miss (memory and DB), triggers OpenAI web search.
  * Uses single-flight coalescing: concurrent calls share one in-flight request.
  * Should only be invoked from the privileged refresh path.
  */
@@ -324,16 +415,16 @@ export async function fetchPortalListings(
   const key = makeKey(area, bedrooms);
 
   if (!forceRefresh) {
-    const cached = readCache(key);
+    const cached = await readCache(key, area, bedrooms);
     if (cached) return cached.result;
   }
 
   const existing = inFlight.get(key);
   if (existing) return existing;
 
-  const promise = _doFetch(area, bedrooms).then(result => {
+  const promise = _doFetch(area, bedrooms).then(async result => {
     inFlight.delete(key);
-    if (result) writeCache(key, result);
+    if (result) await writeCache(key, result);
     return result;
   }).catch(err => {
     inFlight.delete(key);
@@ -356,7 +447,7 @@ export async function fetchPortalListingsWithCooldown(
   if (!area || bedrooms == null) return { result: null, cooldownActive: false };
 
   const key   = makeKey(area, bedrooms);
-  const entry = readCache(key);
+  const entry = await readCache(key, area, bedrooms);
 
   if (entry && (Date.now() - entry.refreshedAt) < COOLDOWN_MS) {
     return { result: entry.result, cooldownActive: true };
@@ -373,15 +464,28 @@ export async function fetchPortalListingsWithCooldown(
   return { result, cooldownActive: false };
 }
 
-/** Invalidate the cache for a specific area+bedrooms. */
-export function invalidatePortalCache(area: string, bedrooms: number) {
+/** Invalidate the cache for a specific area+bedrooms in both memory and DB. */
+export async function invalidatePortalCache(area: string, bedrooms: number): Promise<void> {
   cache.delete(makeKey(area, bedrooms));
+  try {
+    await db.execute(sql`
+      DELETE FROM portal_listings_cache
+      WHERE area = ${area.toLowerCase().trim()} AND bedrooms = ${bedrooms}
+    `);
+  } catch (err) {
+    console.error("[portalScraper] DB delete error:", err);
+  }
 }
 
-/** Clear the entire portal cache and any in-flight requests. */
-export function clearPortalCache() {
+/** Clear the entire portal cache and any in-flight requests (memory and DB). */
+export async function clearPortalCache(): Promise<void> {
   cache.clear();
   inFlight.clear();
+  try {
+    await db.execute(sql`DELETE FROM portal_listings_cache`);
+  } catch (err) {
+    console.error("[portalScraper] DB clear error:", err);
+  }
 }
 
 export interface PortalCacheStatus {
@@ -399,29 +503,60 @@ export interface PortalCacheStatus {
   listingCount: number;
 }
 
-/** Return all non-expired cache entries — used by the Settings → Market Data portal status panel. */
-export function getAllPortalCacheEntries(): PortalCacheStatus[] {
-  const now = Date.now();
-  const entries: PortalCacheStatus[] = [];
-  for (const entry of cache.values()) {
-    if (now > entry.expiresAt) continue;
-    const r = entry.result;
-    entries.push({
-      area:         r.area,
-      bedrooms:     r.bedrooms,
-      fetchedAt:    r.fetchedAt,
-      expiresAt:    new Date(entry.expiresAt).toISOString(),
-      sources:      r.sources,
-      ltrMin:       r.ltr?.min ?? null,
-      ltrMax:       r.ltr?.max ?? null,
-      ltrAvg:       r.ltr?.avg ?? null,
-      adrMin:       r.adr?.min ?? null,
-      adrMax:       r.adr?.max ?? null,
-      adrAvg:       r.adr?.avg ?? null,
-      listingCount: r.listingCount,
+/** Return all non-expired cache entries from the DB — used by the Settings → Market Data portal status panel. */
+export async function getAllPortalCacheEntries(): Promise<PortalCacheStatus[]> {
+  try {
+    const rows = await db.execute(sql`
+      SELECT area, bedrooms, fetched_at, ltr, adr, sources
+      FROM portal_listings_cache
+      WHERE fetched_at > NOW() - INTERVAL '6 hours'
+      ORDER BY area, bedrooms
+    `);
+
+    return rows.rows.map(row => {
+      const ltr = row.ltr as PortalStats | null;
+      const adr = row.adr as PortalStats | null;
+      const fetchedAt = new Date(row.fetched_at as string);
+      return {
+        area:         row.area as string,
+        bedrooms:     row.bedrooms as number,
+        fetchedAt:    fetchedAt.toISOString(),
+        expiresAt:    new Date(fetchedAt.getTime() + CACHE_TTL_MS).toISOString(),
+        sources:      (row.sources as string[]) ?? [],
+        ltrMin:       ltr?.min ?? null,
+        ltrMax:       ltr?.max ?? null,
+        ltrAvg:       ltr?.avg ?? null,
+        adrMin:       adr?.min ?? null,
+        adrMax:       adr?.max ?? null,
+        adrAvg:       adr?.avg ?? null,
+        listingCount: (ltr?.count ?? 0) + (adr?.count ?? 0),
+      };
     });
+  } catch (err) {
+    console.error("[portalScraper] DB getAllPortalCacheEntries error:", err);
+    // Fall back to in-memory cache
+    const now = Date.now();
+    const entries: PortalCacheStatus[] = [];
+    for (const entry of cache.values()) {
+      if (now > entry.expiresAt) continue;
+      const r = entry.result;
+      entries.push({
+        area:         r.area,
+        bedrooms:     r.bedrooms,
+        fetchedAt:    r.fetchedAt,
+        expiresAt:    new Date(entry.expiresAt).toISOString(),
+        sources:      r.sources,
+        ltrMin:       r.ltr?.min ?? null,
+        ltrMax:       r.ltr?.max ?? null,
+        ltrAvg:       r.ltr?.avg ?? null,
+        adrMin:       r.adr?.min ?? null,
+        adrMax:       r.adr?.max ?? null,
+        adrAvg:       r.adr?.avg ?? null,
+        listingCount: r.listingCount,
+      });
+    }
+    return entries.sort((a, b) => a.area.localeCompare(b.area) || a.bedrooms - b.bedrooms);
   }
-  return entries.sort((a, b) => a.area.localeCompare(b.area) || a.bedrooms - b.bedrooms);
 }
 
 // ── Test-only exports ─────────────────────────────────────────────────────────

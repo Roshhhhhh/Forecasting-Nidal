@@ -48,26 +48,26 @@ function seedCache(result: PortalListingsResult, refreshedAgo = 120_000) {
 // ── getPortalCache — read-only, never triggers external calls ─────────────────
 
 describe("getPortalCache", () => {
-  beforeEach(() => clearPortalCache());
+  beforeEach(async () => { await clearPortalCache(); });
 
-  it("returns null when nothing is cached", () => {
-    expect(getPortalCache(AREA, BEDROOMS)).toBeNull();
+  it("returns null when nothing is cached", async () => {
+    expect(await getPortalCache(AREA, BEDROOMS)).toBeNull();
   });
 
-  it("returns null for empty area", () => {
-    expect(getPortalCache("", BEDROOMS)).toBeNull();
+  it("returns null for empty area", async () => {
+    expect(await getPortalCache("", BEDROOMS)).toBeNull();
   });
 
-  it("returns the cached result when present", () => {
+  it("returns the cached result when present", async () => {
     seedCache(mockResult);
-    expect(getPortalCache(AREA, BEDROOMS)).toEqual(mockResult);
+    expect(await getPortalCache(AREA, BEDROOMS)).toEqual(mockResult);
   });
 
-  it("never triggers an OpenAI fetch (safe on GET paths)", () => {
+  it("never triggers an OpenAI fetch (safe on GET paths)", async () => {
     // Without API key and without cache: must return null without throwing
     const orig = process.env.OPENAI_API_KEY;
     delete process.env.OPENAI_API_KEY;
-    expect(getPortalCache(AREA, BEDROOMS)).toBeNull();
+    expect(await getPortalCache(AREA, BEDROOMS)).toBeNull();
     process.env.OPENAI_API_KEY = orig;
   });
 });
@@ -75,7 +75,7 @@ describe("getPortalCache", () => {
 // ── fetchPortalListings — cache and fetch guard ───────────────────────────────
 
 describe("fetchPortalListings", () => {
-  beforeEach(() => clearPortalCache());
+  beforeEach(async () => { await clearPortalCache(); });
 
   it("returns null when OPENAI_API_KEY absent and cache empty", async () => {
     const origKey = process.env.AI_INTEGRATIONS_OPENAI_API_KEY;
@@ -98,10 +98,10 @@ describe("fetchPortalListings", () => {
     expect(await fetchPortalListings("", BEDROOMS, false)).toBeNull();
   });
 
-  it("invalidatePortalCache removes entry", () => {
+  it("invalidatePortalCache removes entry", async () => {
     seedCache(mockResult);
-    invalidatePortalCache(AREA, BEDROOMS);
-    expect(getPortalCache(AREA, BEDROOMS)).toBeNull();
+    await invalidatePortalCache(AREA, BEDROOMS);
+    expect(await getPortalCache(AREA, BEDROOMS)).toBeNull();
   });
 
   it("cleans up inFlight entry after fetch resolves", async () => {
@@ -121,7 +121,7 @@ describe("fetchPortalListings", () => {
 // ── Cooldown enforcement ──────────────────────────────────────────────────────
 
 describe("fetchPortalListingsWithCooldown", () => {
-  beforeEach(() => clearPortalCache());
+  beforeEach(async () => { await clearPortalCache(); });
 
   it("returns cooldownActive=true when refreshed less than 60 s ago", async () => {
     seedCache(mockResult, 5_000); // 5 s ago
@@ -149,7 +149,7 @@ describe("fetchPortalListingsWithCooldown", () => {
 // ── Single-flight coalescing ──────────────────────────────────────────────────
 
 describe("single-flight coalescing", () => {
-  beforeEach(() => clearPortalCache());
+  beforeEach(async () => { await clearPortalCache(); });
 
   it("concurrent requests share one in-flight promise", async () => {
     let resolve!: (v: PortalListingsResult | null) => void;

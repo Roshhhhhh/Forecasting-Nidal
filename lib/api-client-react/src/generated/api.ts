@@ -82,7 +82,9 @@ import type {
   UnitBenchmarkUpdate,
   User,
   UserInput,
-  UserUpdate
+  UserUpdate,
+  PortalCacheEntry,
+  PortalRefreshAllResult,
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -5717,4 +5719,79 @@ export const useRollbackImport = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getRollbackImportMutationOptions(options));
     }
+
+// ── Portal Data ───────────────────────────────────────────────────────────────
+
+export const getGetPortalCacheStatusUrl = () => `/api/market/portal/cache-status`;
+
+/**
+ * @summary Get current portal cache entries
+ */
+export const getPortalCacheStatus = async (options?: Parameters<typeof customFetch>[1]): Promise<PortalCacheEntry[]> => {
+  return customFetch<PortalCacheEntry[]>(getGetPortalCacheStatusUrl(), {
+    ...options,
+    method: 'GET',
+  });
+};
+
+export const getGetPortalCacheStatusQueryKey = () => ['/api/market/portal/cache-status'] as const;
+
+export const getGetPortalCacheStatusQueryOptions = <TData = Awaited<ReturnType<typeof getPortalCacheStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof getPortalCacheStatus>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+  const queryKey = queryOptions?.queryKey ?? getGetPortalCacheStatusQueryKey();
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalCacheStatus>>> = ({ signal }) =>
+    getPortalCacheStatus({ signal, ...requestOptions });
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<Awaited<ReturnType<typeof getPortalCacheStatus>>, TError, TData> & { queryKey: QueryKey };
+};
+
+export type GetPortalCacheStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getPortalCacheStatus>>>;
+export type GetPortalCacheStatusQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Get current portal cache entries
+ */
+export function useGetPortalCacheStatus<TData = Awaited<ReturnType<typeof getPortalCacheStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof getPortalCacheStatus>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getGetPortalCacheStatusQueryOptions(options);
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
+  query.queryKey = queryOptions.queryKey;
+  return query;
+}
+
+export const getRefreshAllPortalDataUrl = () => `/api/market/portal/refresh-all`;
+
+/**
+ * @summary Refresh portal data for all known area+bedroom combos
+ */
+export const refreshAllPortalData = async (options?: Parameters<typeof customFetch>[1]): Promise<PortalRefreshAllResult> => {
+  return customFetch<PortalRefreshAllResult>(getRefreshAllPortalDataUrl(), {
+    ...options,
+    method: 'POST',
+  });
+};
+
+export const getRefreshAllPortalDataMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof refreshAllPortalData>>, TError, void, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationOptions<Awaited<ReturnType<typeof refreshAllPortalData>>, TError, void, TContext> => {
+  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
+  const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshAllPortalData>>, void> = () => {
+    return refreshAllPortalData(requestOptions);
+  };
+  return { mutationFn, ...mutationOptions };
+};
+
+export type RefreshAllPortalDataMutationResult = NonNullable<Awaited<ReturnType<typeof refreshAllPortalData>>>;
+export type RefreshAllPortalDataMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Refresh portal data for all known area+bedroom combos
+ */
+export const useRefreshAllPortalData = <TError = ErrorType<unknown>, TContext = unknown>(
+  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof refreshAllPortalData>>, TError, void, TContext>; request?: SecondParameter<typeof customFetch> }
+): UseMutationResult<Awaited<ReturnType<typeof refreshAllPortalData>>, TError, void, TContext> => {
+  return useMutation(getRefreshAllPortalDataMutationOptions(options));
+};
 

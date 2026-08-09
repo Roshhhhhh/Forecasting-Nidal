@@ -1247,3 +1247,42 @@ export interface ImportCommitInput {
   notes?: string;
 }
 
+// ── Portal data types ──────────────────────────────────────────────────────────
+
+export interface PortalCacheEntry {
+  area: string;
+  bedrooms: number;
+  fetchedAt: string;
+  expiresAt: string;
+  sources: string[];
+  /** @nullable */
+  ltrMin?: number | null;
+  /** @nullable */
+  ltrMax?: number | null;
+  /** @nullable */
+  ltrAvg?: number | null;
+  /** @nullable */
+  adrMin?: number | null;
+  /** @nullable */
+  adrMax?: number | null;
+  /** @nullable */
+  adrAvg?: number | null;
+  listingCount: number;
+}
+
+export interface PortalRefreshItemResult {
+  area: string;
+  bedrooms: number;
+  status: 'success' | 'failed' | 'cooldown';
+  fetchedAt?: string;
+  sources?: string[];
+}
+
+export interface PortalRefreshAllResult {
+  attempted: number;
+  succeeded: number;
+  failed: number;
+  cooldownSkipped: number;
+  results: PortalRefreshItemResult[];
+}
+

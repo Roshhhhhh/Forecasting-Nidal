@@ -732,6 +732,35 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+  # PORTAL DATA (Settings)
+  /market/portal/cache-status:
+    get:
+      operationId: getPortalCacheStatus
+      tags: [market]
+      summary: Get current portal cache entries
+      responses:
+        "200":
+          description: Portal cache entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PortalCacheEntry"
+
+  /market/portal/refresh-all:
+    post:
+      operationId: refreshAllPortalData
+      tags: [market]
+      summary: Refresh portal data for all known area+bedroom combos
+      responses:
+        "200":
+          description: Refresh summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PortalRefreshAllResult"
+
   # FORECASTS
   /forecasts:
     get:
@@ -2225,6 +2254,73 @@ components:
           type: string
         heroImageUrl:
           type: string
+
+    # PORTAL DATA
+    PortalCacheEntry:
+      type: object
+      required: [area, bedrooms, fetchedAt, expiresAt, sources, listingCount]
+      properties:
+        area:
+          type: string
+        bedrooms:
+          type: number
+        fetchedAt:
+          type: string
+        expiresAt:
+          type: string
+        sources:
+          type: array
+          items:
+            type: string
+        ltrMin:
+          type: ["number", "null"]
+        ltrMax:
+          type: ["number", "null"]
+        ltrAvg:
+          type: ["number", "null"]
+        adrMin:
+          type: ["number", "null"]
+        adrMax:
+          type: ["number", "null"]
+        adrAvg:
+          type: ["number", "null"]
+        listingCount:
+          type: number
+
+    PortalRefreshItemResult:
+      type: object
+      required: [area, bedrooms, status]
+      properties:
+        area:
+          type: string
+        bedrooms:
+          type: number
+        status:
+          type: string
+          enum: [success, failed, cooldown]
+        fetchedAt:
+          type: string
+        sources:
+          type: array
+          items:
+            type: string
+
+    PortalRefreshAllResult:
+      type: object
+      required: [attempted, succeeded, failed, cooldownSkipped, results]
+      properties:
+        attempted:
+          type: number
+        succeeded:
+          type: number
+        failed:
+          type: number
+        cooldownSkipped:
+          type: number
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/PortalRefreshItemResult"
 
     # MARKET
     MarketArea:

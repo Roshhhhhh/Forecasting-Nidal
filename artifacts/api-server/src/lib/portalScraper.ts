@@ -384,6 +384,46 @@ export function clearPortalCache() {
   inFlight.clear();
 }
 
+export interface PortalCacheStatus {
+  area: string;
+  bedrooms: number;
+  fetchedAt: string;
+  expiresAt: string;
+  sources: string[];
+  ltrMin: number | null;
+  ltrMax: number | null;
+  ltrAvg: number | null;
+  adrMin: number | null;
+  adrMax: number | null;
+  adrAvg: number | null;
+  listingCount: number;
+}
+
+/** Return all non-expired cache entries — used by the Settings → Market Data portal status panel. */
+export function getAllPortalCacheEntries(): PortalCacheStatus[] {
+  const now = Date.now();
+  const entries: PortalCacheStatus[] = [];
+  for (const entry of cache.values()) {
+    if (now > entry.expiresAt) continue;
+    const r = entry.result;
+    entries.push({
+      area:         r.area,
+      bedrooms:     r.bedrooms,
+      fetchedAt:    r.fetchedAt,
+      expiresAt:    new Date(entry.expiresAt).toISOString(),
+      sources:      r.sources,
+      ltrMin:       r.ltr?.min ?? null,
+      ltrMax:       r.ltr?.max ?? null,
+      ltrAvg:       r.ltr?.avg ?? null,
+      adrMin:       r.adr?.min ?? null,
+      adrMax:       r.adr?.max ?? null,
+      adrAvg:       r.adr?.avg ?? null,
+      listingCount: r.listingCount,
+    });
+  }
+  return entries.sort((a, b) => a.area.localeCompare(b.area) || a.bedrooms - b.bedrooms);
+}
+
 // ── Test-only exports ─────────────────────────────────────────────────────────
 export const _testOnly = {
   cache,

@@ -14,6 +14,10 @@ import {
 import { requireAuth, requireRole } from "../middlewares/auth";
 import multer from "multer";
 import * as XLSX from "xlsx";
+import {
+  getAllPortalCacheEntries,
+  fetchPortalListingsWithCooldown,
+} from "../lib/portalScraper";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
@@ -278,6 +282,92 @@ router.post(
       res.status(500).json({ error: err.message ?? "Import failed" });
     }
   }
+);
+
+// ── Portal Data ───────────────────────────────────────────────────────────────
+
+/** GET /market/portal/cache-status — return all non-expired portal cache entries */
+router.get(
+  "/market/portal/cache-status",
+  requireAuth,
+  requireRole("super_admin", "admin", "revenue_manager"),
+  (_req, res): void => {
+    res.json(getAllPortalCacheEntries());
+  },
+);
+
+/** POST /market/portal/refresh-all — re-fetch portal listings for every known area+bedroom combo */
+router.post(
+  "/market/portal/refresh-all",
+  requireAuth,
+  requireRole("super_admin", "admin", "revenue_manager"),
+  async (_req, res): Promise<void> => {
+    // Build the unique (area_name, bedrooms) combos from our benchmark table
+    const benchmarks = await db
+      .select({
+        area:     marketAreasTable.area,
+        bedrooms: unitBenchmarksTable.bedrooms,
+      })
+      .from(unitBenchmarksTable)
+      .leftJoin(marketAreasTable, eq(unitBenchmarksTable.marketAreaId, marketAreasTable.id));
+
+    const combos = new Map<string, { area: string; bedrooms: number }>();
+    for (const b of benchmarks) {
+      if (!b.area) continue;
+      const key = `${b.area.toLowerCase()}:${b.bedrooms}`;
+      combos.set(key, { area: b.area, bedrooms: b.bedrooms });
+    }
+
+    if (combos.size === 0) {
+      res.json({ attempted: 0, succeeded: 0, failed: 0, cooldownSkipped: 0, results: [] });
+      return;
+    }
+
+    // Fan out all fetches concurrently — each call respects its own cooldown
+    const settled = await Promise.allSettled(
+      Array.from(combos.values()).map(async ({ area, bedrooms }) => {
+        const { result, cooldownActive } = await fetchPortalListingsWithCooldown(area, bedrooms);
+        return { area, bedrooms, result, cooldownActive };
+      }),
+    );
+
+    let succeeded = 0;
+    let failed = 0;
+    let cooldownSkipped = 0;
+    const results: Array<{
+      area: string;
+      bedrooms: number;
+      status: "success" | "failed" | "cooldown";
+      fetchedAt?: string;
+      sources?: string[];
+    }> = [];
+
+    for (const s of settled) {
+      if (s.status === "rejected") {
+        failed++;
+        continue;
+      }
+      const { area, bedrooms, result, cooldownActive } = s.value;
+      if (cooldownActive) {
+        cooldownSkipped++;
+        results.push({ area, bedrooms, status: "cooldown", fetchedAt: result?.fetchedAt, sources: result?.sources });
+      } else if (result) {
+        succeeded++;
+        results.push({ area, bedrooms, status: "success", fetchedAt: result.fetchedAt, sources: result.sources });
+      } else {
+        failed++;
+        results.push({ area, bedrooms, status: "failed" });
+      }
+    }
+
+    res.json({
+      attempted:      combos.size,
+      succeeded,
+      failed,
+      cooldownSkipped,
+      results,
+    });
+  },
 );
 
 export default router;

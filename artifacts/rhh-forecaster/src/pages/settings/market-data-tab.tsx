@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { UploadCloud, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2, RefreshCw, Clock } from "lucide-react";
+import { UploadCloud, FileSpreadsheet, CheckCircle2, AlertCircle, Loader2, RefreshCw, Clock, Globe, CheckCheck, XCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -9,7 +9,10 @@ import {
   getListMarketAreasQueryKey,
   getGetCompanySettingsQueryKey,
   useGetCompanySettings,
+  useGetPortalCacheStatus,
+  getGetPortalCacheStatusQueryKey,
 } from "@workspace/api-client-react";
+import type { PortalRefreshAllResult } from "@workspace/api-client-react";
 
 interface ImportResult {
   areasCreated: number;
@@ -18,6 +21,212 @@ interface ImportResult {
   skipped: number;
   importedAt: string;
 }
+
+// ── Portal Data Section ───────────────────────────────────────────────────────
+
+function bedroomLabel(n: number) {
+  return n === 0 ? "Studio" : `${n}BR`;
+}
+
+function PortalDataSection() {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: cacheEntries = [], isLoading: isCacheLoading } = useGetPortalCacheStatus();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [refreshResult, setRefreshResult] = useState<PortalRefreshAllResult | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+
+  const handleRefreshAll = async () => {
+    setIsRefreshing(true);
+    setRefreshError(null);
+    setRefreshResult(null);
+
+    try {
+      const res = await fetch(`${import.meta.env.BASE_URL}api/market/portal/refresh-all`, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(body.error ?? `Server error ${res.status}`);
+      }
+
+      const data: PortalRefreshAllResult = await res.json();
+      setRefreshResult(data);
+      await queryClient.invalidateQueries({ queryKey: getGetPortalCacheStatusQueryKey() });
+
+      toast({
+        title: "Portal refresh complete",
+        description: `${data.succeeded} succeeded · ${data.failed} failed · ${data.cooldownSkipped} skipped (cooldown)`,
+      });
+    } catch (err: any) {
+      const msg = err.message ?? "Refresh failed";
+      setRefreshError(msg);
+      toast({ title: "Refresh failed", description: msg, variant: "destructive" });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  return (
+    <Card className="border-border/50 shadow-sm">
+      <CardHeader className="border-b border-border bg-muted/20">
+        <CardTitle className="text-lg font-serif flex items-center gap-2">
+          <Globe className="h-4 w-4 text-primary" />
+          Portal Data
+        </CardTitle>
+        <CardDescription>
+          Live rental price data fetched from Property Finder &amp; Bayut via AI web search. Used to
+          validate benchmark ADR and LTR figures in forecasts.
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="p-6 space-y-5">
+        {/* Refresh button + result */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-foreground">Refresh All Areas</p>
+            <p className="text-xs text-muted-foreground">
+              Fetches fresh portal data for every area &amp; bedroom count in your benchmark table.
+              Each combination has a 60-second cooldown to prevent quota exhaustion.
+            </p>
+          </div>
+          <Button
+            onClick={handleRefreshAll}
+            disabled={isRefreshing}
+            className="shrink-0"
+          >
+            {isRefreshing ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Refreshing…</>
+            ) : (
+              <><RefreshCw className="mr-2 h-4 w-4" /> Refresh All Areas</>
+            )}
+          </Button>
+        </div>
+
+        {/* Error banner */}
+        {refreshError && (
+          <div className="flex items-start gap-2 text-sm text-destructive bg-destructive/10 rounded-lg p-3">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>{refreshError}</span>
+          </div>
+        )}
+
+        {/* Refresh result summary */}
+        {refreshResult && !isRefreshing && (
+          <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
+              Refresh complete — {refreshResult.attempted} combinations processed
+            </div>
+            <div className="flex flex-wrap gap-3 text-sm">
+              <span className="flex items-center gap-1 text-green-700 dark:text-green-400">
+                <CheckCheck className="h-3.5 w-3.5" /> {refreshResult.succeeded} succeeded
+              </span>
+              {refreshResult.failed > 0 && (
+                <span className="flex items-center gap-1 text-destructive">
+                  <XCircle className="h-3.5 w-3.5" /> {refreshResult.failed} failed
+                </span>
+              )}
+              {refreshResult.cooldownSkipped > 0 && (
+                <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                  <Clock className="h-3.5 w-3.5" /> {refreshResult.cooldownSkipped} skipped (cooldown)
+                </span>
+              )}
+            </div>
+
+            {/* Per-item breakdown */}
+            {refreshResult.results.length > 0 && (
+              <div className="overflow-x-auto mt-2">
+                <table className="text-xs w-full border-collapse">
+                  <thead>
+                    <tr className="text-left text-muted-foreground">
+                      <th className="px-2 py-1 border border-border/40 bg-muted/40 font-semibold">Area</th>
+                      <th className="px-2 py-1 border border-border/40 bg-muted/40 font-semibold">Beds</th>
+                      <th className="px-2 py-1 border border-border/40 bg-muted/40 font-semibold">Status</th>
+                      <th className="px-2 py-1 border border-border/40 bg-muted/40 font-semibold">Sources</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {refreshResult.results.map((r, i) => (
+                      <tr key={i} className="hover:bg-muted/10">
+                        <td className="px-2 py-1 border border-border/40">{r.area}</td>
+                        <td className="px-2 py-1 border border-border/40">{bedroomLabel(r.bedrooms)}</td>
+                        <td className="px-2 py-1 border border-border/40">
+                          {r.status === "success" && <span className="text-green-600 dark:text-green-400 font-medium">✓ Success</span>}
+                          {r.status === "failed" && <span className="text-destructive font-medium">✗ Failed</span>}
+                          {r.status === "cooldown" && <span className="text-amber-600 dark:text-amber-400">⏱ Cooldown</span>}
+                        </td>
+                        <td className="px-2 py-1 border border-border/40 text-muted-foreground">
+                          {r.sources?.join(", ") ?? "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Current cache status table */}
+        <div>
+          <p className="text-sm font-medium text-foreground mb-2">Current Cache</p>
+          {isCacheLoading ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground py-4">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading cache status…
+            </div>
+          ) : cacheEntries.length === 0 ? (
+            <div className="rounded-lg border border-border/50 bg-muted/10 p-4 text-sm text-muted-foreground flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-amber-500 shrink-0" />
+              No portal data cached yet. Click "Refresh All Areas" to pull live data from Property Finder &amp; Bayut.
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-border/50">
+              <table className="text-xs w-full border-collapse">
+                <thead>
+                  <tr className="text-left text-muted-foreground bg-muted/30">
+                    <th className="px-3 py-2 border-b border-border/40 font-semibold">Area</th>
+                    <th className="px-3 py-2 border-b border-border/40 font-semibold">Beds</th>
+                    <th className="px-3 py-2 border-b border-border/40 font-semibold">LTR (AED/yr)</th>
+                    <th className="px-3 py-2 border-b border-border/40 font-semibold">ADR (AED/night)</th>
+                    <th className="px-3 py-2 border-b border-border/40 font-semibold">Sources</th>
+                    <th className="px-3 py-2 border-b border-border/40 font-semibold">Fetched</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cacheEntries.map((e, i) => (
+                    <tr key={i} className="hover:bg-muted/10 border-b border-border/30 last:border-0">
+                      <td className="px-3 py-2 font-medium">{e.area}</td>
+                      <td className="px-3 py-2">{bedroomLabel(e.bedrooms)}</td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {e.ltrMin != null && e.ltrMax != null
+                          ? `${e.ltrMin.toLocaleString()} – ${e.ltrMax.toLocaleString()}`
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">
+                        {e.adrMin != null && e.adrMax != null
+                          ? `${e.adrMin.toLocaleString()} – ${e.adrMax.toLocaleString()}`
+                          : "—"}
+                      </td>
+                      <td className="px-3 py-2 text-muted-foreground">{e.sources.join(", ")}</td>
+                      <td className="px-3 py-2 text-muted-foreground whitespace-nowrap">
+                        {new Date(e.fetchedAt).toLocaleString()}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
 
 export function MarketDataTab() {
   const { toast } = useToast();
@@ -101,6 +310,9 @@ export function MarketDataTab() {
 
   return (
     <div className="space-y-6">
+      {/* Portal Data section */}
+      <PortalDataSection />
+
       {/* Last-import status card */}
       <Card className="border-border/50 shadow-sm">
         <CardHeader className="border-b border-border bg-muted/20">

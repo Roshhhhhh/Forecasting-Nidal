@@ -101,6 +101,10 @@ export async function runStartupMigration() {
 
     // Add project_building to unit_benchmarks (stores which project each benchmark row belongs to)
     await db.execute(sql`ALTER TABLE unit_benchmarks ADD COLUMN IF NOT EXISTS project_building TEXT`);
+
+    // Add benchmark import tracking columns to company_settings
+    await db.execute(sql`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS last_benchmark_import_at TIMESTAMPTZ`);
+    await db.execute(sql`ALTER TABLE company_settings ADD COLUMN IF NOT EXISTS last_benchmark_import_summary TEXT`);
     // Add ai_property_description to proposals (cached 500-word AI property description)
     await db.execute(sql`ALTER TABLE proposals ADD COLUMN IF NOT EXISTS ai_property_description TEXT`);
 

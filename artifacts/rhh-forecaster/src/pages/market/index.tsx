@@ -1,4 +1,4 @@
-import { useListMarketAreas, useListBenchmarks } from "@workspace/api-client-react";
+import { useListMarketAreas, useListBenchmarks, useGetCompanySettings } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,7 @@ function ConfidenceBadge({ level }: { level: string | null | undefined }) {
 export default function MarketList() {
   const { data: areas, isLoading: areasLoading } = useListMarketAreas();
   const { data: benchmarks, isLoading: benchLoading } = useListBenchmarks();
+  const { data: settings } = useGetCompanySettings();
 
   const [search, setSearch] = useState("");
   const [selectedAreaId, setSelectedAreaId] = useState<number | null>(null);
@@ -119,6 +120,17 @@ export default function MarketList() {
           <p className="text-muted-foreground mt-0.5">
             Abu Dhabi STR &amp; LTR benchmarks by area and project — sourced from RHH internal data.
           </p>
+          {(settings as any)?.lastBenchmarkImportAt && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Last import:{" "}
+              <span className="font-medium text-foreground">
+                {new Date((settings as any).lastBenchmarkImportAt).toLocaleString()}
+              </span>
+              {(settings as any).lastBenchmarkImportSummary && (
+                <span className="ml-1">· {(settings as any).lastBenchmarkImportSummary}</span>
+              )}
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" className="gap-2">

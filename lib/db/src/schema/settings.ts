@@ -49,6 +49,10 @@ export const companySettingsTable = pgTable("company_settings", {
   portfolioAssetsUnderManagement: text("portfolio_assets_under_management"),
   portfolioTrustedOwners: text("portfolio_trusted_owners"),
 
+  // Market benchmark import tracking
+  lastBenchmarkImportAt: timestamp("last_benchmark_import_at", { withTimezone: true }),
+  lastBenchmarkImportSummary: text("last_benchmark_import_summary"),
+
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });
 

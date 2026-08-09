@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useEffect } from "react";
 import { Save } from "lucide-react";
 import { AmenitiesTab } from "./settings/amenities-tab";
+import { MarketDataTab } from "./settings/market-data-tab";
 
 const settingsSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
@@ -335,6 +336,7 @@ export default function Settings() {
         <TabsList className="mb-6">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="amenities">Amenities</TabsTrigger>
+          <TabsTrigger value="market-data">Market Data</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
@@ -343,6 +345,10 @@ export default function Settings() {
 
         <TabsContent value="amenities">
           <AmenitiesTab />
+        </TabsContent>
+
+        <TabsContent value="market-data">
+          <MarketDataTab />
         </TabsContent>
       </Tabs>
     </div>

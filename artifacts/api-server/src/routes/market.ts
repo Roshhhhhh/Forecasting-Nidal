@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, desc } from "drizzle-orm";
-import { db, marketAreasTable, unitBenchmarksTable } from "@workspace/db";
+import { db, marketAreasTable, unitBenchmarksTable, companySettingsTable } from "@workspace/db";
 import {
   CreateMarketAreaBody,
   UpdateMarketAreaBody,
@@ -12,6 +12,10 @@ import {
   DeleteBenchmarkParams,
 } from "@workspace/api-zod";
 import { requireAuth, requireRole } from "../middlewares/auth";
+import multer from "multer";
+import * as XLSX from "xlsx";
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 const router: IRouter = Router();
 
@@ -98,5 +102,182 @@ router.delete("/market/benchmarks/:id", requireAuth, requireRole("super_admin", 
   await db.delete(unitBenchmarksTable).where(eq(unitBenchmarksTable.id, params.data.id));
   res.json({ message: "Benchmark deleted" });
 });
+
+// ── Benchmark bulk import via XLSX ────────────────────────────────────────────
+// Col layout: Area(0), Type(1), Status(2), Dev(3), Project(4),
+//             STD ADR(5), STD LTR(6), 1BR ADR(7), 1BR LTR(8),
+//             2BR ADR(9), 2BR LTR(10), 3BR ADR(11), 3BR LTR(12),
+//             4BR ADR(13), 4BR LTR(14)
+export const BENCHMARK_BEDROOM_COLS = [
+  { bed: 0, adrCol: 5, ltrCol: 6 },
+  { bed: 1, adrCol: 7, ltrCol: 8 },
+  { bed: 2, adrCol: 9, ltrCol: 10 },
+  { bed: 3, adrCol: 11, ltrCol: 12 },
+  { bed: 4, adrCol: 13, ltrCol: 14 },
+];
+
+/**
+ * Strictly parse a spreadsheet cell as a positive finite number.
+ * Returns null for: NA, N/A, empty, non-numeric text, NaN, Infinity,
+ * non-positive values (ADR/LTR must be > 0 to be meaningful).
+ * Strips common locale decorators (spaces, commas) before parsing.
+ */
+export function parseRateCell(raw: unknown): number | null {
+  if (raw == null || raw === "") return null;
+  const s = String(raw).trim();
+  if (/^n\/?a$/i.test(s)) return null;          // NA, N/A
+  const cleaned = s.replace(/[\s,]/g, "");       // strip space-thousands and comma-thousands
+  const n = Number(cleaned);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return n;
+}
+
+router.post(
+  "/market/benchmarks/import",
+  requireAuth,
+  requireRole("super_admin", "admin", "revenue_manager"),
+  upload.single("file"),
+  async (req, res): Promise<void> => {
+    if (!req.file) {
+      res.status(400).json({ error: "No file uploaded" });
+      return;
+    }
+
+    try {
+      // Parse workbook from buffer
+      const wb = XLSX.read(req.file.buffer, { type: "buffer" });
+      const sheetName = wb.SheetNames.find((n: string) => n.includes("(2)")) ?? wb.SheetNames[1] ?? wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
+
+      // Filter out header/empty rows
+      const dataRows = raw.filter((row: any[]) =>
+        row[0] && typeof row[0] === "string" && row[0].trim() !== "" &&
+        !["area", "price", "main"].some((k: string) => row[0].toLowerCase().startsWith(k))
+      );
+
+      if (dataRows.length === 0) {
+        res.status(422).json({ error: "No data rows found. Check the file uses the correct sheet and column layout." });
+        return;
+      }
+
+      // Load existing areas and benchmarks outside the transaction (read-only snapshot)
+      const existingAreas = await db.select().from(marketAreasTable);
+      const areaMap = new Map<string, typeof existingAreas[0]>();
+      for (const a of existingAreas) {
+        areaMap.set(`${(a.area ?? "").toLowerCase()}|||${(a.projectBuilding ?? "").toLowerCase()}`, a);
+      }
+
+      const existingBenchmarks = await db.select().from(unitBenchmarksTable);
+      const benchMap = new Map<string, number>(); // "marketAreaId:propertyType:bedrooms" → id
+      for (const b of existingBenchmarks) {
+        benchMap.set(`${b.marketAreaId}:${(b.propertyType ?? "").toLowerCase()}:${b.bedrooms}`, b.id);
+      }
+
+      let areasCreated = 0;
+      let benchmarksInserted = 0;
+      let benchmarksUpdated = 0;
+      let skipped = 0;
+
+      // All DB mutations run inside a single transaction so partial failures roll back
+      const importedAt = await db.transaction(async (tx) => {
+        for (const row of dataRows) {
+          const area = String(row[0] ?? "").trim();
+          const propertyType = String(row[1] ?? "Apartment").trim();
+          const projectStatus = String(row[2] ?? "").trim() || null;
+          const developer = String(row[3] ?? "").trim() || null;
+          const project = String(row[4] ?? "").trim();
+          if (!area || !project) { skipped++; continue; }
+
+          const areaKey = `${area.toLowerCase()}|||${project.toLowerCase()}`;
+          let areaRecord = areaMap.get(areaKey);
+
+          if (!areaRecord) {
+            const [created] = await tx
+              .insert(marketAreasTable)
+              .values({
+                area,
+                projectBuilding: project,
+                emirate: "Abu Dhabi",
+                developer: developer ?? undefined,
+                projectStatus: projectStatus ?? undefined,
+                createdById: req.session.userId,
+              })
+              .returning();
+            areaRecord = created;
+            areaMap.set(areaKey, created);
+            areasCreated++;
+          } else if (developer || projectStatus) {
+            // Fill in missing developer/status metadata on existing areas
+            const updates: Record<string, string> = {};
+            if (developer && !areaRecord.developer) updates.developer = developer;
+            if (projectStatus && !areaRecord.projectStatus) updates.projectStatus = projectStatus;
+            if (Object.keys(updates).length > 0) {
+              await tx.update(marketAreasTable).set(updates).where(eq(marketAreasTable.id, areaRecord.id));
+              areaRecord = { ...areaRecord, ...updates };
+              areaMap.set(areaKey, areaRecord);
+            }
+          }
+
+          for (const { bed, adrCol, ltrCol } of BENCHMARK_BEDROOM_COLS) {
+            const adr = parseRateCell(row[adrCol]);
+            const ltr = parseRateCell(row[ltrCol]);
+            if (adr === null && ltr === null) continue; // no valid rate data for this bedroom type
+
+            const bKey = `${areaRecord.id}:${propertyType.toLowerCase()}:${bed}`;
+            const existingId = benchMap.get(bKey);
+
+            const values = {
+              marketAreaId: areaRecord.id,
+              propertyType,
+              bedrooms: bed,
+              typicalAdr: adr,
+              shoulderSeasonAdr: adr,
+              annualLtr: ltr,
+              expectedOccupancy: 75,
+              isActive: true as const,
+              confidenceLevel: "medium",
+              notes: "AUH Areas market data import",
+              projectBuilding: project,
+              createdById: req.session.userId,
+            };
+
+            if (existingId) {
+              await tx.update(unitBenchmarksTable)
+                .set({ ...values, updatedAt: new Date() } as any)
+                .where(eq(unitBenchmarksTable.id, existingId));
+              benchmarksUpdated++;
+            } else {
+              const [inserted] = await tx.insert(unitBenchmarksTable).values(values).returning();
+              benchMap.set(bKey, inserted.id); // bKey already includes propertyType
+              benchmarksInserted++;
+            }
+          }
+        }
+
+        // Record the import timestamp — inside the transaction so it only persists on success
+        const now = new Date();
+        const summary = `Updated ${benchmarksUpdated}, added ${benchmarksInserted} new, created ${areasCreated} area${areasCreated !== 1 ? "s" : ""}.`;
+        const settings = await tx.query.companySettingsTable.findFirst();
+        if (settings) {
+          await tx.update(companySettingsTable).set({
+            lastBenchmarkImportAt: now,
+            lastBenchmarkImportSummary: summary,
+          } as any);
+        } else {
+          await tx.insert(companySettingsTable).values({
+            lastBenchmarkImportAt: now,
+            lastBenchmarkImportSummary: summary,
+          } as any);
+        }
+        return now;
+      });
+
+      res.json({ areasCreated, benchmarksInserted, benchmarksUpdated, skipped, importedAt });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message ?? "Import failed" });
+    }
+  }
+);
 
 export default router;

@@ -46,7 +46,7 @@ export default function ForecastRequestsList() {
 
   const { data: requests = [], isLoading } = useQuery({
     queryKey: ["forecast-requests"],
-    queryFn: () => fetch("/api/forecast-requests").then(r => r.json()),
+    queryFn: () => fetch("/api/forecast-requests").then(r => r.json()).then(d => Array.isArray(d) ? d : []),
   });
 
   const { mutate: updateStatus } = useMutation({

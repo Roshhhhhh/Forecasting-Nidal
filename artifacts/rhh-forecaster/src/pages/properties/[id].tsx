@@ -3,12 +3,201 @@ import { useParams, Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { MapPin, Home, TrendingUp, Pencil, Ruler, FileText, CheckCircle2, Sparkles } from "lucide-react";
+import { MapPin, Home, TrendingUp, Pencil, Ruler, FileText, CheckCircle2, Sparkles, Users, Plus, Trash2, Star } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
 import { AmenitiesPicker } from "@/components/AmenitiesPicker";
 import { calculateScores, PropertyScoresPanel, type Amenity } from "@/components/property-scores";
 import { EditPropertySheet } from "@/components/EditPropertySheet";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/hooks/use-toast";
+import { useListOwners } from "@workspace/api-client-react";
+
+// ── Ownership Card ─────────────────────────────────────────────────────────────
+function OwnershipCard({ propertyId, primaryOwnerId }: { propertyId: number; primaryOwnerId: number }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: allOwners = [] } = useListOwners();
+
+  const { data: coOwners = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/properties", propertyId, "owners"],
+    queryFn: async () => {
+      const r = await fetch(`/api/properties/${propertyId}/owners`, { credentials: "include" });
+      if (!r.ok) return [];
+      return r.json();
+    },
+    enabled: !!propertyId,
+  });
+
+  const [addOpen, setAddOpen] = useState(false);
+  const [addOwnerId, setAddOwnerId] = useState("");
+  const [addPct, setAddPct] = useState("100");
+  const [addPrimary, setAddPrimary] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editPct, setEditPct] = useState("");
+
+  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["/api/properties", propertyId, "owners"] });
+
+  const addMutation = useMutation({
+    mutationFn: () => fetch(`/api/properties/${propertyId}/owners`, {
+      method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ownerId: parseInt(addOwnerId, 10), ownershipPercentage: parseFloat(addPct), isPrimary: addPrimary }),
+    }).then(r => r.json()),
+    onSuccess: () => { invalidate(); setAddOpen(false); setAddOwnerId(""); setAddPct("100"); setAddPrimary(false); toast({ title: "Co-owner added" }); },
+    onError: () => toast({ title: "Failed to add co-owner", variant: "destructive" }),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (ownerId: number) => fetch(`/api/properties/${propertyId}/owners/${ownerId}`, {
+      method: "PATCH", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ownershipPercentage: parseFloat(editPct) }),
+    }).then(r => r.json()),
+    onSuccess: () => { invalidate(); setEditingId(null); },
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: (ownerId: number) => fetch(`/api/properties/${propertyId}/owners/${ownerId}`, {
+      method: "DELETE", credentials: "include",
+    }).then(r => r.json()),
+    onSuccess: () => { invalidate(); toast({ title: "Co-owner removed" }); },
+  });
+
+  const setPrimaryMutation = useMutation({
+    mutationFn: (ownerId: number) => fetch(`/api/properties/${propertyId}/owners/${ownerId}`, {
+      method: "PATCH", credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ isPrimary: true }),
+    }).then(r => r.json()),
+    onSuccess: () => { invalidate(); toast({ title: "Primary owner updated" }); },
+  });
+
+  const existingIds = new Set(coOwners.map((o: any) => o.ownerId));
+  const availableOwners = allOwners.filter((o: any) => !existingIds.has(o.id));
+  const totalPct = coOwners.reduce((sum: number, o: any) => sum + o.ownershipPercentage, 0);
+
+  return (
+    <Card className="shadow-sm border-border/50">
+      <CardHeader className="bg-muted/20 border-b border-border pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base">Ownership</CardTitle>
+            {coOwners.length > 1 && (
+              <Badge variant="outline" className={`text-[10px] ${Math.round(totalPct) !== 100 ? "border-red-300 text-red-600" : "border-green-300 text-green-700"}`}>
+                {Math.round(totalPct)}% allocated
+              </Badge>
+            )}
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => setAddOpen(v => !v)} className="h-7 text-xs gap-1.5">
+            <Plus className="h-3 w-3" /> Add Co-owner
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0">
+        {/* Add form */}
+        {addOpen && (
+          <div className="p-4 border-b border-border bg-muted/10 space-y-3">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Co-owner</p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <select
+                value={addOwnerId}
+                onChange={e => setAddOwnerId(e.target.value)}
+                className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">Select owner…</option>
+                {availableOwners.map((o: any) => (
+                  <option key={o.id} value={o.id}>{o.name || `${o.firstName} ${o.lastName}`}</option>
+                ))}
+              </select>
+              <div className="flex items-center gap-1">
+                <Input
+                  type="number" min={0.1} max={100} step={0.5}
+                  value={addPct}
+                  onChange={e => setAddPct(e.target.value)}
+                  className="w-24 h-9 text-sm"
+                  placeholder="%"
+                />
+                <span className="text-sm text-muted-foreground">%</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="addPrimary" checked={addPrimary} onChange={e => setAddPrimary(e.target.checked)} className="h-4 w-4" />
+              <label htmlFor="addPrimary" className="text-sm text-muted-foreground">Set as primary owner (receives proposals)</label>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => addMutation.mutate()} disabled={!addOwnerId || addMutation.isPending} className="h-8 text-xs">
+                {addMutation.isPending ? "Adding…" : "Add"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setAddOpen(false)} className="h-8 text-xs">Cancel</Button>
+            </div>
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="p-6 text-sm text-muted-foreground">Loading ownership…</div>
+        ) : coOwners.length === 0 ? (
+          <div className="p-6 text-sm text-muted-foreground">No ownership records yet. Add the first owner above.</div>
+        ) : (
+          <div className="divide-y divide-border">
+            {coOwners.map((o: any) => (
+              <div key={o.ownerId} className="flex items-center justify-between px-4 py-3 hover:bg-muted/10 transition-colors">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary text-sm font-semibold flex-shrink-0">
+                    {o.ownerName?.charAt(0) ?? "?"}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <Link href={`/owners/${o.ownerId}`} className="text-sm font-medium text-foreground hover:text-primary transition-colors truncate">
+                        {o.ownerName}
+                      </Link>
+                      {o.isPrimary && (
+                        <Badge className="h-4 text-[10px] px-1.5 bg-amber-100 text-amber-800 border-amber-200 gap-1">
+                          <Star className="h-2.5 w-2.5" /> Primary
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground">{o.email}</div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                  {editingId === o.ownerId ? (
+                    <div className="flex items-center gap-1">
+                      <Input type="number" min={0.1} max={100} step={0.5} value={editPct}
+                        onChange={e => setEditPct(e.target.value)}
+                        className="w-20 h-7 text-xs" />
+                      <span className="text-xs text-muted-foreground">%</span>
+                      <Button size="sm" className="h-7 text-xs px-2" onClick={() => updateMutation.mutate(o.ownerId)} disabled={updateMutation.isPending}>Save</Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => setEditingId(null)}>✕</Button>
+                    </div>
+                  ) : (
+                    <>
+                      <button onClick={() => { setEditingId(o.ownerId); setEditPct(String(o.ownershipPercentage)); }}
+                        className="text-sm font-semibold text-foreground hover:text-primary transition-colors min-w-[48px] text-right">
+                        {o.ownershipPercentage}%
+                      </button>
+                      {!o.isPrimary && (
+                        <button onClick={() => setPrimaryMutation.mutate(o.ownerId)}
+                          title="Set as primary" className="text-muted-foreground hover:text-amber-600 transition-colors">
+                          <Star className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <button onClick={() => removeMutation.mutate(o.ownerId)}
+                        className="text-muted-foreground hover:text-red-600 transition-colors">
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 export default function PropertyDetail() {
   const { id } = useParams<{ id: string }>();
@@ -147,6 +336,9 @@ export default function PropertyDetail() {
               </CardContent>
             </Card>
           </div>
+
+          {/* Ownership */}
+          <OwnershipCard propertyId={propertyId} primaryOwnerId={property.ownerId} />
 
           {/* Additional Attributes */}
           <Card className="shadow-sm border-border/50">

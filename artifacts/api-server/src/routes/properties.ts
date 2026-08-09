@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
 import { db, propertiesTable, ownersTable } from "@workspace/db";
+import { propertyOwnersTable } from "@workspace/db/schema";
 import {
   CreatePropertyBody,
   UpdatePropertyBody,
@@ -8,14 +9,16 @@ import {
   UpdatePropertyParams,
 } from "@workspace/api-zod";
 import { requireAuth } from "../middlewares/auth";
+import { z } from "zod";
 
 const router: IRouter = Router();
 
-function formatProperty(p: any, ownerName?: string | null) {
+function formatProperty(p: any, ownerName?: string | null, coOwners?: any[]) {
   return {
     id: p.id,
     ownerId: p.ownerId,
     ownerName: ownerName ?? null,
+    coOwners: coOwners ?? [],
     emirate: p.emirate,
     area: p.area,
     community: p.community,
@@ -49,6 +52,33 @@ function formatProperty(p: any, ownerName?: string | null) {
   };
 }
 
+async function getCoOwners(propertyId: number) {
+  const rows = await db
+    .select({
+      id:                  propertyOwnersTable.id,
+      ownerId:             propertyOwnersTable.ownerId,
+      ownershipPercentage: propertyOwnersTable.ownershipPercentage,
+      isPrimary:           propertyOwnersTable.isPrimary,
+      firstName:           ownersTable.firstName,
+      lastName:            ownersTable.lastName,
+      title:               ownersTable.title,
+      email:               ownersTable.email,
+    })
+    .from(propertyOwnersTable)
+    .innerJoin(ownersTable, eq(ownersTable.id, propertyOwnersTable.ownerId))
+    .where(eq(propertyOwnersTable.propertyId, propertyId))
+    .orderBy(desc(propertyOwnersTable.isPrimary), propertyOwnersTable.createdAt);
+
+  return rows.map(r => ({
+    id: r.id,
+    ownerId: r.ownerId,
+    ownerName: [r.title, r.firstName, r.lastName].filter(Boolean).join(" "),
+    email: r.email,
+    ownershipPercentage: r.ownershipPercentage,
+    isPrimary: r.isPrimary,
+  }));
+}
+
 router.get("/properties", requireAuth, async (_req, res): Promise<void> => {
   const props = await db.select().from(propertiesTable)
     .where(eq(propertiesTable.isArchived, false))
@@ -63,7 +93,14 @@ router.post("/properties", requireAuth, async (req, res): Promise<void> => {
   let ownerName: string | null = null;
   if (prop.ownerId) {
     const [owner] = await db.select().from(ownersTable).where(eq(ownersTable.id, prop.ownerId));
-    ownerName = owner ? `${owner.firstName} ${owner.lastName}` : null;
+    ownerName = owner ? [owner.title, owner.firstName, owner.lastName].filter(Boolean).join(" ") : null;
+    // Auto-seed primary co-owner row
+    await db.insert(propertyOwnersTable).values({
+      propertyId: prop.id,
+      ownerId: prop.ownerId,
+      ownershipPercentage: 100,
+      isPrimary: true,
+    }).onConflictDoNothing();
   }
   res.status(201).json(formatProperty(prop, ownerName));
 });
@@ -76,9 +113,10 @@ router.get("/properties/:id", requireAuth, async (req, res): Promise<void> => {
   let ownerName: string | null = null;
   if (prop.ownerId) {
     const [owner] = await db.select().from(ownersTable).where(eq(ownersTable.id, prop.ownerId));
-    ownerName = owner ? `${owner.firstName} ${owner.lastName}` : null;
+    ownerName = owner ? [owner.title, owner.firstName, owner.lastName].filter(Boolean).join(" ") : null;
   }
-  res.json(formatProperty(prop, ownerName));
+  const coOwners = await getCoOwners(params.data.id);
+  res.json(formatProperty(prop, ownerName, coOwners));
 });
 
 router.patch("/properties/:id", requireAuth, async (req, res): Promise<void> => {
@@ -90,6 +128,84 @@ router.patch("/properties/:id", requireAuth, async (req, res): Promise<void> => 
     .where(eq(propertiesTable.id, params.data.id)).returning();
   if (!prop) { res.status(404).json({ error: "Property not found" }); return; }
   res.json(formatProperty(prop));
+});
+
+// ── Co-owner endpoints ────────────────────────────────────────────────────────
+
+const CoOwnerBody = z.object({
+  ownerId:             z.number().int().positive(),
+  ownershipPercentage: z.number().min(0.1).max(100).default(100),
+  isPrimary:           z.boolean().default(false),
+});
+
+const UpdateCoOwnerBody = z.object({
+  ownershipPercentage: z.number().min(0.1).max(100).optional(),
+  isPrimary:           z.boolean().optional(),
+});
+
+router.get("/properties/:id/owners", requireAuth, async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id, 10);
+  if (!id) { res.status(400).json({ error: "Invalid id" }); return; }
+  res.json(await getCoOwners(id));
+});
+
+router.post("/properties/:id/owners", requireAuth, async (req, res): Promise<void> => {
+  const propertyId = parseInt(req.params.id, 10);
+  if (!propertyId) { res.status(400).json({ error: "Invalid id" }); return; }
+  const parsed = CoOwnerBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  // If setting as primary, clear other primaries first
+  if (parsed.data.isPrimary) {
+    await db.update(propertyOwnersTable)
+      .set({ isPrimary: false })
+      .where(eq(propertyOwnersTable.propertyId, propertyId));
+  }
+
+  await db.insert(propertyOwnersTable).values({
+    propertyId,
+    ownerId:             parsed.data.ownerId,
+    ownershipPercentage: parsed.data.ownershipPercentage,
+    isPrimary:           parsed.data.isPrimary,
+  }).onConflictDoNothing();
+
+  res.status(201).json(await getCoOwners(propertyId));
+});
+
+router.patch("/properties/:id/owners/:ownerId", requireAuth, async (req, res): Promise<void> => {
+  const propertyId = parseInt(req.params.id, 10);
+  const ownerId    = parseInt(req.params.ownerId, 10);
+  if (!propertyId || !ownerId) { res.status(400).json({ error: "Invalid id" }); return; }
+  const parsed = UpdateCoOwnerBody.safeParse(req.body);
+  if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  if (parsed.data.isPrimary) {
+    await db.update(propertyOwnersTable)
+      .set({ isPrimary: false })
+      .where(eq(propertyOwnersTable.propertyId, propertyId));
+  }
+
+  await db.update(propertyOwnersTable)
+    .set(parsed.data)
+    .where(and(
+      eq(propertyOwnersTable.propertyId, propertyId),
+      eq(propertyOwnersTable.ownerId, ownerId),
+    ));
+
+  res.json(await getCoOwners(propertyId));
+});
+
+router.delete("/properties/:id/owners/:ownerId", requireAuth, async (req, res): Promise<void> => {
+  const propertyId = parseInt(req.params.id, 10);
+  const ownerId    = parseInt(req.params.ownerId, 10);
+  if (!propertyId || !ownerId) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  await db.delete(propertyOwnersTable).where(and(
+    eq(propertyOwnersTable.propertyId, propertyId),
+    eq(propertyOwnersTable.ownerId, ownerId),
+  ));
+
+  res.json(await getCoOwners(propertyId));
 });
 
 export default router;

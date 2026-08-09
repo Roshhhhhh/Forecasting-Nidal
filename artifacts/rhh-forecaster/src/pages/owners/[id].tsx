@@ -323,7 +323,17 @@ export default function OwnerDetail() {
   if (isOwnerLoading) return <div className="p-8 text-center text-muted-foreground">Loading owner profile...</div>;
   if (!owner) return <div className="p-8 text-center text-red-500">Owner not found.</div>;
 
-  const ownerProperties = properties?.filter(p => p.ownerId === ownerId) || [];
+  // Fetch all properties for this owner (primary + co-owned)
+  const { data: ownerPropertiesRaw, isLoading: isOwnerPropsLoading } = useQuery<any[]>({
+    queryKey: ["/api/owners", ownerId, "properties"],
+    queryFn: async () => {
+      const r = await fetch(`/api/owners/${ownerId}/properties`, { credentials: "include" });
+      if (!r.ok) return [];
+      return r.json();
+    },
+    enabled: !!ownerId,
+  });
+  const ownerProperties = ownerPropertiesRaw ?? properties?.filter(p => p.ownerId === ownerId) ?? [];
   const ownerForecasts = forecasts?.filter(f => f.ownerId === ownerId) || [];
   // Find the most recent accepted/approved forecast for the performance badge
   const activeForecast = ownerForecasts.find(f => f.status === "accepted" || f.status === "approved")
@@ -493,16 +503,23 @@ export default function OwnerDetail() {
                     </div>
                   ) : (
                     <div className="divide-y divide-border">
-                      {ownerProperties.map(prop => (
+                      {ownerProperties.map((prop: any) => (
                         <div key={prop.id} className="p-4 flex items-center justify-between hover:bg-muted/20 transition-colors">
                           <div className="flex items-start gap-3">
                             <div className="h-10 w-10 rounded bg-secondary/10 flex items-center justify-center flex-shrink-0">
                               <MapPin className="h-5 w-5 text-secondary" />
                             </div>
                             <div>
-                              <Link href={`/properties/${prop.id}`} className="font-medium text-foreground hover:text-primary transition-colors">
-                                {(prop as any).projectBuilding ? `${(prop as any).unitNumber ? (prop as any).unitNumber + ", " : ""}${(prop as any).projectBuilding}` : prop.area}
-                              </Link>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <Link href={`/properties/${prop.id}`} className="font-medium text-foreground hover:text-primary transition-colors">
+                                  {prop.projectBuilding ? `${prop.unitNumber ? prop.unitNumber + ", " : ""}${prop.projectBuilding}` : prop.area}
+                                </Link>
+                                {prop.isCoOwned && prop.coOwnership && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-300 text-amber-700 bg-amber-50">
+                                    Co-owner · {prop.coOwnership.ownershipPercentage}%
+                                  </Badge>
+                                )}
+                              </div>
                               <div className="text-sm text-muted-foreground mt-0.5">
                                 {prop.area}, {prop.emirate} • {prop.bedrooms} Bed {prop.propertyType}
                               </div>

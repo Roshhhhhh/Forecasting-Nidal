@@ -8,3 +8,4 @@ export * from "./proposals";
 export * from "./settings";
 export * from "./referees";
 export * from "./amenities";
+export * from "./property-owners";

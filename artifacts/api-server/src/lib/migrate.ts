@@ -445,6 +445,19 @@ export async function runStartupMigration() {
       )
     `);
 
+    // property_owners join table for shared / co-ownership
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS property_owners (
+        id                   SERIAL PRIMARY KEY,
+        property_id          INTEGER NOT NULL REFERENCES properties(id) ON DELETE CASCADE,
+        owner_id             INTEGER NOT NULL REFERENCES owners(id)    ON DELETE CASCADE,
+        ownership_percentage REAL    NOT NULL DEFAULT 100,
+        is_primary           BOOLEAN NOT NULL DEFAULT false,
+        created_at           TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (property_id, owner_id)
+      )
+    `);
+
     logger.info("Startup migration complete");
   } catch (err) {
     logger.error({ err }, "Startup migration failed");

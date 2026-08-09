@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, sql } from "drizzle-orm";
-import { db, ownersTable, usersTable, refereesTable } from "@workspace/db";
+import { eq, desc, sql, or } from "drizzle-orm";
+import { db, ownersTable, usersTable, refereesTable, propertiesTable } from "@workspace/db";
+import { propertyOwnersTable } from "@workspace/db/schema";
 import {
   CreateOwnerBody,
   UpdateOwnerBody,
@@ -103,6 +104,40 @@ router.patch("/owners/:id", requireAuth, async (req, res): Promise<void> => {
   }
 
   res.json(formatOwner(owner));
+});
+
+// All properties for this owner (primary + co-owned via property_owners)
+router.get("/owners/:id/properties", requireAuth, async (req, res): Promise<void> => {
+  const ownerId = parseInt(req.params.id, 10);
+  if (!ownerId) { res.status(400).json({ error: "Invalid id" }); return; }
+
+  // Primary-owned
+  const primary = await db.select().from(propertiesTable)
+    .where(eq(propertiesTable.ownerId, ownerId))
+    .orderBy(desc(propertiesTable.createdAt));
+
+  // Co-owned (in property_owners but not the primary owner_id)
+  const coRows = await db
+    .select({ propertyId: propertyOwnersTable.propertyId, ownershipPercentage: propertyOwnersTable.ownershipPercentage, isPrimary: propertyOwnersTable.isPrimary })
+    .from(propertyOwnersTable)
+    .where(eq(propertyOwnersTable.ownerId, ownerId));
+
+  const primaryIds = new Set(primary.map(p => p.id));
+  const coOnlyIds  = coRows.filter(r => !primaryIds.has(r.propertyId));
+
+  const coProps = coOnlyIds.length
+    ? await db.select().from(propertiesTable)
+        .where(or(...coOnlyIds.map(r => eq(propertiesTable.id, r.propertyId))))
+    : [];
+
+  const coOwnershipMap = Object.fromEntries(coRows.map(r => [r.propertyId, { ownershipPercentage: r.ownershipPercentage, isPrimary: r.isPrimary }]));
+
+  const result = [
+    ...primary.map(p => ({ ...p, coOwnership: coOwnershipMap[p.id] ?? null, isCoOwned: false })),
+    ...coProps.map(p => ({ ...p, coOwnership: coOwnershipMap[p.id] ?? null, isCoOwned: true })),
+  ];
+
+  res.json(result);
 });
 
 router.delete("/owners/:id", requireAuth, async (req, res): Promise<void> => {

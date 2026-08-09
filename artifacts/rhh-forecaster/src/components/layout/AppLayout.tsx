@@ -1,7 +1,7 @@
 import { FC, ReactNode, useEffect, useRef, useState, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, UserCheck, ShieldCheck, LayoutGrid, Bell, Eye, CheckCircle, Send, X } from "lucide-react";
+import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, UserCheck, ShieldCheck, LayoutGrid, Bell, Eye, CheckCircle, Send, X, ClipboardList } from "lucide-react";
 import { useLogout, useGetMe, useListProposals } from "@workspace/api-client-react";
 import { usePermission } from "@/hooks/usePermission";
 import { useToast } from "@/hooks/use-toast";
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { label: "Market Data", href: "/market", icon: LineChart },
   { label: "Proposals", href: "/proposals", icon: FileText },
   { label: "Referees", href: "/referees", icon: UserCheck },
+  { label: "Forecast Requests", href: "/forecast-requests", icon: ClipboardList },
 ];
 
 const STORAGE_KEY = "rhh_notif_last_seen";
@@ -30,9 +31,10 @@ function timeAgo(dateStr: string): string {
 }
 
 const EVENT_META: Record<string, { icon: FC<any>; label: string; color: string; bg: string }> = {
-  view:    { icon: Eye,          label: "Proposal viewed",   color: "#2563eb", bg: "#eff6ff" },
-  accept:  { icon: CheckCircle,  label: "Proposal accepted", color: "#16a34a", bg: "#f0fdf4" },
-  submit:  { icon: Send,         label: "Proposal sent",     color: "#c9a84c", bg: "#fefce8" },
+  view:            { icon: Eye,           label: "Proposal viewed",         color: "#2563eb", bg: "#eff6ff" },
+  accept:          { icon: CheckCircle,   label: "Proposal accepted",       color: "#16a34a", bg: "#f0fdf4" },
+  submit:          { icon: Send,          label: "Proposal sent",           color: "#c9a84c", bg: "#fefce8" },
+  forecast_request:{ icon: ClipboardList, label: "New forecast request",    color: "#7c3aed", bg: "#f5f3ff" },
 };
 
 function getEventMeta(type: string) {
@@ -197,17 +199,16 @@ const NotificationBell: FC = () => {
                 return (
                   <a
                     key={n.id}
-                    href={`/proposals/${n.proposalId}`}
+                    href={n.eventType === "forecast_request" ? `/forecast-requests` : `/proposals/${n.proposalId}`}
                     onClick={(e) => {
                       e.preventDefault();
-                      // mark this one read
                       if (n.id > lastSeen) {
                         const newMax = Math.max(lastSeen, n.id);
                         setLastSeen(newMax);
                         try { localStorage.setItem(STORAGE_KEY, String(newMax)); } catch { /* */ }
                       }
                       setOpen(false);
-                      window.location.href = `/proposals/${n.proposalId}`;
+                      window.location.href = n.eventType === "forecast_request" ? `/forecast-requests` : `/proposals/${n.proposalId}`;
                     }}
                     style={{
                       display: "flex", alignItems: "flex-start", gap: 12,

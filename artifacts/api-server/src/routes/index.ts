@@ -14,6 +14,8 @@ import rolesRouter from "./roles";
 import amenitiesRouter from "./amenities";
 import pipelineRouter from "./pipeline";
 import notificationsRouter from "./notifications";
+import storageRouter from "./storage";
+import forecastRequestsRouter from "./forecast-requests";
 
 const router: IRouter = Router();
 
@@ -32,5 +34,7 @@ router.use(refereesRouter);
 router.use(amenitiesRouter);
 router.use(pipelineRouter);
 router.use(notificationsRouter);
+router.use(storageRouter);
+router.use(forecastRequestsRouter);
 
 export default router;

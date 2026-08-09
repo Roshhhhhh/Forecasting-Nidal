@@ -3,3 +3,5 @@
 - [RHH Zod codegen fix](rhh-zod-codegen.md) — Orval generates for Zod v3; all integer OpenAPI fields must use `type: number`; no `format: email`; schema files must import from `zod` not `zod/v4`.
 - [Drizzle raw SQL array binding](drizzle-array-literal.md) — Cannot bind a JS array directly as `${arr}::text[]` in Drizzle `sql` templates; build a PG literal string first.
 - [Monthly projection row ID instability](monthly-projection-ids.md) — Row IDs in monthly_projections change on every recalculate (delete+reinsert); always address rows by forecastId+month (1–12), never by row id.
+- [Object storage setup](object-storage-setup.md) — GCS bucket provisioned; run codegen with `cd lib/api-spec && npx orval --config ./orval.config.ts` directly (skips failing typecheck:libs); do NOT add lib/object-storage-web to root tsconfig references (breaks typecheck).
+- [Orval codegen typecheck bypass](orval-codegen-typecheck.md) — Pre-existing Zod v3/v4 mismatch errors in lib/db/src/schema/ block `pnpm --filter @workspace/api-spec run codegen`; run orval directly instead.

@@ -38,6 +38,9 @@ import type {
   ForecastComparableInput,
   ForecastDetail,
   ForecastInput,
+  ForecastRequest,
+  ForecastRequestInput,
+  ForecastRequestStatusUpdate,
   ForecastUpdate,
   HealthStatus,
   ImportCommitInput,
@@ -56,6 +59,8 @@ import type {
   Owner,
   OwnerInput,
   OwnerUpdate,
+  PortalCacheEntry,
+  PortalRefreshAllResult,
   Property,
   PropertyInput,
   PropertyUpdate,
@@ -80,11 +85,11 @@ import type {
   UnitBenchmark,
   UnitBenchmarkInput,
   UnitBenchmarkUpdate,
+  UploadUrlRequest,
+  UploadUrlResponse,
   User,
   UserInput,
-  UserUpdate,
-  PortalCacheEntry,
-  PortalRefreshAllResult,
+  UserUpdate
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -2910,6 +2915,154 @@ export const useDeleteBenchmark = <TError = ErrorType<unknown>,
       return useMutation(getDeleteBenchmarkMutationOptions(options));
     }
 
+export const getGetPortalCacheStatusUrl = () => {
+
+
+
+
+  return `/api/market/portal/cache-status`
+}
+
+/**
+ * @summary Get current portal cache entries
+ */
+export const getPortalCacheStatus = async ( options?: Parameters<typeof customFetch>[1]): Promise<PortalCacheEntry[]> => {
+
+  return customFetch<PortalCacheEntry[]>(getGetPortalCacheStatusUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetPortalCacheStatusQueryKey = () => {
+    return [
+    `/api/market/portal/cache-status`
+    ] as const;
+    }
+
+
+export const getGetPortalCacheStatusQueryOptions = <TData = Awaited<ReturnType<typeof getPortalCacheStatus>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalCacheStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetPortalCacheStatusQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalCacheStatus>>> = ({ signal }) => getPortalCacheStatus({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getPortalCacheStatus>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetPortalCacheStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getPortalCacheStatus>>>
+export type GetPortalCacheStatusQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get current portal cache entries
+ */
+
+export function useGetPortalCacheStatus<TData = Awaited<ReturnType<typeof getPortalCacheStatus>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getPortalCacheStatus>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetPortalCacheStatusQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getRefreshAllPortalDataUrl = () => {
+
+
+
+
+  return `/api/market/portal/refresh-all`
+}
+
+/**
+ * @summary Refresh portal data for all known area+bedroom combos
+ */
+export const refreshAllPortalData = async ( options?: Parameters<typeof customFetch>[1]): Promise<PortalRefreshAllResult> => {
+
+  return customFetch<PortalRefreshAllResult>(getRefreshAllPortalDataUrl(),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRefreshAllPortalDataMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshAllPortalData>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof refreshAllPortalData>>, TError,void, TContext> => {
+
+const mutationKey = ['refreshAllPortalData'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshAllPortalData>>, void> = () => {
+
+
+          return  refreshAllPortalData(requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RefreshAllPortalDataMutationResult = NonNullable<Awaited<ReturnType<typeof refreshAllPortalData>>>
+
+    export type RefreshAllPortalDataMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Refresh portal data for all known area+bedroom combos
+ */
+export const useRefreshAllPortalData = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof refreshAllPortalData>>, TError,void, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof refreshAllPortalData>>,
+        TError,
+        void,
+        TContext
+      > => {
+      return useMutation(getRefreshAllPortalDataMutationOptions(options));
+    }
+
 export const getListForecastsUrl = () => {
 
 
@@ -5720,78 +5873,371 @@ export const useRollbackImport = <TError = ErrorType<unknown>,
       return useMutation(getRollbackImportMutationOptions(options));
     }
 
-// ── Portal Data ───────────────────────────────────────────────────────────────
+export const getRequestUploadUrlUrl = () => {
 
-export const getGetPortalCacheStatusUrl = () => `/api/market/portal/cache-status`;
 
-/**
- * @summary Get current portal cache entries
- */
-export const getPortalCacheStatus = async (options?: Parameters<typeof customFetch>[1]): Promise<PortalCacheEntry[]> => {
-  return customFetch<PortalCacheEntry[]>(getGetPortalCacheStatusUrl(), {
-    ...options,
-    method: 'GET',
-  });
-};
 
-export const getGetPortalCacheStatusQueryKey = () => ['/api/market/portal/cache-status'] as const;
 
-export const getGetPortalCacheStatusQueryOptions = <TData = Awaited<ReturnType<typeof getPortalCacheStatus>>, TError = ErrorType<unknown>>(
-  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof getPortalCacheStatus>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
-) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
-  const queryKey = queryOptions?.queryKey ?? getGetPortalCacheStatusQueryKey();
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof getPortalCacheStatus>>> = ({ signal }) =>
-    getPortalCacheStatus({ signal, ...requestOptions });
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<Awaited<ReturnType<typeof getPortalCacheStatus>>, TError, TData> & { queryKey: QueryKey };
-};
-
-export type GetPortalCacheStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getPortalCacheStatus>>>;
-export type GetPortalCacheStatusQueryError = ErrorType<unknown>;
-
-/**
- * @summary Get current portal cache entries
- */
-export function useGetPortalCacheStatus<TData = Awaited<ReturnType<typeof getPortalCacheStatus>>, TError = ErrorType<unknown>>(
-  options?: { query?: UseQueryOptions<Awaited<ReturnType<typeof getPortalCacheStatus>>, TError, TData>; request?: SecondParameter<typeof customFetch> }
-): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getGetPortalCacheStatusQueryOptions(options);
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & { queryKey: QueryKey };
-  query.queryKey = queryOptions.queryKey;
-  return query;
+  return `/api/storage/uploads/request-url`
 }
 
-export const getRefreshAllPortalDataUrl = () => `/api/market/portal/refresh-all`;
-
 /**
- * @summary Refresh portal data for all known area+bedroom combos
+ * @summary Request a presigned upload URL
  */
-export const refreshAllPortalData = async (options?: Parameters<typeof customFetch>[1]): Promise<PortalRefreshAllResult> => {
-  return customFetch<PortalRefreshAllResult>(getRefreshAllPortalDataUrl(), {
+export const requestUploadUrl = async (uploadUrlRequest: UploadUrlRequest, options?: Parameters<typeof customFetch>[1]): Promise<UploadUrlResponse> => {
+
+  return customFetch<UploadUrlResponse>(getRequestUploadUrlUrl(),
+  {
     ...options,
     method: 'POST',
-  });
-};
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(uploadUrlRequest)
+  }
+);}
 
-export const getRefreshAllPortalDataMutationOptions = <TError = ErrorType<unknown>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof refreshAllPortalData>>, TError, void, TContext>; request?: SecondParameter<typeof customFetch> }
-): UseMutationOptions<Awaited<ReturnType<typeof refreshAllPortalData>>, TError, void, TContext> => {
-  const { mutation: mutationOptions, request: requestOptions } = options ?? {};
-  const mutationFn: MutationFunction<Awaited<ReturnType<typeof refreshAllPortalData>>, void> = () => {
-    return refreshAllPortalData(requestOptions);
-  };
-  return { mutationFn, ...mutationOptions };
-};
 
-export type RefreshAllPortalDataMutationResult = NonNullable<Awaited<ReturnType<typeof refreshAllPortalData>>>;
-export type RefreshAllPortalDataMutationError = ErrorType<unknown>;
+
+
+
+export const getRequestUploadUrlMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestUploadUrl>>, TError,{data: BodyType<UploadUrlRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestUploadUrl>>, TError,{data: BodyType<UploadUrlRequest>}, TContext> => {
+
+const mutationKey = ['requestUploadUrl'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestUploadUrl>>, {data: BodyType<UploadUrlRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  requestUploadUrl(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestUploadUrlMutationResult = NonNullable<Awaited<ReturnType<typeof requestUploadUrl>>>
+    export type RequestUploadUrlMutationBody = BodyType<UploadUrlRequest>
+    export type RequestUploadUrlMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Request a presigned upload URL
+ */
+export const useRequestUploadUrl = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestUploadUrl>>, TError,{data: BodyType<UploadUrlRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestUploadUrl>>,
+        TError,
+        {data: BodyType<UploadUrlRequest>},
+        TContext
+      > => {
+      return useMutation(getRequestUploadUrlMutationOptions(options));
+    }
+
+export const getListForecastRequestsUrl = () => {
+
+
+
+
+  return `/api/forecast-requests`
+}
 
 /**
- * @summary Refresh portal data for all known area+bedroom combos
+ * @summary List all forecast requests
  */
-export const useRefreshAllPortalData = <TError = ErrorType<unknown>, TContext = unknown>(
-  options?: { mutation?: UseMutationOptions<Awaited<ReturnType<typeof refreshAllPortalData>>, TError, void, TContext>; request?: SecondParameter<typeof customFetch> }
-): UseMutationResult<Awaited<ReturnType<typeof refreshAllPortalData>>, TError, void, TContext> => {
-  return useMutation(getRefreshAllPortalDataMutationOptions(options));
-};
+export const listForecastRequests = async ( options?: Parameters<typeof customFetch>[1]): Promise<ForecastRequest[]> => {
+
+  return customFetch<ForecastRequest[]>(getListForecastRequestsUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListForecastRequestsQueryKey = () => {
+    return [
+    `/api/forecast-requests`
+    ] as const;
+    }
+
+
+export const getListForecastRequestsQueryOptions = <TData = Awaited<ReturnType<typeof listForecastRequests>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listForecastRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListForecastRequestsQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listForecastRequests>>> = ({ signal }) => listForecastRequests({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listForecastRequests>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListForecastRequestsQueryResult = NonNullable<Awaited<ReturnType<typeof listForecastRequests>>>
+export type ListForecastRequestsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List all forecast requests
+ */
+
+export function useListForecastRequests<TData = Awaited<ReturnType<typeof listForecastRequests>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listForecastRequests>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListForecastRequestsQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateForecastRequestUrl = () => {
+
+
+
+
+  return `/api/forecast-requests`
+}
+
+/**
+ * @summary Submit a new forecast request
+ */
+export const createForecastRequest = async (forecastRequestInput: ForecastRequestInput, options?: Parameters<typeof customFetch>[1]): Promise<ForecastRequest> => {
+
+  return customFetch<ForecastRequest>(getCreateForecastRequestUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(forecastRequestInput)
+  }
+);}
+
+
+
+
+
+export const getCreateForecastRequestMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createForecastRequest>>, TError,{data: BodyType<ForecastRequestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createForecastRequest>>, TError,{data: BodyType<ForecastRequestInput>}, TContext> => {
+
+const mutationKey = ['createForecastRequest'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createForecastRequest>>, {data: BodyType<ForecastRequestInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  createForecastRequest(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateForecastRequestMutationResult = NonNullable<Awaited<ReturnType<typeof createForecastRequest>>>
+    export type CreateForecastRequestMutationBody = BodyType<ForecastRequestInput>
+    export type CreateForecastRequestMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Submit a new forecast request
+ */
+export const useCreateForecastRequest = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createForecastRequest>>, TError,{data: BodyType<ForecastRequestInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createForecastRequest>>,
+        TError,
+        {data: BodyType<ForecastRequestInput>},
+        TContext
+      > => {
+      return useMutation(getCreateForecastRequestMutationOptions(options));
+    }
+
+export const getGetForecastRequestUrl = (id: number,) => {
+
+
+
+
+  return `/api/forecast-requests/${id}`
+}
+
+/**
+ * @summary Get a forecast request
+ */
+export const getForecastRequest = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<ForecastRequest> => {
+
+  return customFetch<ForecastRequest>(getGetForecastRequestUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetForecastRequestQueryKey = (id: number,) => {
+    return [
+    `/api/forecast-requests/${id}`
+    ] as const;
+    }
+
+
+export const getGetForecastRequestQueryOptions = <TData = Awaited<ReturnType<typeof getForecastRequest>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getForecastRequest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetForecastRequestQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getForecastRequest>>> = ({ signal }) => getForecastRequest(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getForecastRequest>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetForecastRequestQueryResult = NonNullable<Awaited<ReturnType<typeof getForecastRequest>>>
+export type GetForecastRequestQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get a forecast request
+ */
+
+export function useGetForecastRequest<TData = Awaited<ReturnType<typeof getForecastRequest>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getForecastRequest>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetForecastRequestQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getUpdateForecastRequestStatusUrl = (id: number,) => {
+
+
+
+
+  return `/api/forecast-requests/${id}`
+}
+
+/**
+ * @summary Update forecast request status
+ */
+export const updateForecastRequestStatus = async (id: number,
+    forecastRequestStatusUpdate: ForecastRequestStatusUpdate, options?: Parameters<typeof customFetch>[1]): Promise<ForecastRequest> => {
+
+  return customFetch<ForecastRequest>(getUpdateForecastRequestStatusUrl(id),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(forecastRequestStatusUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateForecastRequestStatusMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateForecastRequestStatus>>, TError,{id: number;data: BodyType<ForecastRequestStatusUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateForecastRequestStatus>>, TError,{id: number;data: BodyType<ForecastRequestStatusUpdate>}, TContext> => {
+
+const mutationKey = ['updateForecastRequestStatus'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateForecastRequestStatus>>, {id: number;data: BodyType<ForecastRequestStatusUpdate>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  updateForecastRequestStatus(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateForecastRequestStatusMutationResult = NonNullable<Awaited<ReturnType<typeof updateForecastRequestStatus>>>
+    export type UpdateForecastRequestStatusMutationBody = BodyType<ForecastRequestStatusUpdate>
+    export type UpdateForecastRequestStatusMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update forecast request status
+ */
+export const useUpdateForecastRequestStatus = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateForecastRequestStatus>>, TError,{id: number;data: BodyType<ForecastRequestStatusUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateForecastRequestStatus>>,
+        TError,
+        {id: number;data: BodyType<ForecastRequestStatusUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateForecastRequestStatusMutationOptions(options));
+    }
 

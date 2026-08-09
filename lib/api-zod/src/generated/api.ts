@@ -1067,6 +1067,44 @@ export const DeleteBenchmarkResponse = zod.object({
 
 
 /**
+ * @summary Get current portal cache entries
+ */
+export const GetPortalCacheStatusResponseItem = zod.object({
+  "area": zod.string(),
+  "bedrooms": zod.number(),
+  "fetchedAt": zod.string(),
+  "expiresAt": zod.string(),
+  "sources": zod.array(zod.string()),
+  "ltrMin": zod.number().nullish(),
+  "ltrMax": zod.number().nullish(),
+  "ltrAvg": zod.number().nullish(),
+  "adrMin": zod.number().nullish(),
+  "adrMax": zod.number().nullish(),
+  "adrAvg": zod.number().nullish(),
+  "listingCount": zod.number()
+})
+export const GetPortalCacheStatusResponse = zod.array(GetPortalCacheStatusResponseItem)
+
+
+/**
+ * @summary Refresh portal data for all known area+bedroom combos
+ */
+export const RefreshAllPortalDataResponse = zod.object({
+  "attempted": zod.number(),
+  "succeeded": zod.number(),
+  "failed": zod.number(),
+  "cooldownSkipped": zod.number(),
+  "results": zod.array(zod.object({
+  "area": zod.string(),
+  "bedrooms": zod.number(),
+  "status": zod.enum(['success', 'failed', 'cooldown']),
+  "fetchedAt": zod.string().optional(),
+  "sources": zod.array(zod.string()).optional()
+}))
+})
+
+
+/**
  * @summary List all forecasts
  */
 export const ListForecastsResponseItem = zod.object({
@@ -1968,12 +2006,10 @@ export const GetCompanySettingsResponse = zod.object({
   "defaultLtrVacancyPercent": zod.number().optional(),
   "proposalValidityDays": zod.number().optional(),
   "disclaimer": zod.string().optional(),
-  "portfolioManagedProperties": zod.string().nullish(),
-  "portfolioFiveStarReviews": zod.string().nullish(),
-  "portfolioMonthlyBookings": zod.string().nullish(),
-  "portfolioMonthlyTravelers": zod.string().nullish(),
-  "portfolioAssetsUnderManagement": zod.string().nullish(),
-  "portfolioTrustedOwners": zod.string().nullish()
+  "portfolioManagedProperties": zod.number().nullish(),
+  "portfolioFiveStarReviews": zod.number().nullish(),
+  "portfolioMonthlyBookings": zod.number().nullish(),
+  "portfolioTrustedOwners": zod.number().nullish()
 })
 
 
@@ -1995,12 +2031,10 @@ export const UpdateCompanySettingsBody = zod.object({
   "defaultLtrVacancyPercent": zod.number().optional(),
   "proposalValidityDays": zod.number().optional(),
   "disclaimer": zod.string().optional(),
-  "portfolioManagedProperties": zod.string().optional(),
-  "portfolioFiveStarReviews": zod.string().optional(),
-  "portfolioMonthlyBookings": zod.string().optional(),
-  "portfolioMonthlyTravelers": zod.string().optional(),
-  "portfolioAssetsUnderManagement": zod.string().optional(),
-  "portfolioTrustedOwners": zod.string().optional()
+  "portfolioManagedProperties": zod.number().optional(),
+  "portfolioFiveStarReviews": zod.number().optional(),
+  "portfolioMonthlyBookings": zod.number().optional(),
+  "portfolioTrustedOwners": zod.number().optional()
 })
 
 export const UpdateCompanySettingsResponse = zod.object({
@@ -2019,12 +2053,10 @@ export const UpdateCompanySettingsResponse = zod.object({
   "defaultLtrVacancyPercent": zod.number().optional(),
   "proposalValidityDays": zod.number().optional(),
   "disclaimer": zod.string().optional(),
-  "portfolioManagedProperties": zod.string().nullish(),
-  "portfolioFiveStarReviews": zod.string().nullish(),
-  "portfolioMonthlyBookings": zod.string().nullish(),
-  "portfolioMonthlyTravelers": zod.string().nullish(),
-  "portfolioAssetsUnderManagement": zod.string().nullish(),
-  "portfolioTrustedOwners": zod.string().nullish()
+  "portfolioManagedProperties": zod.number().nullish(),
+  "portfolioFiveStarReviews": zod.number().nullish(),
+  "portfolioMonthlyBookings": zod.number().nullish(),
+  "portfolioTrustedOwners": zod.number().nullish()
 })
 
 
@@ -2118,6 +2150,241 @@ export const RollbackImportParams = zod.object({
 
 export const RollbackImportResponse = zod.object({
   "message": zod.string()
+})
+
+
+/**
+ * @summary Request a presigned upload URL
+ */
+export const RequestUploadUrlBody = zod.object({
+  "name": zod.string(),
+  "size": zod.number(),
+  "contentType": zod.string()
+})
+
+export const RequestUploadUrlResponse = zod.object({
+  "uploadURL": zod.string(),
+  "objectPath": zod.string(),
+  "metadata": zod.object({
+  "name": zod.string().optional(),
+  "size": zod.number().optional(),
+  "contentType": zod.string().optional()
+}).optional()
+})
+
+
+/**
+ * @summary List all forecast requests
+ */
+export const ListForecastRequestsResponseItem = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['pending', 'in_review', 'converted', 'declined']),
+  "ownerId": zod.number().nullish(),
+  "propertyId": zod.number().nullish(),
+  "representativeId": zod.number().nullish(),
+  "representativeName": zod.string().nullish(),
+  "refereeId": zod.number().nullish(),
+  "refereeName": zod.string().nullish(),
+  "ownerFirstName": zod.string().nullish(),
+  "ownerLastName": zod.string().nullish(),
+  "ownerEmail": zod.string().nullish(),
+  "ownerPhone": zod.string().nullish(),
+  "ownerWhatsapp": zod.string().nullish(),
+  "ownerNationality": zod.string().nullish(),
+  "ownerType": zod.string().nullish(),
+  "propertyEmirate": zod.string().nullish(),
+  "propertyArea": zod.string().nullish(),
+  "propertyCommunity": zod.string().nullish(),
+  "propertyDevelopment": zod.string().nullish(),
+  "propertyUnitNumber": zod.string().nullish(),
+  "propertyType": zod.string().nullish(),
+  "propertyBedrooms": zod.number().nullish(),
+  "propertyBathrooms": zod.number().nullish(),
+  "propertyInternalArea": zod.number().nullish(),
+  "propertyFurnishing": zod.string().nullish(),
+  "propertyCondition": zod.string().nullish(),
+  "propertyView": zod.string().nullish(),
+  "propertyIsWaterfront": zod.boolean().nullish(),
+  "mediaUrls": zod.array(zod.string()).optional(),
+  "notes": zod.string().nullish(),
+  "createdById": zod.number().nullish(),
+  "createdByName": zod.string().nullish(),
+  "reviewedById": zod.number().nullish(),
+  "convertedForecastId": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+export const ListForecastRequestsResponse = zod.array(ListForecastRequestsResponseItem)
+
+
+/**
+ * @summary Submit a new forecast request
+ */
+export const CreateForecastRequestBody = zod.object({
+  "ownerId": zod.number().nullish(),
+  "propertyId": zod.number().nullish(),
+  "representativeId": zod.number().nullish(),
+  "refereeId": zod.number().nullish(),
+  "ownerFirstName": zod.string().nullish(),
+  "ownerLastName": zod.string().nullish(),
+  "ownerEmail": zod.string().nullish(),
+  "ownerPhone": zod.string().nullish(),
+  "ownerWhatsapp": zod.string().nullish(),
+  "ownerNationality": zod.string().nullish(),
+  "ownerType": zod.string().nullish(),
+  "propertyEmirate": zod.string().nullish(),
+  "propertyArea": zod.string().nullish(),
+  "propertyCommunity": zod.string().nullish(),
+  "propertyDevelopment": zod.string().nullish(),
+  "propertyUnitNumber": zod.string().nullish(),
+  "propertyType": zod.string().nullish(),
+  "propertyBedrooms": zod.number().nullish(),
+  "propertyBathrooms": zod.number().nullish(),
+  "propertyInternalArea": zod.number().nullish(),
+  "propertyFurnishing": zod.string().nullish(),
+  "propertyCondition": zod.string().nullish(),
+  "propertyView": zod.string().nullish(),
+  "propertyIsWaterfront": zod.boolean().nullish(),
+  "mediaUrls": zod.array(zod.string()).optional(),
+  "notes": zod.string().nullish()
+})
+
+export const CreateForecastRequestResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['pending', 'in_review', 'converted', 'declined']),
+  "ownerId": zod.number().nullish(),
+  "propertyId": zod.number().nullish(),
+  "representativeId": zod.number().nullish(),
+  "representativeName": zod.string().nullish(),
+  "refereeId": zod.number().nullish(),
+  "refereeName": zod.string().nullish(),
+  "ownerFirstName": zod.string().nullish(),
+  "ownerLastName": zod.string().nullish(),
+  "ownerEmail": zod.string().nullish(),
+  "ownerPhone": zod.string().nullish(),
+  "ownerWhatsapp": zod.string().nullish(),
+  "ownerNationality": zod.string().nullish(),
+  "ownerType": zod.string().nullish(),
+  "propertyEmirate": zod.string().nullish(),
+  "propertyArea": zod.string().nullish(),
+  "propertyCommunity": zod.string().nullish(),
+  "propertyDevelopment": zod.string().nullish(),
+  "propertyUnitNumber": zod.string().nullish(),
+  "propertyType": zod.string().nullish(),
+  "propertyBedrooms": zod.number().nullish(),
+  "propertyBathrooms": zod.number().nullish(),
+  "propertyInternalArea": zod.number().nullish(),
+  "propertyFurnishing": zod.string().nullish(),
+  "propertyCondition": zod.string().nullish(),
+  "propertyView": zod.string().nullish(),
+  "propertyIsWaterfront": zod.boolean().nullish(),
+  "mediaUrls": zod.array(zod.string()).optional(),
+  "notes": zod.string().nullish(),
+  "createdById": zod.number().nullish(),
+  "createdByName": zod.string().nullish(),
+  "reviewedById": zod.number().nullish(),
+  "convertedForecastId": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get a forecast request
+ */
+export const GetForecastRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetForecastRequestResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['pending', 'in_review', 'converted', 'declined']),
+  "ownerId": zod.number().nullish(),
+  "propertyId": zod.number().nullish(),
+  "representativeId": zod.number().nullish(),
+  "representativeName": zod.string().nullish(),
+  "refereeId": zod.number().nullish(),
+  "refereeName": zod.string().nullish(),
+  "ownerFirstName": zod.string().nullish(),
+  "ownerLastName": zod.string().nullish(),
+  "ownerEmail": zod.string().nullish(),
+  "ownerPhone": zod.string().nullish(),
+  "ownerWhatsapp": zod.string().nullish(),
+  "ownerNationality": zod.string().nullish(),
+  "ownerType": zod.string().nullish(),
+  "propertyEmirate": zod.string().nullish(),
+  "propertyArea": zod.string().nullish(),
+  "propertyCommunity": zod.string().nullish(),
+  "propertyDevelopment": zod.string().nullish(),
+  "propertyUnitNumber": zod.string().nullish(),
+  "propertyType": zod.string().nullish(),
+  "propertyBedrooms": zod.number().nullish(),
+  "propertyBathrooms": zod.number().nullish(),
+  "propertyInternalArea": zod.number().nullish(),
+  "propertyFurnishing": zod.string().nullish(),
+  "propertyCondition": zod.string().nullish(),
+  "propertyView": zod.string().nullish(),
+  "propertyIsWaterfront": zod.boolean().nullish(),
+  "mediaUrls": zod.array(zod.string()).optional(),
+  "notes": zod.string().nullish(),
+  "createdById": zod.number().nullish(),
+  "createdByName": zod.string().nullish(),
+  "reviewedById": zod.number().nullish(),
+  "convertedForecastId": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update forecast request status
+ */
+export const UpdateForecastRequestStatusParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateForecastRequestStatusBody = zod.object({
+  "status": zod.enum(['pending', 'in_review', 'converted', 'declined']),
+  "reviewedById": zod.number().nullish()
+})
+
+export const UpdateForecastRequestStatusResponse = zod.object({
+  "id": zod.number(),
+  "status": zod.enum(['pending', 'in_review', 'converted', 'declined']),
+  "ownerId": zod.number().nullish(),
+  "propertyId": zod.number().nullish(),
+  "representativeId": zod.number().nullish(),
+  "representativeName": zod.string().nullish(),
+  "refereeId": zod.number().nullish(),
+  "refereeName": zod.string().nullish(),
+  "ownerFirstName": zod.string().nullish(),
+  "ownerLastName": zod.string().nullish(),
+  "ownerEmail": zod.string().nullish(),
+  "ownerPhone": zod.string().nullish(),
+  "ownerWhatsapp": zod.string().nullish(),
+  "ownerNationality": zod.string().nullish(),
+  "ownerType": zod.string().nullish(),
+  "propertyEmirate": zod.string().nullish(),
+  "propertyArea": zod.string().nullish(),
+  "propertyCommunity": zod.string().nullish(),
+  "propertyDevelopment": zod.string().nullish(),
+  "propertyUnitNumber": zod.string().nullish(),
+  "propertyType": zod.string().nullish(),
+  "propertyBedrooms": zod.number().nullish(),
+  "propertyBathrooms": zod.number().nullish(),
+  "propertyInternalArea": zod.number().nullish(),
+  "propertyFurnishing": zod.string().nullish(),
+  "propertyCondition": zod.string().nullish(),
+  "propertyView": zod.string().nullish(),
+  "propertyIsWaterfront": zod.boolean().nullish(),
+  "mediaUrls": zod.array(zod.string()).optional(),
+  "notes": zod.string().nullish(),
+  "createdById": zod.number().nullish(),
+  "createdByName": zod.string().nullish(),
+  "reviewedById": zod.number().nullish(),
+  "convertedForecastId": zod.number().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
 })
 
 

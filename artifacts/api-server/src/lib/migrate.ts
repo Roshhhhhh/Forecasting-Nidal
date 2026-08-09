@@ -458,6 +458,45 @@ export async function runStartupMigration() {
       )
     `);
 
+    // forecast_requests table — staff-submitted intake forms for new forecasts
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS forecast_requests (
+        id                    SERIAL PRIMARY KEY,
+        status                TEXT NOT NULL DEFAULT 'pending',
+        owner_id              INTEGER REFERENCES owners(id) ON DELETE SET NULL,
+        property_id           INTEGER REFERENCES properties(id) ON DELETE SET NULL,
+        representative_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        referee_id            INTEGER REFERENCES referees(id) ON DELETE SET NULL,
+        owner_first_name      TEXT,
+        owner_last_name       TEXT,
+        owner_email           TEXT,
+        owner_phone           TEXT,
+        owner_whatsapp        TEXT,
+        owner_nationality     TEXT,
+        owner_type            TEXT DEFAULT 'individual',
+        property_emirate      TEXT,
+        property_area         TEXT,
+        property_community    TEXT,
+        property_development  TEXT,
+        property_unit_number  TEXT,
+        property_type         TEXT,
+        property_bedrooms     INTEGER,
+        property_bathrooms    INTEGER,
+        property_internal_area REAL,
+        property_furnishing   TEXT,
+        property_condition    TEXT,
+        property_view         TEXT,
+        property_is_waterfront BOOLEAN DEFAULT false,
+        media_urls            TEXT[] NOT NULL DEFAULT '{}',
+        notes                 TEXT,
+        created_by_id         INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        reviewed_by_id        INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        converted_forecast_id INTEGER REFERENCES forecasts(id) ON DELETE SET NULL,
+        created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at            TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+
     logger.info("Startup migration complete");
   } catch (err) {
     logger.error({ err }, "Startup migration failed");

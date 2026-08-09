@@ -14,6 +14,7 @@ export interface ForecastUpdate {
   utilityCost?: number;
   maintenanceCost?: number;
   miscCost?: number;
+  baseAdr?: number;
   lowSeasonAdr?: number;
   shoulderSeasonAdr?: number;
   peakSeasonAdr?: number;

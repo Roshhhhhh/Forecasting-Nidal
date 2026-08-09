@@ -525,6 +525,52 @@ export interface PropertyUpdate {
   heroImageUrl?: string;
 }
 
+export interface PortalCacheEntry {
+  area: string;
+  bedrooms: number;
+  fetchedAt: string;
+  expiresAt: string;
+  sources: string[];
+  /** @nullable */
+  ltrMin?: number | null;
+  /** @nullable */
+  ltrMax?: number | null;
+  /** @nullable */
+  ltrAvg?: number | null;
+  /** @nullable */
+  adrMin?: number | null;
+  /** @nullable */
+  adrMax?: number | null;
+  /** @nullable */
+  adrAvg?: number | null;
+  listingCount: number;
+}
+
+export type PortalRefreshItemResultStatus = typeof PortalRefreshItemResultStatus[keyof typeof PortalRefreshItemResultStatus];
+
+
+export const PortalRefreshItemResultStatus = {
+  success: 'success',
+  failed: 'failed',
+  cooldown: 'cooldown',
+} as const;
+
+export interface PortalRefreshItemResult {
+  area: string;
+  bedrooms: number;
+  status: PortalRefreshItemResultStatus;
+  fetchedAt?: string;
+  sources?: string[];
+}
+
+export interface PortalRefreshAllResult {
+  attempted: number;
+  succeeded: number;
+  failed: number;
+  cooldownSkipped: number;
+  results: PortalRefreshItemResult[];
+}
+
 export interface MarketArea {
   id: number;
   emirate: string;
@@ -774,6 +820,7 @@ export interface ForecastUpdate {
   utilityCost?: number;
   maintenanceCost?: number;
   miscCost?: number;
+  baseAdr?: number;
   lowSeasonAdr?: number;
   shoulderSeasonAdr?: number;
   peakSeasonAdr?: number;
@@ -1247,42 +1294,171 @@ export interface ImportCommitInput {
   notes?: string;
 }
 
-// ── Portal data types ──────────────────────────────────────────────────────────
-
-export interface PortalCacheEntry {
-  area: string;
-  bedrooms: number;
-  fetchedAt: string;
-  expiresAt: string;
-  sources: string[];
-  /** @nullable */
-  ltrMin?: number | null;
-  /** @nullable */
-  ltrMax?: number | null;
-  /** @nullable */
-  ltrAvg?: number | null;
-  /** @nullable */
-  adrMin?: number | null;
-  /** @nullable */
-  adrMax?: number | null;
-  /** @nullable */
-  adrAvg?: number | null;
-  listingCount: number;
+export interface UploadUrlRequest {
+  name: string;
+  size: number;
+  contentType: string;
 }
 
-export interface PortalRefreshItemResult {
-  area: string;
-  bedrooms: number;
-  status: 'success' | 'failed' | 'cooldown';
-  fetchedAt?: string;
-  sources?: string[];
+export type UploadUrlResponseMetadata = {
+  name?: string;
+  size?: number;
+  contentType?: string;
+};
+
+export interface UploadUrlResponse {
+  uploadURL: string;
+  objectPath: string;
+  metadata?: UploadUrlResponseMetadata;
 }
 
-export interface PortalRefreshAllResult {
-  attempted: number;
-  succeeded: number;
-  failed: number;
-  cooldownSkipped: number;
-  results: PortalRefreshItemResult[];
+export type ForecastRequestStatus = typeof ForecastRequestStatus[keyof typeof ForecastRequestStatus];
+
+
+export const ForecastRequestStatus = {
+  pending: 'pending',
+  in_review: 'in_review',
+  converted: 'converted',
+  declined: 'declined',
+} as const;
+
+export interface ForecastRequest {
+  id: number;
+  status: ForecastRequestStatus;
+  /** @nullable */
+  ownerId?: number | null;
+  /** @nullable */
+  propertyId?: number | null;
+  /** @nullable */
+  representativeId?: number | null;
+  /** @nullable */
+  representativeName?: string | null;
+  /** @nullable */
+  refereeId?: number | null;
+  /** @nullable */
+  refereeName?: string | null;
+  /** @nullable */
+  ownerFirstName?: string | null;
+  /** @nullable */
+  ownerLastName?: string | null;
+  /** @nullable */
+  ownerEmail?: string | null;
+  /** @nullable */
+  ownerPhone?: string | null;
+  /** @nullable */
+  ownerWhatsapp?: string | null;
+  /** @nullable */
+  ownerNationality?: string | null;
+  /** @nullable */
+  ownerType?: string | null;
+  /** @nullable */
+  propertyEmirate?: string | null;
+  /** @nullable */
+  propertyArea?: string | null;
+  /** @nullable */
+  propertyCommunity?: string | null;
+  /** @nullable */
+  propertyDevelopment?: string | null;
+  /** @nullable */
+  propertyUnitNumber?: string | null;
+  /** @nullable */
+  propertyType?: string | null;
+  /** @nullable */
+  propertyBedrooms?: number | null;
+  /** @nullable */
+  propertyBathrooms?: number | null;
+  /** @nullable */
+  propertyInternalArea?: number | null;
+  /** @nullable */
+  propertyFurnishing?: string | null;
+  /** @nullable */
+  propertyCondition?: string | null;
+  /** @nullable */
+  propertyView?: string | null;
+  /** @nullable */
+  propertyIsWaterfront?: boolean | null;
+  mediaUrls?: string[];
+  /** @nullable */
+  notes?: string | null;
+  /** @nullable */
+  createdById?: number | null;
+  /** @nullable */
+  createdByName?: string | null;
+  /** @nullable */
+  reviewedById?: number | null;
+  /** @nullable */
+  convertedForecastId?: number | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ForecastRequestInput {
+  /** @nullable */
+  ownerId?: number | null;
+  /** @nullable */
+  propertyId?: number | null;
+  /** @nullable */
+  representativeId?: number | null;
+  /** @nullable */
+  refereeId?: number | null;
+  /** @nullable */
+  ownerFirstName?: string | null;
+  /** @nullable */
+  ownerLastName?: string | null;
+  /** @nullable */
+  ownerEmail?: string | null;
+  /** @nullable */
+  ownerPhone?: string | null;
+  /** @nullable */
+  ownerWhatsapp?: string | null;
+  /** @nullable */
+  ownerNationality?: string | null;
+  /** @nullable */
+  ownerType?: string | null;
+  /** @nullable */
+  propertyEmirate?: string | null;
+  /** @nullable */
+  propertyArea?: string | null;
+  /** @nullable */
+  propertyCommunity?: string | null;
+  /** @nullable */
+  propertyDevelopment?: string | null;
+  /** @nullable */
+  propertyUnitNumber?: string | null;
+  /** @nullable */
+  propertyType?: string | null;
+  /** @nullable */
+  propertyBedrooms?: number | null;
+  /** @nullable */
+  propertyBathrooms?: number | null;
+  /** @nullable */
+  propertyInternalArea?: number | null;
+  /** @nullable */
+  propertyFurnishing?: string | null;
+  /** @nullable */
+  propertyCondition?: string | null;
+  /** @nullable */
+  propertyView?: string | null;
+  /** @nullable */
+  propertyIsWaterfront?: boolean | null;
+  mediaUrls?: string[];
+  /** @nullable */
+  notes?: string | null;
+}
+
+export type ForecastRequestStatusUpdateStatus = typeof ForecastRequestStatusUpdateStatus[keyof typeof ForecastRequestStatusUpdateStatus];
+
+
+export const ForecastRequestStatusUpdateStatus = {
+  pending: 'pending',
+  in_review: 'in_review',
+  converted: 'converted',
+  declined: 'declined',
+} as const;
+
+export interface ForecastRequestStatusUpdate {
+  status: ForecastRequestStatusUpdateStatus;
+  /** @nullable */
+  reviewedById?: number | null;
 }
 

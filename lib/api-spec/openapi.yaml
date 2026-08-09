@@ -1530,6 +1530,102 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+
+  # STORAGE
+  /storage/uploads/request-url:
+    post:
+      operationId: requestUploadUrl
+      tags: [storage]
+      summary: Request a presigned upload URL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UploadUrlRequest"
+      responses:
+        "200":
+          description: Presigned upload URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadUrlResponse"
+
+  # FORECAST REQUESTS
+  /forecast-requests:
+    get:
+      operationId: listForecastRequests
+      tags: [forecast-requests]
+      summary: List all forecast requests
+      responses:
+        "200":
+          description: Forecast requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ForecastRequest"
+    post:
+      operationId: createForecastRequest
+      tags: [forecast-requests]
+      summary: Submit a new forecast request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForecastRequestInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForecastRequest"
+
+  /forecast-requests/{id}:
+    get:
+      operationId: getForecastRequest
+      tags: [forecast-requests]
+      summary: Get a forecast request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Forecast request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForecastRequest"
+    patch:
+      operationId: updateForecastRequestStatus
+      tags: [forecast-requests]
+      summary: Update forecast request status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForecastRequestStatusUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForecastRequest"
+
 components:
   schemas:
     HealthStatus:
@@ -3366,3 +3462,183 @@ components:
           type: string
         notes:
           type: string
+
+
+    UploadUrlRequest:
+      type: object
+      required: [name, size, contentType]
+      properties:
+        name:
+          type: string
+        size:
+          type: number
+        contentType:
+          type: string
+
+    UploadUrlResponse:
+      type: object
+      required: [uploadURL, objectPath]
+      properties:
+        uploadURL:
+          type: string
+        objectPath:
+          type: string
+        metadata:
+          type: object
+          properties:
+            name:
+              type: string
+            size:
+              type: number
+            contentType:
+              type: string
+
+    ForecastRequest:
+      type: object
+      required: [id, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: number
+        status:
+          type: string
+          enum: [pending, in_review, converted, declined]
+        ownerId:
+          type: ["number", "null"]
+        propertyId:
+          type: ["number", "null"]
+        representativeId:
+          type: ["number", "null"]
+        representativeName:
+          type: ["string", "null"]
+        refereeId:
+          type: ["number", "null"]
+        refereeName:
+          type: ["string", "null"]
+        ownerFirstName:
+          type: ["string", "null"]
+        ownerLastName:
+          type: ["string", "null"]
+        ownerEmail:
+          type: ["string", "null"]
+        ownerPhone:
+          type: ["string", "null"]
+        ownerWhatsapp:
+          type: ["string", "null"]
+        ownerNationality:
+          type: ["string", "null"]
+        ownerType:
+          type: ["string", "null"]
+        propertyEmirate:
+          type: ["string", "null"]
+        propertyArea:
+          type: ["string", "null"]
+        propertyCommunity:
+          type: ["string", "null"]
+        propertyDevelopment:
+          type: ["string", "null"]
+        propertyUnitNumber:
+          type: ["string", "null"]
+        propertyType:
+          type: ["string", "null"]
+        propertyBedrooms:
+          type: ["number", "null"]
+        propertyBathrooms:
+          type: ["number", "null"]
+        propertyInternalArea:
+          type: ["number", "null"]
+        propertyFurnishing:
+          type: ["string", "null"]
+        propertyCondition:
+          type: ["string", "null"]
+        propertyView:
+          type: ["string", "null"]
+        propertyIsWaterfront:
+          type: ["boolean", "null"]
+        mediaUrls:
+          type: array
+          items:
+            type: string
+        notes:
+          type: ["string", "null"]
+        createdById:
+          type: ["number", "null"]
+        createdByName:
+          type: ["string", "null"]
+        reviewedById:
+          type: ["number", "null"]
+        convertedForecastId:
+          type: ["number", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ForecastRequestInput:
+      type: object
+      properties:
+        ownerId:
+          type: ["number", "null"]
+        propertyId:
+          type: ["number", "null"]
+        representativeId:
+          type: ["number", "null"]
+        refereeId:
+          type: ["number", "null"]
+        ownerFirstName:
+          type: ["string", "null"]
+        ownerLastName:
+          type: ["string", "null"]
+        ownerEmail:
+          type: ["string", "null"]
+        ownerPhone:
+          type: ["string", "null"]
+        ownerWhatsapp:
+          type: ["string", "null"]
+        ownerNationality:
+          type: ["string", "null"]
+        ownerType:
+          type: ["string", "null"]
+        propertyEmirate:
+          type: ["string", "null"]
+        propertyArea:
+          type: ["string", "null"]
+        propertyCommunity:
+          type: ["string", "null"]
+        propertyDevelopment:
+          type: ["string", "null"]
+        propertyUnitNumber:
+          type: ["string", "null"]
+        propertyType:
+          type: ["string", "null"]
+        propertyBedrooms:
+          type: ["number", "null"]
+        propertyBathrooms:
+          type: ["number", "null"]
+        propertyInternalArea:
+          type: ["number", "null"]
+        propertyFurnishing:
+          type: ["string", "null"]
+        propertyCondition:
+          type: ["string", "null"]
+        propertyView:
+          type: ["string", "null"]
+        propertyIsWaterfront:
+          type: ["boolean", "null"]
+        mediaUrls:
+          type: array
+          items:
+            type: string
+        notes:
+          type: ["string", "null"]
+
+    ForecastRequestStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [pending, in_review, converted, declined]
+        reviewedById:
+          type: ["number", "null"]

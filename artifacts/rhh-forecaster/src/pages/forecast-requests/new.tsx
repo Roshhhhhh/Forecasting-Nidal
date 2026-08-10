@@ -103,7 +103,7 @@ export default function NewForecastRequest() {
   const [ownerSearch, setOwnerSearch] = useState("");
   const [selectedOwnerId, setSelectedOwnerId] = useState<number | null>(null);
   const [ownerForm, setOwnerForm] = useState({
-    firstName: "", lastName: "", email: "", phone: "", whatsapp: "", nationality: "", type: "individual",
+    firstName: "", lastName: "", companyName: "", email: "", phone: "", whatsapp: "", nationality: "", type: "individual",
   });
 
   // property section
@@ -201,6 +201,7 @@ export default function NewForecastRequest() {
       } else {
         payload.ownerFirstName = ownerForm.firstName || null;
         payload.ownerLastName = ownerForm.lastName || null;
+        payload.ownerCompanyName = ownerForm.companyName || null;
         payload.ownerEmail = ownerForm.email || null;
         payload.ownerPhone = ownerForm.phone || null;
         payload.ownerWhatsapp = ownerForm.whatsapp || null;
@@ -359,6 +360,13 @@ export default function NewForecastRequest() {
               <Input placeholder="e.g. Emirati" value={ownerForm.nationality}
                 onChange={e => setOwnerForm(f => ({ ...f, nationality: e.target.value }))} className="h-9" />
             </div>
+            {ownerForm.type === "company" && (
+              <div className="space-y-1 sm:col-span-2">
+                <Label className="text-xs">Company Name</Label>
+                <Input placeholder="e.g. Al Mansouri Holdings LLC" value={ownerForm.companyName}
+                  onChange={e => setOwnerForm(f => ({ ...f, companyName: e.target.value }))} className="h-9" />
+              </div>
+            )}
             <div className="space-y-1">
               <Label className="text-xs">First Name</Label>
               <Input placeholder="First name" value={ownerForm.firstName}

@@ -27,6 +27,7 @@ function statusToStage(status: string | null): string {
 
 const STAGE_ORDER = [
   "new_lead",
+  "forecast_requested",
   "in_review",
   "proposal_sent",
   "proposal_viewed",
@@ -53,7 +54,9 @@ router.get("/pipeline", requireAuth, async (_req, res) => {
       p.property_type,
       p.bedrooms,
       p.area,
-      p.community
+      p.community,
+      fr.id             AS forecast_request_id,
+      fr.updated_at     AS fr_updated_at
     FROM owners o
     LEFT JOIN users u ON u.id = o.assigned_to_id
     LEFT JOIN LATERAL (
@@ -89,6 +92,14 @@ router.get("/pipeline", requireAuth, async (_req, res) => {
       ORDER BY created_at DESC
       LIMIT 1
     ) p ON true
+    LEFT JOIN LATERAL (
+      SELECT id, updated_at
+      FROM forecast_requests
+      WHERE owner_id = o.id
+        AND status IN ('pending', 'in_review')
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) fr ON true
     WHERE o.is_archived = false
     ORDER BY o.created_at DESC
   `);
@@ -100,28 +111,39 @@ router.get("/pipeline", requireAuth, async (_req, res) => {
   const lostCards: any[] = [];
 
   for (const row of result.rows) {
-    const stage = statusToStage(row.forecast_status as string | null);
-    const stageDate = (row.forecast_updated_at ?? row.owner_created_at) as string | null;
+    let stage = statusToStage(row.forecast_status as string | null);
+
+    // Promote new_lead → forecast_requested if the owner has an active FR
+    if (stage === "new_lead" && row.forecast_request_id != null) {
+      stage = "forecast_requested";
+    }
+
+    const stageDate = (
+      stage === "forecast_requested"
+        ? (row.fr_updated_at ?? row.owner_created_at)
+        : (row.forecast_updated_at ?? row.owner_created_at)
+    ) as string | null;
     const daysInStage = stageDate
       ? Math.floor((now - new Date(stageDate).getTime()) / 86_400_000)
       : 0;
 
     const card = {
-      ownerId:          row.owner_id,
-      ownerName:        row.company_name
-                          ? String(row.company_name)
-                          : `${row.first_name} ${row.last_name}`,
-      ownerType:        row.owner_type,
-      leadSource:       row.lead_source ?? null,
-      isExistingClient: row.is_existing_client,
-      assignedToName:   row.assigned_to_name ?? null,
-      forecastId:       row.forecast_id ?? null,
-      forecastStatus:   row.forecast_status ?? null,
-      projectedPayout:  row.net_owner_income != null ? Number(row.net_owner_income) : null,
-      propertyType:     row.property_type ?? null,
-      bedrooms:         row.bedrooms ?? null,
-      area:             row.area ?? null,
-      community:        row.community ?? null,
+      ownerId:            row.owner_id,
+      ownerName:          row.company_name
+                            ? String(row.company_name)
+                            : `${row.first_name} ${row.last_name}`,
+      ownerType:          row.owner_type,
+      leadSource:         row.lead_source ?? null,
+      isExistingClient:   row.is_existing_client,
+      assignedToName:     row.assigned_to_name ?? null,
+      forecastId:         row.forecast_id ?? null,
+      forecastStatus:     row.forecast_status ?? null,
+      forecastRequestId:  row.forecast_request_id ?? null,
+      projectedPayout:    row.net_owner_income != null ? Number(row.net_owner_income) : null,
+      propertyType:       row.property_type ?? null,
+      bedrooms:           row.bedrooms ?? null,
+      area:               row.area ?? null,
+      community:          row.community ?? null,
       daysInStage,
     };
 

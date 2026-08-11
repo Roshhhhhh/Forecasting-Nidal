@@ -178,12 +178,13 @@ export default function ForecastWizard() {
                       <FormItem>
                         <FormLabel>Client / Owner</FormLabel>
                         <SearchableSelect
-                          options={(owners ?? []).map(o => ({
-                            value: o.id.toString(),
-                            label: o.ownerType === "company" && o.companyName
+                          options={(owners ?? []).map(o => {
+                            const baseName = o.ownerType === "company" && o.companyName
                               ? o.companyName
-                              : `${o.firstName} ${o.lastName}`,
-                          }))}
+                              : `${o.firstName} ${o.lastName ?? ""}`.trim();
+                            const hint = (o as any).phone || (o as any).whatsapp || (o as any).email || `#${o.id}`;
+                            return { value: o.id.toString(), label: `${baseName} · ${hint}` };
+                          })}
                           value={field.value ? field.value.toString() : ""}
                           onValueChange={(val) => field.onChange(parseInt(val))}
                           placeholder={isOwnersLoading ? "Loading…" : "Search owners…"}

@@ -585,10 +585,13 @@ export default function PropertyNew() {
                 <div className="px-6 pt-4 text-sm text-destructive">{ownerRowError}</div>
               )}
               {ownerRows.map((row, idx) => {
-                const ownerOptions = (owners ?? []).map(o => ({
-                  value: o.id.toString(),
-                  label: o.ownerType === "company" && o.companyName ? o.companyName : `${o.firstName} ${o.lastName ?? ""}`.trim(),
-                }));
+                const ownerOptions = (owners ?? []).map(o => {
+                  const baseName = o.ownerType === "company" && o.companyName
+                    ? o.companyName
+                    : `${o.firstName} ${o.lastName ?? ""}`.trim();
+                  const hint = o.phone || o.whatsapp || o.email || `#${o.id}`;
+                  return { value: o.id.toString(), label: `${baseName} · ${hint}` };
+                });
                 return (
                   <div key={idx} className={`p-6 ${idx < ownerRows.length - 1 ? "border-b border-border" : ""} grid grid-cols-1 md:grid-cols-12 gap-4 items-start`}>
                     {/* Owner selector */}

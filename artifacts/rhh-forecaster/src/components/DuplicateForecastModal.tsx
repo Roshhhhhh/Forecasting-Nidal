@@ -54,12 +54,13 @@ export default function DuplicateForecastModal({ forecast, open, onOpenChange, o
   }
 
   const ownerOptions = useMemo(() =>
-    (owners ?? []).map(o => ({
-      value: String(o.id),
-      label: o.ownerType === "company" && o.companyName
+    (owners ?? []).map(o => {
+      const baseName = o.ownerType === "company" && o.companyName
         ? o.companyName
-        : [o.titlePrefix, o.firstName, o.lastName].filter(Boolean).join(" "),
-    })), [owners]);
+        : [o.titlePrefix, o.firstName, o.lastName].filter(Boolean).join(" ");
+      const hint = (o as any).phone || (o as any).whatsapp || (o as any).email || `#${o.id}`;
+      return { value: String(o.id), label: `${baseName} · ${hint}` };
+    }), [owners]);
 
   const propertyOptions = useMemo(() => {
     const base = selectedOwnerId

@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { Building2, User, TrendingUp, Clock, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react";
+import { Building2, User, TrendingUp, Clock, AlertTriangle, ChevronDown, ChevronRight, ClipboardList } from "lucide-react";
 import { useState } from "react";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -14,6 +14,7 @@ interface PipelineCard {
   assignedToName: string | null;
   forecastId: number | null;
   forecastStatus: string | null;
+  forecastRequestId: number | null;
   projectedPayout: number | null;
   propertyType: string | null;
   bedrooms: number | null;
@@ -44,12 +45,13 @@ const STAGE_CONFIG: Record<string, {
   border: string;
   accent: string;
 }> = {
-  new_lead:        { label: "New Lead",       headerBg: "bg-slate-600",   colBg: "bg-slate-50",    border: "border-slate-200",   accent: "#475569" },
-  in_review:       { label: "In Review",      headerBg: "bg-blue-600",    colBg: "bg-blue-50",     border: "border-blue-200",    accent: "#2563eb" },
-  proposal_sent:   { label: "Proposal Sent",  headerBg: "bg-amber-500",   colBg: "bg-amber-50",    border: "border-amber-200",   accent: "#d97706" },
-  proposal_viewed: { label: "Viewed",         headerBg: "bg-orange-500",  colBg: "bg-orange-50",   border: "border-orange-200",  accent: "#ea580c" },
-  negotiating:     { label: "Negotiating",    headerBg: "bg-violet-600",  colBg: "bg-violet-50",   border: "border-violet-200",  accent: "#7c3aed" },
-  accepted:        { label: "Accepted",       headerBg: "bg-emerald-600", colBg: "bg-emerald-50",  border: "border-emerald-200", accent: "#059669" },
+  new_lead:            { label: "New Lead",           headerBg: "bg-slate-600",   colBg: "bg-slate-50",    border: "border-slate-200",   accent: "#475569" },
+  forecast_requested:  { label: "Forecast Requested", headerBg: "bg-teal-600",    colBg: "bg-teal-50",     border: "border-teal-200",    accent: "#0d9488" },
+  in_review:           { label: "In Review",          headerBg: "bg-blue-600",    colBg: "bg-blue-50",     border: "border-blue-200",    accent: "#2563eb" },
+  proposal_sent:       { label: "Proposal Sent",      headerBg: "bg-amber-500",   colBg: "bg-amber-50",    border: "border-amber-200",   accent: "#d97706" },
+  proposal_viewed:     { label: "Viewed",             headerBg: "bg-orange-500",  colBg: "bg-orange-50",   border: "border-orange-200",  accent: "#ea580c" },
+  negotiating:         { label: "Negotiating",        headerBg: "bg-violet-600",  colBg: "bg-violet-50",   border: "border-violet-200",  accent: "#7c3aed" },
+  accepted:            { label: "Accepted",           headerBg: "bg-emerald-600", colBg: "bg-emerald-50",  border: "border-emerald-200", accent: "#059669" },
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -91,47 +93,58 @@ function OwnerCard({ card, accent }: { card: PipelineCard; accent: string }) {
   ].filter(Boolean).join(" · ");
 
   return (
-    <Link href={`/owners/${card.ownerId}`}>
-      <div
-        className="bg-white rounded-lg border border-border shadow-sm hover:shadow-md transition-all cursor-pointer p-3 space-y-2 group"
-        style={{ borderLeftWidth: 3, borderLeftColor: accent }}
-      >
-        {/* Name + days */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            {card.ownerType === "company"
-              ? <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-              : <User       className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-            }
-            <span className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
-              {card.ownerName}
+    <div
+      className="bg-white rounded-lg border border-border shadow-sm hover:shadow-md transition-all p-3 space-y-2 group"
+      style={{ borderLeftWidth: 3, borderLeftColor: accent }}
+    >
+      {/* Name + days */}
+      <div className="flex items-start justify-between gap-2">
+        <Link href={`/owners/${card.ownerId}`} className="flex items-center gap-1.5 min-w-0 cursor-pointer">
+          {card.ownerType === "company"
+            ? <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+            : <User       className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          }
+          <span className="text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+            {card.ownerName}
+          </span>
+        </Link>
+        <DaysBadge days={card.daysInStage} />
+      </div>
+
+      {/* Property */}
+      <p className="text-xs text-muted-foreground truncate">
+        {propLine || <span className="italic">No property yet</span>}
+      </p>
+
+      {/* Payout + rep + source */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          {card.projectedPayout != null ? (
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
+              <TrendingUp className="h-3 w-3" />
+              {fmtAed(card.projectedPayout)}
             </span>
-          </div>
-          <DaysBadge days={card.daysInStage} />
+          ) : (
+            <span className="text-xs text-muted-foreground">No forecast</span>
+          )}
+          {card.leadSource && (
+            <span className="text-[10px] text-muted-foreground border border-border/60 rounded px-1.5 py-0.5">
+              {titleCase(card.leadSource)}
+            </span>
+          )}
         </div>
-
-        {/* Property */}
-        <p className="text-xs text-muted-foreground truncate">
-          {propLine || <span className="italic">No property yet</span>}
-        </p>
-
-        {/* Payout + rep + source */}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
-            {card.projectedPayout != null ? (
-              <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700">
-                <TrendingUp className="h-3 w-3" />
-                {fmtAed(card.projectedPayout)}
+        <div className="flex items-center gap-1.5">
+          {card.forecastRequestId != null && (
+            <Link href={`/forecast-requests/${card.forecastRequestId}`}>
+              <span
+                title="View forecast request"
+                className="inline-flex items-center gap-1 text-[10px] font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded px-1.5 py-0.5 hover:bg-teal-100 transition-colors cursor-pointer"
+              >
+                <ClipboardList className="h-2.5 w-2.5" />
+                Request
               </span>
-            ) : (
-              <span className="text-xs text-muted-foreground">No forecast</span>
-            )}
-            {card.leadSource && (
-              <span className="text-[10px] text-muted-foreground border border-border/60 rounded px-1.5 py-0.5">
-                {titleCase(card.leadSource)}
-              </span>
-            )}
-          </div>
+            </Link>
+          )}
           {card.assignedToName && (
             <span
               title={`Assigned to ${card.assignedToName}`}
@@ -142,7 +155,7 @@ function OwnerCard({ card, accent }: { card: PipelineCard; accent: string }) {
           )}
         </div>
       </div>
-    </Link>
+    </div>
   );
 }
 

@@ -174,7 +174,23 @@ function OwnershipCard({ propertyId, primaryOwnerId }: { propertyId: number; pri
               className="h-9 text-sm"
             />
             <div className="flex gap-2">
-              <Button size="sm" onClick={() => addMutation.mutate()} disabled={!addOwnerId || addMutation.isPending} className="h-8 text-xs">
+              <Button
+                size="sm"
+                className="h-8 text-xs"
+                disabled={!addOwnerId || addMutation.isPending}
+                onClick={() => {
+                  const newPct = parseFloat(addPct) || 0;
+                  if (totalPct + newPct > 100) {
+                    toast({
+                      title: "Ownership would exceed 100%",
+                      description: `Current total is ${Math.round(totalPct)}%. Adding ${newPct}% would reach ${Math.round(totalPct + newPct)}%.`,
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+                  addMutation.mutate();
+                }}
+              >
                 {addMutation.isPending ? "Adding…" : "Add"}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setAddOpen(false)} className="h-8 text-xs">Cancel</Button>

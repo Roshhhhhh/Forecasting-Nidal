@@ -225,6 +225,18 @@ router.post("/properties/:id/owners", requireAuth, async (req, res): Promise<voi
     ));
   if (existing) { res.status(409).json({ error: "This owner is already linked to the property" }); return; }
 
+  // Enforce 100% cap
+  const currentRows = await db.select({ pct: propertyOwnersTable.ownershipPercentage })
+    .from(propertyOwnersTable)
+    .where(eq(propertyOwnersTable.propertyId, propertyId));
+  const currentTotal = currentRows.reduce((s, r) => s + (r.pct ?? 0), 0);
+  if (currentTotal + (parsed.data.ownershipPercentage ?? 0) > 100) {
+    res.status(422).json({
+      error: `Adding this stake would bring total ownership to ${currentTotal + (parsed.data.ownershipPercentage ?? 0)}% — cannot exceed 100%.`,
+    });
+    return;
+  }
+
   await db.transaction(async (tx) => {
     if (parsed.data.isPrimary) {
       // Clear existing primaries before inserting the new one
@@ -259,13 +271,27 @@ router.patch("/properties/:id/owners/:ownerId", requireAuth, async (req, res): P
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
   // Verify the junction row exists before mutating primary flags
-  const [target] = await db.select({ id: propertyOwnersTable.id })
+  const [target] = await db.select({ id: propertyOwnersTable.id, pct: propertyOwnersTable.ownershipPercentage })
     .from(propertyOwnersTable)
     .where(and(
       eq(propertyOwnersTable.propertyId, propertyId),
       eq(propertyOwnersTable.ownerId, ownerId),
     ));
   if (!target) { res.status(404).json({ error: "Ownership record not found" }); return; }
+
+  // Enforce 100% cap when changing the percentage
+  if (parsed.data.ownershipPercentage !== undefined) {
+    const allRows = await db.select({ pct: propertyOwnersTable.ownershipPercentage, oid: propertyOwnersTable.ownerId })
+      .from(propertyOwnersTable)
+      .where(eq(propertyOwnersTable.propertyId, propertyId));
+    const othersTotal = allRows.filter(r => r.oid !== ownerId).reduce((s, r) => s + (r.pct ?? 0), 0);
+    if (othersTotal + parsed.data.ownershipPercentage > 100) {
+      res.status(422).json({
+        error: `This would bring total ownership to ${othersTotal + parsed.data.ownershipPercentage}% — cannot exceed 100%.`,
+      });
+      return;
+    }
+  }
 
   await db.transaction(async (tx) => {
     if (parsed.data.isPrimary) {

@@ -1,4 +1,5 @@
 import { useCreateProperty, useListOwners } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrig
 import { useEffect, useState } from "react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { AmenitiesPicker } from "@/components/AmenitiesPicker";
+import { ForecastRequestContextBar } from "@/components/ForecastRequestContextBar";
 
 const UAE_EMIRATES = [
   { value: "Abu Dhabi",      group: "Abu Dhabi Emirate" },
@@ -241,10 +243,19 @@ export default function PropertyNew() {
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
   const initialOwnerId = searchParams.get("ownerId");
-  
+  const frIdStr = searchParams.get("forecastRequestId");
+  const forecastRequestId = frIdStr ? parseInt(frIdStr, 10) : null;
+
   const { toast } = useToast();
   const createProperty = useCreateProperty();
   const { data: owners } = useListOwners();
+
+  const { data: forecastRequest } = useQuery({
+    queryKey: ["forecast-request", forecastRequestId],
+    queryFn: () => fetch(`/api/forecast-requests/${forecastRequestId}`).then(r => r.json()),
+    enabled: !!forecastRequestId,
+    staleTime: 60000,
+  });
 
   const form = useForm<PropertyFormValues>({
     resolver: zodResolver(propertySchema),
@@ -282,6 +293,60 @@ export default function PropertyNew() {
 
   const watchedCommunity = form.watch("projectBuilding");
   const isOtherCommunity = watchedCommunity === "Other…";
+
+  // Prefill from forecast request
+  useEffect(() => {
+    if (!forecastRequest) return;
+    const fr = forecastRequest as any;
+    // Only prefill if user hasn't changed anything yet
+    if (fr.propertyEmirate) form.setValue("emirate", fr.propertyEmirate);
+    if (fr.propertyArea) form.setValue("area", fr.propertyArea);
+    if (fr.propertyCommunity) form.setValue("projectBuilding", fr.propertyCommunity);
+    if (fr.propertyUnitNumber) form.setValue("unitNumber", fr.propertyUnitNumber);
+    // Map layout → bedrooms
+    if (fr.propertyLayout) {
+      if (fr.propertyLayout === "Studio") form.setValue("bedrooms", 0);
+      else {
+        const m = String(fr.propertyLayout).match(/^(\d+)/);
+        if (m) form.setValue("bedrooms", parseInt(m[1], 10));
+      }
+    }
+    if (fr.propertyBedrooms != null) form.setValue("bedrooms", fr.propertyBedrooms);
+    if (fr.propertyBathrooms != null) form.setValue("bathrooms", fr.propertyBathrooms);
+    if (fr.propertyInternalArea != null) form.setValue("internalArea", fr.propertyInternalArea);
+    if (fr.propertyIsWaterfront != null) form.setValue("isWaterfront", fr.propertyIsWaterfront);
+    // Map type string to enum
+    if (fr.propertyType) {
+      const typeMap: Record<string, string> = {
+        "Apartment": "apartment", "Duplex": "duplex", "Penthouse": "penthouse",
+        "Townhouse": "townhouse", "Villa": "villa", "Hotel Apartment": "hotel_apartment",
+        "Studio": "studio",
+      };
+      const mapped = typeMap[fr.propertyType] ?? "apartment";
+      form.setValue("propertyType", mapped as any);
+    }
+    // Map view
+    if (fr.propertyView) form.setValue("view", fr.propertyView);
+    // Map furnishing
+    if (fr.propertyFurnishing) {
+      const furnMap: Record<string, string> = {
+        "Unfurnished": "unfurnished", "Partially Furnished": "partially_furnished",
+        "Fully Furnished": "fully_furnished", "Premium Furnished": "premium_furnished",
+        "Previously Managed as Holiday Home": "previously_holiday_home",
+      };
+      const mapped = furnMap[fr.propertyFurnishing];
+      if (mapped) form.setValue("furnishingStatus", mapped as any);
+    }
+    // Map condition
+    if (fr.propertyCondition) {
+      const condMap: Record<string, string> = {
+        "Brand New": "new", "Excellent": "excellent", "Good": "good",
+        "Requires Minor Improvements": "requires_refresh", "Requires Renovation": "requires_renovation",
+      };
+      const mapped = condMap[fr.propertyCondition];
+      if (mapped) form.setValue("propertyCondition", mapped as any);
+    }
+  }, [forecastRequest]);
 
   const needsDate = watchedVacancy === "owner_staying" || watchedVacancy === "tenant_staying" || watchedVacancy === "off_plan";
   const dateLabel = watchedVacancy === "off_plan" ? "Expected Handover Date" : "Expected Vacancy Date";
@@ -328,8 +393,24 @@ export default function PropertyNew() {
         }
       }
 
-      toast({ title: "Property created", description: "The property has been added to the portfolio." });
-      setLocation(`/properties/${result.id}`);
+      if (forecastRequestId) {
+        try {
+          await fetch(`/api/forecast-requests/${forecastRequestId}/link-property`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ propertyId: result.id }),
+          });
+          toast({ title: "Property created & linked", description: "Now create the revenue forecast." });
+          const frOwnerId = (forecastRequest as any)?.ownerId ?? data.ownerId;
+          setLocation(`/forecasts/new?forecastRequestId=${forecastRequestId}&ownerId=${frOwnerId}&propertyId=${result.id}`);
+        } catch {
+          toast({ title: "Property created", description: "Could not auto-link to request.", variant: "destructive" });
+          setLocation(`/forecast-requests/${forecastRequestId}`);
+        }
+      } else {
+        toast({ title: "Property created", description: "The property has been added to the portfolio." });
+        setLocation(`/properties/${result.id}`);
+      }
     } catch (error) {
       toast({ title: "Error", description: "Failed to add property.", variant: "destructive" });
     }
@@ -337,15 +418,25 @@ export default function PropertyNew() {
 
   return (
     <div className="p-8 max-w-[1000px] mx-auto space-y-6">
+      {forecastRequestId && (
+        <ForecastRequestContextBar forecastRequestId={forecastRequestId} context="property" />
+      )}
+
       <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-        <Link href="/properties" className="hover:text-foreground transition-colors">Properties</Link>
+        {forecastRequestId ? (
+          <Link href={`/forecast-requests/${forecastRequestId}`} className="hover:text-foreground transition-colors">Forecast Request</Link>
+        ) : (
+          <Link href="/properties" className="hover:text-foreground transition-colors">Properties</Link>
+        )}
         <span>/</span>
         <span className="text-foreground font-medium">New Property</span>
       </div>
 
       <div>
         <h1 className="text-3xl font-serif font-bold text-foreground">Add Property</h1>
-        <p className="text-muted-foreground mt-1">Register a new unit to generate revenue forecasts.</p>
+        <p className="text-muted-foreground mt-1">
+          {forecastRequestId ? "Form pre-filled from the forecast request. Review and save." : "Register a new unit to generate revenue forecasts."}
+        </p>
       </div>
 
       <Form {...form}>

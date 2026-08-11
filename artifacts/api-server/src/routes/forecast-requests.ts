@@ -8,14 +8,18 @@ const router = Router();
 // ── shared SQL fragment ────────────────────────────────────────────────────────
 const SELECT_COLS = sql`
   fr.*,
-  rep.name AS representative_name,
-  cb.name  AS created_by_name
+  rep.name  AS representative_name,
+  cb.name   AS created_by_name,
+  rm.name   AS assigned_rm_name,
+  cvt.name  AS converted_by_name
 `;
 
 const JOINS = sql`
   FROM forecast_requests fr
   LEFT JOIN users rep ON rep.id = fr.representative_id
   LEFT JOIN users cb  ON cb.id  = fr.created_by_id
+  LEFT JOIN users rm  ON rm.id  = fr.assigned_revenue_manager_id
+  LEFT JOIN users cvt ON cvt.id = fr.converted_by_user_id
 `;
 
 // ── enrichRow ──────────────────────────────────────────────────────────────────
@@ -23,15 +27,24 @@ function enrichRow(row: any) {
   return {
     id:                           row.id,
     status:                       row.status,
-    ownerId:                      row.owner_id,
-    propertyId:                   row.property_id,
-    representativeId:             row.representative_id,
+    // linked records
+    ownerId:                      row.owner_id ?? null,
+    propertyId:                   row.property_id ?? null,
+    convertedForecastId:          row.converted_forecast_id ?? null,
+    // representative (legacy)
+    representativeId:             row.representative_id ?? null,
     representativeName:           row.representative_name ?? null,
-    // free-text referee from form (new)
+    // assigned RM
+    assignedRevenueManagerId:     row.assigned_revenue_manager_id ?? null,
+    assignedRevenueManagerName:   row.assigned_rm_name ?? null,
+    // conversion
+    convertedAt:                  row.converted_at ?? null,
+    convertedByUserId:            row.converted_by_user_id ?? null,
+    convertedByName:              row.converted_by_name ?? null,
+    // free-text referee
     refereeName:                  row.referee_name ?? null,
-    // legacy FK (kept for compat, not used in new form)
-    refereeId:                    row.referee_id,
-    // owner fields
+    refereeId:                    row.referee_id ?? null,
+    // owner fields (submitted values — immutable source of truth)
     ownerTitle:                   row.owner_title ?? null,
     ownerFirstName:               row.owner_first_name ?? null,
     ownerLastName:                row.owner_last_name ?? null,
@@ -43,7 +56,7 @@ function enrichRow(row: any) {
     ownerWhatsapp:                row.owner_whatsapp ?? null,
     ownerNationality:             row.owner_nationality ?? null,
     ownerType:                    row.owner_type ?? "individual",
-    // property fields
+    // property fields (submitted values — immutable)
     propertyEmirate:              row.property_emirate ?? null,
     propertyArea:                 row.property_area ?? null,
     propertyCommunity:            row.property_community ?? null,
@@ -67,7 +80,6 @@ function enrichRow(row: any) {
     createdById:                  row.created_by_id ?? null,
     createdByName:                row.created_by_name ?? null,
     reviewedById:                 row.reviewed_by_id ?? null,
-    convertedForecastId:          row.converted_forecast_id ?? null,
     createdAt:                    row.created_at ?? null,
     updatedAt:                    row.updated_at ?? null,
   };
@@ -76,9 +88,7 @@ function enrichRow(row: any) {
 // ── GET /forecast-requests ─────────────────────────────────────────────────────
 router.get("/forecast-requests", requireAuth, async (_req, res): Promise<void> => {
   try {
-    const rows = await db.execute(sql`
-      SELECT ${SELECT_COLS} ${JOINS} ORDER BY fr.created_at DESC
-    `);
+    const rows = await db.execute(sql`SELECT ${SELECT_COLS} ${JOINS} ORDER BY fr.created_at DESC`);
     res.json(rows.rows.map(enrichRow));
   } catch (err) {
     console.error("[forecast-requests] list error:", err);
@@ -95,7 +105,6 @@ router.post("/forecast-requests", requireAuth, async (req, res): Promise<void> =
     const mediaUrls = Array.isArray(b.mediaUrls) ? b.mediaUrls : [];
     const mediaLiteral = "'{" + mediaUrls.map((u: string) => `"${u.replace(/"/g, '\\"')}"`).join(",") + "}'";
 
-    // Derive bedrooms from layout
     let bedrooms: number | null = null;
     if (b.propertyLayout === "Studio") bedrooms = 0;
     else if (b.propertyLayout) {
@@ -119,46 +128,24 @@ router.post("/forecast-requests", requireAuth, async (req, res): Promise<void> =
         proposed_management_commission, referee_name,
         media_urls, notes, created_by_id
       ) VALUES (
-        ${b.ownerId ?? null},
-        ${b.propertyId ?? null},
-        ${b.ownerTitle ?? null},
-        ${b.ownerFirstName ?? null},
-        ${b.ownerLastName ?? null},
-        ${b.ownerCompanyName ?? null},
-        ${b.ownerContactPerson ?? null},
-        ${b.ownerContactPosition ?? null},
-        ${b.ownerEmail ?? null},
-        ${b.ownerPhone ?? null},
-        ${b.ownerWhatsapp ?? null},
-        ${b.ownerNationality ?? null},
-        ${b.ownerType ?? "individual"},
-        ${b.propertyEmirate ?? null},
-        ${b.propertyArea ?? null},
-        ${b.propertyCommunity ?? null},
-        ${b.propertyDevelopment ?? null},
-        ${b.propertyUnitNumber ?? null},
-        ${b.propertyType ?? null},
-        ${b.propertyLayout ?? null},
-        ${bedrooms},
-        ${b.propertyBathrooms ?? null},
-        ${b.propertyInternalArea ?? null},
-        ${b.propertyFurnishing ?? null},
-        ${b.propertyCondition ?? null},
-        ${b.propertyView ?? null},
-        ${b.propertyIsWaterfront ?? false},
-        ${b.proposedManagementCommission ?? "20%"},
-        ${b.refereeName ?? null},
-        ${sql.raw(mediaLiteral)}::text[],
-        ${b.notes ?? null},
-        ${user?.id ?? null}
-      )
-      RETURNING id
+        ${b.ownerId ?? null}, ${b.propertyId ?? null},
+        ${b.ownerTitle ?? null}, ${b.ownerFirstName ?? null}, ${b.ownerLastName ?? null},
+        ${b.ownerCompanyName ?? null}, ${b.ownerContactPerson ?? null}, ${b.ownerContactPosition ?? null},
+        ${b.ownerEmail ?? null}, ${b.ownerPhone ?? null}, ${b.ownerWhatsapp ?? null},
+        ${b.ownerNationality ?? null}, ${b.ownerType ?? "individual"},
+        ${b.propertyEmirate ?? null}, ${b.propertyArea ?? null}, ${b.propertyCommunity ?? null},
+        ${b.propertyDevelopment ?? null}, ${b.propertyUnitNumber ?? null},
+        ${b.propertyType ?? null}, ${b.propertyLayout ?? null},
+        ${bedrooms}, ${b.propertyBathrooms ?? null}, ${b.propertyInternalArea ?? null},
+        ${b.propertyFurnishing ?? null}, ${b.propertyCondition ?? null},
+        ${b.propertyView ?? null}, ${b.propertyIsWaterfront ?? false},
+        ${b.proposedManagementCommission ?? "20%"}, ${b.refereeName ?? null},
+        ${sql.raw(mediaLiteral)}::text[], ${b.notes ?? null}, ${user?.id ?? null}
+      ) RETURNING id
     `);
 
     const newId = (result.rows[0] as any).id;
-    const row = await db.execute(sql`
-      SELECT ${SELECT_COLS} ${JOINS} WHERE fr.id = ${newId}
-    `);
+    const row = await db.execute(sql`SELECT ${SELECT_COLS} ${JOINS} WHERE fr.id = ${newId}`);
     res.status(201).json(enrichRow(row.rows[0]));
   } catch (err) {
     console.error("[forecast-requests] create error:", err);
@@ -166,13 +153,11 @@ router.post("/forecast-requests", requireAuth, async (req, res): Promise<void> =
   }
 });
 
-// ── GET /forecast-requests/:id ────────────────────────────────────────────────
+// ── GET /forecast-requests/:id ─────────────────────────────────────────────────
 router.get("/forecast-requests/:id", requireAuth, async (req, res): Promise<void> => {
   try {
     const id = parseInt(req.params.id, 10);
-    const row = await db.execute(sql`
-      SELECT ${SELECT_COLS} ${JOINS} WHERE fr.id = ${id}
-    `);
+    const row = await db.execute(sql`SELECT ${SELECT_COLS} ${JOINS} WHERE fr.id = ${id}`);
     if (!row.rows[0]) { res.status(404).json({ error: "Not found" }); return; }
     res.json(enrichRow(row.rows[0]));
   } catch (err) {
@@ -187,24 +172,98 @@ router.patch("/forecast-requests/:id/status", requireAuth, async (req, res): Pro
     const id = parseInt(req.params.id, 10);
     const { status, reviewedById } = req.body;
     const validStatuses = ["pending", "in_review", "converted", "declined"];
-    if (!validStatuses.includes(status)) {
-      res.status(400).json({ error: "Invalid status" });
-      return;
-    }
+    if (!validStatuses.includes(status)) { res.status(400).json({ error: "Invalid status" }); return; }
     await db.execute(sql`
-      UPDATE forecast_requests
-      SET status = ${status},
-          reviewed_by_id = ${reviewedById ?? null},
-          updated_at = NOW()
-      WHERE id = ${id}
+      UPDATE forecast_requests SET status=${status}, reviewed_by_id=${reviewedById ?? null}, updated_at=NOW()
+      WHERE id=${id}
     `);
-    const row = await db.execute(sql`
-      SELECT ${SELECT_COLS} ${JOINS} WHERE fr.id = ${id}
-    `);
+    const row = await db.execute(sql`SELECT ${SELECT_COLS} ${JOINS} WHERE fr.id = ${id}`);
     res.json(enrichRow(row.rows[0]));
   } catch (err) {
-    console.error("[forecast-requests] status update error:", err);
+    console.error("[forecast-requests] status error:", err);
     res.status(500).json({ error: "Failed to update status" });
+  }
+});
+
+// ── PATCH /forecast-requests/:id/assign-rm ───────────────────────────────────
+router.patch("/forecast-requests/:id/assign-rm", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { userId } = req.body;
+    await db.execute(sql`
+      UPDATE forecast_requests
+      SET assigned_revenue_manager_id=${userId ?? null},
+          status=CASE WHEN status='pending' THEN 'in_review' ELSE status END,
+          updated_at=NOW()
+      WHERE id=${id}
+    `);
+    const row = await db.execute(sql`SELECT ${SELECT_COLS} ${JOINS} WHERE fr.id = ${id}`);
+    res.json(enrichRow(row.rows[0]));
+  } catch (err) {
+    console.error("[forecast-requests] assign-rm error:", err);
+    res.status(500).json({ error: "Failed to assign Revenue Manager" });
+  }
+});
+
+// ── PATCH /forecast-requests/:id/link-owner ──────────────────────────────────
+router.patch("/forecast-requests/:id/link-owner", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { ownerId } = req.body;
+    if (!ownerId) { res.status(400).json({ error: "ownerId required" }); return; }
+    await db.execute(sql`
+      UPDATE forecast_requests
+      SET owner_id=${ownerId},
+          status=CASE WHEN status='pending' THEN 'in_review' ELSE status END,
+          updated_at=NOW()
+      WHERE id=${id}
+    `);
+    const row = await db.execute(sql`SELECT ${SELECT_COLS} ${JOINS} WHERE fr.id = ${id}`);
+    res.json(enrichRow(row.rows[0]));
+  } catch (err) {
+    console.error("[forecast-requests] link-owner error:", err);
+    res.status(500).json({ error: "Failed to link owner" });
+  }
+});
+
+// ── PATCH /forecast-requests/:id/link-property ───────────────────────────────
+router.patch("/forecast-requests/:id/link-property", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const { propertyId } = req.body;
+    if (!propertyId) { res.status(400).json({ error: "propertyId required" }); return; }
+    await db.execute(sql`
+      UPDATE forecast_requests SET property_id=${propertyId}, updated_at=NOW() WHERE id=${id}
+    `);
+    const row = await db.execute(sql`SELECT ${SELECT_COLS} ${JOINS} WHERE fr.id = ${id}`);
+    res.json(enrichRow(row.rows[0]));
+  } catch (err) {
+    console.error("[forecast-requests] link-property error:", err);
+    res.status(500).json({ error: "Failed to link property" });
+  }
+});
+
+// ── PATCH /forecast-requests/:id/link-forecast ───────────────────────────────
+router.patch("/forecast-requests/:id/link-forecast", requireAuth, async (req, res): Promise<void> => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    const user = (req as any).user;
+    const { forecastId } = req.body;
+    if (!forecastId) { res.status(400).json({ error: "forecastId required" }); return; }
+    await db.execute(sql`
+      UPDATE forecast_requests
+      SET converted_forecast_id=${forecastId},
+          status='converted',
+          converted_at=NOW(),
+          converted_by_user_id=${user?.id ?? null},
+          updated_at=NOW()
+      WHERE id=${id}
+    `);
+    const row = await db.execute(sql`SELECT ${SELECT_COLS} ${JOINS} WHERE fr.id = ${id}`);
+    res.json(enrichRow(row.rows[0]));
+  } catch (err) {
+    console.error("[forecast-requests] link-forecast error:", err);
+    res.status(500).json({ error: "Failed to link forecast" });
   }
 });
 

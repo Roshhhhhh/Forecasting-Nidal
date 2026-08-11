@@ -512,6 +512,14 @@ export async function runStartupMigration() {
       )
     `);
 
+    // forecast_requests — additional tracking columns for conversion workflow
+    await db.execute(sql`
+      ALTER TABLE forecast_requests
+        ADD COLUMN IF NOT EXISTS assigned_revenue_manager_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        ADD COLUMN IF NOT EXISTS converted_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS converted_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL
+    `);
+
     // forecast_requests — new fields for redesigned form
     await db.execute(sql`
       ALTER TABLE forecast_requests

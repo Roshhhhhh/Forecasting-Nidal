@@ -1,0 +1,1060 @@
+Now that the Forecast Request workflow is ready, connect Forecast Requests tightly with Owners, Properties, and Revenue Forecasts.
+
+The objective is to eliminate duplicate data entry.
+
+When a Revenue Manager reviews a Forecast Request, they should be able to:
+
+1. Review the submitted request
+2. Match or create the Owner
+3. Match or create the Property
+4. Confirm or amend submitted data
+5. Create the Forecast using the same request data
+6. Preserve a clear link back to the original Forecast Request
+
+Do not require the Revenue Manager to manually retype information that already exists in the request.
+
+==================================================
+1. CORE RELATIONSHIPS
+==================================================
+
+Extend ForecastRequest with:
+
+ownerId nullable
+propertyId nullable
+forecastId nullable
+
+assignedRevenueManagerId nullable
+
+convertedAt nullable
+convertedByUserId nullable
+
+Also store:
+
+sourceRequestReference
+requestVersion / snapshot if needed
+
+Recommended relationships:
+
+ForecastRequest
+→ Owner
+→ Property
+→ Forecast
+
+One Forecast Request should normally result in:
+
+- one Owner record
+- one Property record
+- one Forecast record
+
+However, Owner and Property may already exist.
+
+Therefore support:
+
+- Link Existing Owner
+- Create New Owner
+- Link Existing Property
+- Create New Property
+
+==================================================
+2. REVIEW REQUEST PAGE
+==================================================
+
+When Revenue Manager opens a Forecast Request, create a clear review workspace.
+
+Header:
+
+Forecast Request
+FR-2026-XXXX
+
+Status:
+Pending Review / In Review / Converted
+
+Submitted by:
+[User Name]
+
+Submitted:
+[Date / Time]
+
+Sections:
+
+OWNER
+PROPERTY
+COMMERCIAL
+REFERRAL
+MEDIA
+NOTES
+
+Show all submitted data exactly as provided.
+
+Then show conversion status:
+
+Owner
+Not Linked / Linked
+
+Property
+Not Linked / Linked
+
+Forecast
+Not Created / Created
+
+Actions:
+
+OWNER
+[ Link Existing Owner ]
+[ Create Owner ]
+
+PROPERTY
+[ Link Existing Property ]
+[ Create Property ]
+
+FORECAST
+[ Create Forecast ]
+
+Do not allow Create Forecast until owner and property are linked, unless the system creates them automatically within the same guided flow.
+
+==================================================
+3. MATCH EXISTING OWNER
+==================================================
+
+When the Revenue Manager clicks:
+
+Link Existing Owner
+
+Search existing owners using:
+
+- Full name
+- Company name
+- Mobile
+- WhatsApp
+- Email
+
+Show likely matches first.
+
+Example:
+
+Possible Match
+Fatima Al Mansouri
++971 50 XXX XXXX
+fatima@email.com
+
+Confidence:
+High
+
+Buttons:
+
+Link Owner
+View Owner
+
+Do not auto-link based only on similar names.
+
+Require Revenue Manager confirmation.
+
+==================================================
+4. CREATE OWNER FROM REQUEST
+==================================================
+
+When the Revenue Manager clicks:
+
+Create Owner
+
+Navigate to the existing Create Owner page.
+
+IMPORTANT:
+
+Pass the Forecast Request ID in the URL or route state.
+
+Example:
+
+/owners/new?forecastRequestId=123
+
+When forecastRequestId exists:
+
+1. Load the request
+2. Pre-fill all available owner fields
+3. Show a special Forecast Request Context bar at the TOP of the page
+
+If no forecastRequestId exists:
+
+Do NOT show this bar.
+
+==================================================
+5. FORECAST REQUEST CONTEXT BAR - OWNER PAGE
+==================================================
+
+At the very top of Create Owner page, above the form, display a compact premium context bar.
+
+Only show when the page is opened from a Forecast Request.
+
+Design:
+
+Royal gold / warm ivory background
+Small icon
+Clear but compact
+Dismiss/collapse option only if appropriate
+
+Heading:
+
+Creating Owner from Forecast Request
+
+Subheading:
+
+FR-2026-XXXX
+
+Display key submitted information:
+
+Owner:
+Mrs. Fatima
+
+Type:
+Individual
+
+Mobile:
++971 XX XXX XXXX
+
+Email:
+[Email if available]
+
+Company:
+[If applicable]
+
+Referee:
+Ahmad Samir
+
+Submitted by:
+[Requesting User]
+
+Submitted:
+11 Aug 2026, 10:18 PM
+
+Actions:
+
+[ View Full Request ]
+[ Use Request Data ]
+[ Compare Changes ]
+
+Optional status:
+
+Owner Record:
+Not Yet Created
+
+==================================================
+6. PREFILL OWNER FORM
+==================================================
+
+Map Request data into Owner fields.
+
+Example mapping:
+
+request.ownerType
+→ owner.type
+
+request.title
+→ owner.title
+
+request.firstName
+→ owner.firstName
+
+request.lastName
+→ owner.lastName
+
+request.companyName
+→ owner.companyName
+
+request.contactPerson
+→ owner.contactPerson
+
+request.email
+→ owner.email
+
+request.mobile
+→ owner.mobile
+
+request.whatsapp
+→ owner.whatsapp
+
+request.nationality
+→ owner.nationality
+
+Revenue Manager may amend values before saving.
+
+Do not overwrite user edits automatically.
+
+==================================================
+7. OWNER DATA REVIEW INDICATORS
+==================================================
+
+For fields prefilled from the Forecast Request, show a subtle badge or helper text:
+
+From Forecast Request
+
+Example:
+
+First Name
+Fatima
+[From Forecast Request]
+
+If Revenue Manager changes the value:
+
+Show:
+
+Modified from Request
+
+Keep an audit trail:
+
+original request value
+saved owner value
+
+Do not block edits.
+
+==================================================
+8. AFTER OWNER SAVE
+==================================================
+
+When Owner is created successfully:
+
+1. Set ForecastRequest.ownerId
+2. Record linkage timestamp
+3. Record linkedBy user
+4. Show success toast:
+
+Owner linked to Forecast Request
+
+Then offer:
+
+[ Create Property ]
+[ Return to Forecast Request ]
+
+If the property has not been linked yet, primary CTA should be:
+
+Continue to Property
+
+Route:
+
+/properties/new?forecastRequestId=123&ownerId=456
+
+==================================================
+9. MATCH EXISTING PROPERTY
+==================================================
+
+From the Forecast Request review page:
+
+Link Existing Property
+
+Search properties using:
+
+- Owner
+- Emirate
+- Area
+- Community
+- Building
+- Unit number
+- Property type
+- Layout
+
+Show likely matches.
+
+Example:
+
+City of Lights
+Building C2
+Unit 1507
+1 Bedroom Apartment
+Al Reem Island
+
+Buttons:
+
+Link Property
+View Property
+
+Require Revenue Manager confirmation.
+
+==================================================
+10. CREATE PROPERTY FROM REQUEST
+==================================================
+
+When clicking:
+
+Create Property
+
+Navigate to:
+
+/properties/new?forecastRequestId=123&ownerId=456
+
+Load request data.
+
+Pre-fill:
+
+- Owner
+- Emirate
+- Area
+- Community
+- Development / Building
+- Unit Number
+- Property Type
+- Layout
+- Bedrooms
+- Bathrooms
+- Approx. Size
+- View
+- Furnishing
+- Condition
+- Waterfront / Beachfront
+- Media
+- Notes if relevant
+
+==================================================
+11. FORECAST REQUEST CONTEXT BAR - PROPERTY PAGE
+==================================================
+
+At the very top of Create Property page, show:
+
+Creating Property from Forecast Request
+
+Reference:
+FR-2026-XXXX
+
+Owner:
+Mrs. Fatima
+
+Area:
+Al Reem Island
+
+Community:
+City of Lights
+
+Building:
+[Building if available]
+
+Layout:
+1 Bedroom
+
+Property Type:
+Apartment
+
+PMC:
+20%
+
+Referee:
+Ahmad Samir
+
+Buttons:
+
+[ View Full Request ]
+[ Use Request Data ]
+[ Compare Changes ]
+
+Optional:
+
+Owner Link:
+✓ Mrs. Fatima
+
+Property Record:
+Not Yet Created
+
+Only show this bar when forecastRequestId exists.
+
+==================================================
+12. PROPERTY FIELD MAPPING
+==================================================
+
+Suggested mapping:
+
+request.emirate
+→ property.emirate
+
+request.area
+→ property.area
+
+request.customArea
+→ property.customArea
+
+request.community
+→ property.community
+
+request.customCommunity
+→ property.customCommunity
+
+request.building
+→ property.building
+
+request.customBuilding
+→ property.customBuilding
+
+request.unitNumber
+→ property.unitNumber
+
+request.propertyType
+→ property.propertyType
+
+request.layout
+→ property.layout
+
+request.bedrooms
+→ property.bedrooms
+
+request.bathrooms
+→ property.bathrooms
+
+request.sizeSqFt
+→ property.internalAreaSqFt or sizeSqFt
+
+request.view
+→ property.primaryView
+
+request.furnishing
+→ property.furnishing
+
+request.condition
+→ property.condition
+
+request.waterfront
+→ property.waterfront
+
+request.media
+→ property.media
+
+==================================================
+13. MEDIA SYNC
+==================================================
+
+If photos, floorplans, videos, or brochures were uploaded in the Forecast Request:
+
+Show them in the Property creation page:
+
+Media from Forecast Request
+
+Allow Revenue Manager to:
+
+- Keep
+- Remove
+- Rename
+- Set as Cover Photo
+- Categorize as:
+  - Property Photo
+  - Floorplan
+  - Brochure
+  - Video
+  - Other
+
+Do not duplicate physical files unnecessarily.
+
+Prefer linking the same uploaded asset to both:
+
+ForecastRequest
+Property
+
+When appropriate.
+
+==================================================
+14. AFTER PROPERTY SAVE
+==================================================
+
+When Property is created:
+
+1. Set ForecastRequest.propertyId
+2. Link Property to ownerId
+3. Record linkedBy
+4. Record timestamp
+5. Show:
+
+Property linked successfully
+
+Primary CTA:
+
+Create Revenue Forecast
+
+Secondary:
+
+Return to Forecast Request
+
+==================================================
+15. CREATE FORECAST FROM REQUEST
+==================================================
+
+Once Owner and Property are linked:
+
+Enable:
+
+Create Forecast
+
+Navigate to:
+
+/forecasts/new?forecastRequestId=123&ownerId=456&propertyId=789
+
+The Forecast form must prefill from:
+
+1. Owner record
+2. Property record
+3. Forecast Request commercial data
+
+Do not rely on request fields where a confirmed Owner or Property record now exists.
+
+==================================================
+16. FORECAST DATA PRIORITY
+==================================================
+
+For Forecast creation, use this priority order:
+
+OWNER DATA:
+Confirmed Owner record
+
+PROPERTY DATA:
+Confirmed Property record
+
+COMMERCIAL DATA:
+Forecast Request
+
+Examples:
+
+Owner Name
+→ Owner record
+
+Property Location
+→ Property record
+
+PMC %
+→ Forecast Request proposedManagementCommission
+
+Referee
+→ Forecast Request refereeName
+
+Media
+→ Property media
+
+Notes
+→ Forecast Request notes
+
+==================================================
+17. FORECAST CREATE PAGE CONTEXT BAR
+==================================================
+
+At the top of Create Forecast page, if linked to a Forecast Request, display:
+
+Forecast Source
+
+FR-2026-XXXX
+
+Owner:
+Mrs. Fatima
+
+Property:
+City of Lights
+1 Bedroom Apartment
+Al Reem Island
+
+Proposed PMC:
+20%
+
+Referee:
+Ahmad Samir
+
+Submitted by:
+[User]
+
+Status:
+In Review
+
+Buttons:
+
+[ View Request ]
+[ View Owner ]
+[ View Property ]
+
+This should give the Revenue Manager context without leaving the Forecast form.
+
+==================================================
+18. SMART CONVERSION FLOW
+==================================================
+
+Add a guided status panel to the request.
+
+Example:
+
+Forecast Request Conversion
+
+1. Owner
+✓ Linked
+
+2. Property
+✓ Linked
+
+3. Revenue Forecast
+○ Not Created
+
+CTA:
+Create Revenue Forecast
+
+If owner is not linked:
+
+1. Owner
+○ Not Linked
+
+CTA:
+Link or Create Owner
+
+If property is not linked:
+
+2. Property
+○ Not Linked
+
+CTA:
+Link or Create Property
+
+==================================================
+19. REQUEST STATUS LOGIC
+==================================================
+
+Suggested lifecycle:
+
+Pending Review
+→ In Review
+→ Converted
+
+When Revenue Manager first opens / claims:
+
+Status:
+In Review
+
+When Owner and Property linked but no forecast yet:
+
+Remain:
+In Review
+
+When Forecast is successfully created:
+
+Status:
+Converted
+
+Set:
+
+convertedAt
+convertedBy
+forecastId
+
+Do not mark Converted just because Owner was created.
+
+==================================================
+20. ASSIGNMENT LOGIC
+==================================================
+
+The requesting user does not assign a representative.
+
+On the Forecast Request Review page, allow Revenue Manager to:
+
+Assign to Me
+
+or
+
+Assign Revenue Manager
+
+Store:
+
+assignedRevenueManagerId
+
+Once assigned:
+
+Display in request header:
+
+Revenue Manager:
+[Name]
+
+This assignment should also transfer to the resulting Forecast by default.
+
+==================================================
+21. PROTECT SOURCE DATA
+==================================================
+
+Do not mutate the original Forecast Request when Owner or Property values are edited.
+
+The request must remain the historical submitted source.
+
+Example:
+
+Original Request:
+Area = “Reem”
+
+Revenue Manager corrected Property:
+Area = “Al Reem Island”
+
+Keep both:
+
+Request submitted value:
+Reem
+
+Final Property value:
+Al Reem Island
+
+This is important for auditability.
+
+==================================================
+22. COMPARE REQUEST VS FINAL DATA
+==================================================
+
+Add optional button:
+
+Compare Changes
+
+Display a small comparison drawer.
+
+Example:
+
+Field
+Request
+Final Record
+
+Owner Name
+Fatima
+Fatima Al Mansouri
+
+Area
+Reem
+Al Reem Island
+
+Community
+City of Lights
+City of Lights
+
+PMC
+20%
+20%
+
+Use simple status:
+
+Same
+Updated
+Missing
+Added
+
+==================================================
+23. REQUEST CARD ENHANCEMENT
+==================================================
+
+On Forecast Requests list, once linked, show compact indicators.
+
+Example:
+
+Mrs. Fatima
+City of Lights · 1 Bedroom Apartment
+
+PMC 20%
+via Ahmad Samir
+
+Owner ✓
+Property ✓
+Forecast ○
+
+Status:
+In Review
+
+When complete:
+
+Owner ✓
+Property ✓
+Forecast ✓
+
+Status:
+Converted
+
+==================================================
+24. FORECAST LIST ENHANCEMENT
+==================================================
+
+On Revenue Forecasts page, show a small source indicator if created from request:
+
+Source:
+FR-2026-XXXX
+
+Allow clicking it to open the original Forecast Request.
+
+Do not clutter the main table excessively.
+
+This can appear in:
+
+- row details
+- tooltip
+- drawer
+- secondary line
+
+==================================================
+25. DUPLICATE PREVENTION
+==================================================
+
+Before creating Owner:
+
+Search for likely duplicate.
+
+Before creating Property:
+
+Search for likely duplicate.
+
+Warnings should be non-blocking but clear.
+
+Owner duplicate signals:
+
+- same mobile
+- same email
+- very similar name
+
+Property duplicate signals:
+
+- same owner
+- same building
+- same unit number
+
+If exact property match exists:
+
+Recommend:
+Link Existing Property
+
+instead of creating duplicate.
+
+==================================================
+26. USER EXPERIENCE
+==================================================
+
+The Revenue Manager flow should feel like:
+
+Forecast Request
+↓
+Review
+↓
+Link/Create Owner
+↓
+Link/Create Property
+↓
+Create Forecast
+
+The user should never have to remember or copy values manually between pages.
+
+Use:
+
+- Prefilled forms
+- Context bars
+- Quick navigation
+- Success toasts
+- Progress indicators
+- Back-to-request links
+
+==================================================
+27. MOBILE UX
+==================================================
+
+Since Revenue Managers may review requests on mobile:
+
+Context bar must be responsive.
+
+On mobile show condensed version:
+
+Forecast Request FR-2026-XXXX
+
+Fatima
+City of Lights
+1BR · Al Reem Island
+PMC 20%
+
+[View Request]
+
+Allow expand for full details.
+
+Do not let the bar take excessive vertical space.
+
+Sticky CTAs should remain usable.
+
+==================================================
+28. CONTEXT BAR VISIBILITY RULE
+==================================================
+
+CRITICAL RULE:
+
+The Forecast Request Context bar must appear ONLY when:
+
+forecastRequestId exists
+AND
+the record is valid
+
+Examples:
+
+/owners/new
+→ NO context bar
+
+/owners/new?forecastRequestId=123
+→ SHOW context bar
+
+/properties/new
+→ NO context bar
+
+/properties/new?forecastRequestId=123
+→ SHOW context bar
+
+/forecasts/new
+→ NO context bar
+
+/forecasts/new?forecastRequestId=123
+→ SHOW context bar
+
+Do not show stale data if the request cannot be loaded.
+
+==================================================
+29. CONTEXT BAR DATA
+==================================================
+
+Owner Page Context Bar:
+
+- Request Reference
+- Owner submitted name
+- Owner type
+- Mobile
+- Company if relevant
+- Referee
+- Submitted by
+- Submitted time
+
+Property Page Context Bar:
+
+- Request Reference
+- Owner
+- Area
+- Community
+- Building
+- Unit
+- Property Type
+- Layout
+- PMC
+- Referee
+
+Forecast Page Context Bar:
+
+- Request Reference
+- Confirmed Owner
+- Confirmed Property
+- Proposed PMC
+- Referee
+- Revenue Manager
+- Request status
+
+==================================================
+30. FINAL ACCEPTANCE CRITERIA
+==================================================
+
+This integration is complete when:
+
+1. Forecast Requests link to Owner, Property, and Forecast records.
+2. Revenue Manager can link an existing Owner.
+3. Revenue Manager can create Owner directly from Request.
+4. Owner form is prefilled from Request.
+5. Owner page shows Forecast Request Context bar only when linked.
+6. Revenue Manager can link an existing Property.
+7. Revenue Manager can create Property directly from Request.
+8. Property form is prefilled from Request.
+9. Property page shows Forecast Request Context bar only when linked.
+10. Uploaded Request media is available in Property creation.
+11. Proposed PMC flows into Forecast.
+12. Referee flows into Forecast.
+13. Revenue Manager assignment flows into Forecast.
+14. Original Forecast Request remains immutable.
+15. User can compare submitted versus final values.
+16. Duplicate Owner checks exist.
+17. Duplicate Property checks exist.
+18. Forecast cannot be marked Converted before Forecast record exists.
+19. Forecast shows its source Forecast Request.
+20. Revenue Manager never has to retype request data manually.

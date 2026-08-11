@@ -6,9 +6,20 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ClipboardList, Plus, Clock, Eye, CheckCircle2, XCircle,
-  Building2, User, MapPin, Percent, UserCheck, Paperclip,
+  Building2, User, Percent, UserCheck, Paperclip, Circle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+
+function LinkIndicator({ linked, label }: { linked: boolean; label: string }) {
+  return (
+    <div className={`flex items-center gap-1 text-[11px] font-medium ${linked ? "text-green-600" : "text-muted-foreground/60"}`}>
+      {linked
+        ? <CheckCircle2 className="h-3 w-3" />
+        : <Circle className="h-3 w-3" />}
+      {label}
+    </div>
+  );
+}
 
 // ── status meta ────────────────────────────────────────────────────────────────
 const STATUS_META: Record<string, { label: string; color: string; icon: React.FC<any> }> = {
@@ -169,7 +180,8 @@ export default function ForecastRequestsList() {
             const isReducedPmc = req.proposedManagementCommission && req.proposedManagementCommission !== "20%";
 
             return (
-              <Card key={req.id} className="shadow-sm border-border/50 hover:border-primary/20 transition-colors">
+              <Link key={req.id} href={`/forecast-requests/${req.id}`}>
+              <Card className="shadow-sm border-border/50 hover:border-primary/20 transition-colors cursor-pointer">
                 <CardContent className="p-4">
                   <div className="flex items-start gap-3">
                     <div className="flex-1 min-w-0 space-y-2">
@@ -223,10 +235,17 @@ export default function ForecastRequestsList() {
                       {req.notes && (
                         <p className="text-xs text-muted-foreground line-clamp-1 italic">"{req.notes}"</p>
                       )}
+
+                      {/* Link indicators */}
+                      <div className="flex items-center gap-3 pt-0.5">
+                        <LinkIndicator linked={!!req.ownerId} label="Owner" />
+                        <LinkIndicator linked={!!req.propertyId} label="Property" />
+                        <LinkIndicator linked={!!req.convertedForecastId} label="Forecast" />
+                      </div>
                     </div>
 
-                    {/* Status selector */}
-                    <div className="shrink-0">
+                    {/* Status selector — stop propagation so click doesn't open detail */}
+                    <div className="shrink-0" onClick={e => e.preventDefault()}>
                       <Select value={req.status} onValueChange={status => updateStatus({ id: req.id, status })}>
                         <SelectTrigger className="h-7 w-28 text-xs">
                           <SelectValue />
@@ -242,6 +261,7 @@ export default function ForecastRequestsList() {
                   </div>
                 </CardContent>
               </Card>
+              </Link>
             );
           })}
         </div>

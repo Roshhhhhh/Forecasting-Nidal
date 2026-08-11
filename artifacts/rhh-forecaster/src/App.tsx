@@ -31,6 +31,7 @@ import RefereeDetail from '@/pages/referees/[id]';
 import Pipeline from '@/pages/pipeline';
 import ForecastRequestsList from '@/pages/forecast-requests/index';
 import NewForecastRequest from '@/pages/forecast-requests/new';
+import ForecastRequestDetail from '@/pages/forecast-requests/[id]';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -67,6 +68,7 @@ function ProtectedRouter() {
         <Route path="/pipeline" component={Pipeline} />
         <Route path="/forecast-requests" component={ForecastRequestsList} />
         <Route path="/forecast-requests/new" component={NewForecastRequest} />
+        <Route path="/forecast-requests/:id" component={ForecastRequestDetail} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

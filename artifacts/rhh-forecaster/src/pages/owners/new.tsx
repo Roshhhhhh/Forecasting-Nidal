@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useCreateOwner, useListUsers, useListReferees, useCreateReferee, useCreateUser, useListRoles, getListRefereesQueryKey, getListUsersQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,8 +8,9 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useLocation, Link } from "wouter";
+import { useLocation, Link, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { ForecastRequestContextBar } from "@/components/ForecastRequestContextBar";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import LeadSourcePicker from "@/components/LeadSourcePicker";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -64,9 +65,21 @@ interface RefereeQuickFormValues {
 
 export default function OwnerNew() {
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
+  const searchParams = new URLSearchParams(searchString);
+  const frIdStr = searchParams.get("forecastRequestId");
+  const forecastRequestId = frIdStr ? parseInt(frIdStr, 10) : null;
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createOwner = useCreateOwner();
+
+  const { data: forecastRequest } = useQuery({
+    queryKey: ["forecast-request", forecastRequestId],
+    queryFn: () => fetch(`/api/forecast-requests/${forecastRequestId}`).then(r => r.json()),
+    enabled: !!forecastRequestId,
+    staleTime: 60000,
+  });
   const createReferee = useCreateReferee();
   const createUser = useCreateUser();
   const { data: users } = useListUsers();
@@ -107,6 +120,24 @@ export default function OwnerNew() {
   const leadSource = form.watch("leadSource");
   const selectedRefereeId = form.watch("refereeId");
 
+  // Prefill from forecast request
+  useEffect(() => {
+    if (!forecastRequest) return;
+    const fr = forecastRequest as any;
+    if (fr.ownerType) form.setValue("ownerType", fr.ownerType);
+    if (fr.ownerTitle) form.setValue("title", fr.ownerTitle);
+    if (fr.ownerFirstName) form.setValue("firstName", fr.ownerFirstName);
+    if (fr.ownerLastName) form.setValue("lastName", fr.ownerLastName);
+    if (fr.ownerCompanyName) form.setValue("companyName", fr.ownerCompanyName);
+    if (fr.ownerEmail) form.setValue("email", fr.ownerEmail);
+    if (fr.ownerPhone) form.setValue("phone", fr.ownerPhone);
+    if (fr.ownerWhatsapp) form.setValue("whatsapp", fr.ownerWhatsapp);
+    if (fr.ownerNationality) form.setValue("nationality", fr.ownerNationality);
+    if (fr.refereeName && !form.getValues("notes")) {
+      form.setValue("notes", `Referee: ${fr.refereeName}`);
+    }
+  }, [forecastRequest]);
+
   const selectedReferee = referees?.find((r: any) => r.id === selectedRefereeId);
 
   const onSubmit = async (data: OwnerFormValues) => {
@@ -117,8 +148,24 @@ export default function OwnerNew() {
       if (!submitData.companyName) delete submitData.companyName;
 
       const result = await createOwner.mutateAsync({ data: submitData });
-      toast({ title: "Owner created", description: "The owner profile has been created successfully." });
-      setLocation(`/owners/${result.id}`);
+
+      if (forecastRequestId) {
+        try {
+          await fetch(`/api/forecast-requests/${forecastRequestId}/link-owner`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ownerId: (result as any).id }),
+          });
+          toast({ title: "Owner created & linked", description: "Now add the property." });
+          setLocation(`/properties/new?forecastRequestId=${forecastRequestId}&ownerId=${(result as any).id}`);
+        } catch {
+          toast({ title: "Owner created", description: "Could not auto-link to request.", variant: "destructive" });
+          setLocation(`/forecast-requests/${forecastRequestId}`);
+        }
+      } else {
+        toast({ title: "Owner created", description: "The owner profile has been created successfully." });
+        setLocation(`/owners/${(result as any).id}`);
+      }
     } catch {
       toast({ title: "Error", description: "Failed to create owner.", variant: "destructive" });
     }
@@ -171,15 +218,25 @@ export default function OwnerNew() {
 
   return (
     <div className="p-8 max-w-[1000px] mx-auto space-y-6">
+      {forecastRequestId && (
+        <ForecastRequestContextBar forecastRequestId={forecastRequestId} context="owner" />
+      )}
+
       <div className="flex items-center gap-4 text-sm text-muted-foreground mb-4">
-        <Link href="/owners" className="hover:text-foreground transition-colors">Owners</Link>
+        {forecastRequestId ? (
+          <Link href={`/forecast-requests/${forecastRequestId}`} className="hover:text-foreground transition-colors">Forecast Request</Link>
+        ) : (
+          <Link href="/owners" className="hover:text-foreground transition-colors">Owners</Link>
+        )}
         <span>/</span>
         <span className="text-foreground font-medium">New Owner</span>
       </div>
 
       <div>
         <h1 className="text-3xl font-serif font-bold text-foreground">Create Owner Profile</h1>
-        <p className="text-muted-foreground mt-1">Add a new property owner or corporate client to your database.</p>
+        <p className="text-muted-foreground mt-1">
+          {forecastRequestId ? "Form pre-filled from the forecast request. Review and save." : "Add a new property owner or corporate client to your database."}
+        </p>
       </div>
 
       <Form {...form}>

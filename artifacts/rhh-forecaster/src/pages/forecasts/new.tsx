@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { useListOwners, useListProperties, useCreateForecast } from "@workspace/api-client-react";
+import { ForecastRequestContextBar } from "@/components/ForecastRequestContextBar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -37,6 +38,13 @@ type WizardFormValues = z.infer<typeof wizardSchema>;
 export default function ForecastWizard() {
   const [step, setStep] = useState(1);
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
+  const searchParams = new URLSearchParams(searchString);
+  const frIdStr = searchParams.get("forecastRequestId");
+  const forecastRequestId = frIdStr ? parseInt(frIdStr, 10) : null;
+  const urlOwnerId = searchParams.get("ownerId") ? parseInt(searchParams.get("ownerId")!, 10) : 0;
+  const urlPropertyId = searchParams.get("propertyId") ? parseInt(searchParams.get("propertyId")!, 10) : 0;
+
   const { toast } = useToast();
   const createForecast = useCreateForecast();
   
@@ -46,10 +54,15 @@ export default function ForecastWizard() {
   const form = useForm<WizardFormValues>({
     resolver: zodResolver(wizardSchema),
     defaultValues: {
-      ownerId: 0,
-      propertyId: 0,
+      ownerId: urlOwnerId || 0,
+      propertyId: urlPropertyId || 0,
     },
   });
+
+  // If coming from a FR with owner+property pre-selected, skip to step 2 or submit directly
+  const initialStep = (urlOwnerId && urlPropertyId) ? 2 : (urlOwnerId ? 2 : 1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useState(() => { if (initialStep > 1) setStep(initialStep); });
 
   const selectedOwnerId = form.watch("ownerId");
   const filteredProperties = properties?.filter(p => p.ownerId === selectedOwnerId) || [];
@@ -68,12 +81,26 @@ export default function ForecastWizard() {
         data: {
           ownerId: data.ownerId,
           propertyId: data.propertyId,
-          managementFeePercent: 20, // defaults
-          ltrVacancyPercent: 5
+          managementFeePercent: 20,
+          ltrVacancyPercent: 5,
         } as any 
       });
+
+      // Link forecast to the originating request
+      if (forecastRequestId) {
+        try {
+          await fetch(`/api/forecast-requests/${forecastRequestId}/link-forecast`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ forecastId: result.id }),
+          });
+        } catch {
+          // non-critical — forecast is created, just log
+          console.warn("Could not link forecast to request");
+        }
+      }
+
       toast({ title: "Draft Created", description: "Navigating to forecast builder..." });
-      // Redirect to the forecast detail page which will serve as the rest of the wizard
       setLocation(`/forecasts/${result.id}`);
     } catch (error) {
       toast({ title: "Error", description: "Failed to create forecast.", variant: "destructive" });
@@ -82,6 +109,9 @@ export default function ForecastWizard() {
 
   return (
     <div className="p-8 max-w-[1200px] mx-auto space-y-8">
+      {forecastRequestId && (
+        <ForecastRequestContextBar forecastRequestId={forecastRequestId} context="forecast" />
+      )}
       <div>
         <h1 className="text-3xl font-serif font-bold text-foreground">New Revenue Forecast</h1>
         <p className="text-muted-foreground mt-1 text-lg">Guided setup for accurate income projections.</p>

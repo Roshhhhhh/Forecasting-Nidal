@@ -26,6 +26,7 @@ import Settings from '@/pages/settings';
 import UsersList from '@/pages/admin/users';
 import RolesPage from '@/pages/admin/roles';
 import PublicProposal from '@/pages/public/proposal';
+import PublicRequestForecast from '@/pages/public/request-forecast';
 import RefereesList from '@/pages/referees/index';
 import RefereeDetail from '@/pages/referees/[id]';
 import Pipeline from '@/pages/pipeline';
@@ -87,6 +88,7 @@ function MainRouter() {
           <PublicProposal />
         </PublicLayout>
       </Route>
+      <Route path="/request-forecast" component={PublicRequestForecast} />
       
       {/* All other routes get AppLayout */}
       <Route path="*">

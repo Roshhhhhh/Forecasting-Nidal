@@ -96,6 +96,61 @@ router.get("/forecast-requests", requireAuth, async (_req, res): Promise<void> =
   }
 });
 
+// ── POST /public/forecast-requests (no auth — owner-facing landing page) ───────
+router.post("/public/forecast-requests", async (req, res): Promise<void> => {
+  try {
+    const b = req.body;
+
+    // Basic honeypot / sanity guard
+    if (b._hp) { res.status(200).json({ ok: true }); return; } // spam trap
+
+    // Require at minimum a name or company and a contact method
+    const hasOwner = b.ownerFirstName?.trim() || b.ownerCompanyName?.trim();
+    const hasContact = b.ownerEmail?.trim() || b.ownerPhone?.trim();
+    if (!hasOwner || !hasContact) {
+      res.status(400).json({ error: "Owner name and contact information are required." });
+      return;
+    }
+
+    let bedrooms: number | null = null;
+    if (b.propertyLayout === "Studio") bedrooms = 0;
+    else if (b.propertyLayout) {
+      const m = String(b.propertyLayout).match(/^(\d+)/);
+      if (m) bedrooms = parseInt(m[1], 10);
+    }
+
+    const result = await db.execute(sql`
+      INSERT INTO forecast_requests (
+        owner_title, owner_first_name, owner_last_name,
+        owner_company_name, owner_contact_person, owner_contact_position,
+        owner_email, owner_phone, owner_whatsapp, owner_nationality, owner_type,
+        property_emirate, property_area, property_community,
+        property_development, property_unit_number, property_type, property_layout,
+        property_bedrooms, property_bathrooms, property_internal_area,
+        property_furnishing, property_view, property_is_waterfront,
+        notes, created_by_id
+      ) VALUES (
+        ${b.ownerTitle ?? null}, ${b.ownerFirstName?.trim() ?? null}, ${b.ownerLastName?.trim() ?? null},
+        ${b.ownerCompanyName?.trim() ?? null}, ${b.ownerContactPerson?.trim() ?? null}, ${b.ownerContactPosition?.trim() ?? null},
+        ${b.ownerEmail?.trim() ?? null}, ${b.ownerPhone?.trim() ?? null}, ${b.ownerWhatsapp?.trim() ?? null},
+        ${b.ownerNationality?.trim() ?? null}, ${b.ownerType ?? "individual"},
+        ${b.propertyEmirate ?? null}, ${b.propertyArea ?? null}, ${b.propertyCommunity ?? null},
+        ${b.propertyDevelopment?.trim() ?? null}, ${b.propertyUnitNumber?.trim() ?? null},
+        ${b.propertyType ?? null}, ${b.propertyLayout ?? null},
+        ${bedrooms}, ${b.propertyBathrooms ?? null}, ${b.propertyInternalArea ?? null},
+        ${b.propertyFurnishing ?? null}, ${b.propertyView ?? null}, ${b.propertyIsWaterfront ?? false},
+        ${b.notes?.trim() ?? null}, ${null}
+      ) RETURNING id
+    `);
+
+    const newId = (result.rows[0] as any).id;
+    res.status(201).json({ id: newId, ref: `FR-${String(newId).padStart(4, "0")}` });
+  } catch (err) {
+    console.error("[public/forecast-requests] create error:", err);
+    res.status(500).json({ error: "Failed to submit request. Please try again." });
+  }
+});
+
 // ── POST /forecast-requests ────────────────────────────────────────────────────
 router.post("/forecast-requests", requireAuth, async (req, res): Promise<void> => {
   try {

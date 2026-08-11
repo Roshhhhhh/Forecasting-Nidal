@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ClipboardList, Plus, Clock, Eye, CheckCircle2, XCircle,
-  Building2, User, Percent, UserCheck, Paperclip, Circle,
+  Building2, User, Percent, UserCheck, Paperclip, Circle, Link2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -126,11 +126,26 @@ export default function ForecastRequestsList() {
             {pendingCount > 0 ? `${pendingCount} pending review` : "No pending requests"}
           </p>
         </div>
-        <Link href="/forecast-requests/new">
-          <Button className="gap-2 shrink-0">
-            <Plus className="h-4 w-4" /> New Request
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={() => {
+              const url = `${window.location.origin}${import.meta.env.BASE_URL.replace(/\/$/, "")}/request-forecast`;
+              navigator.clipboard.writeText(url).then(() => {
+                toast({ title: "Link copied", description: "Share this link with property owners to let them submit a forecast request." });
+              });
+            }}
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors shrink-0"
+          >
+            <Link2 className="h-3.5 w-3.5" />
+            Share Public Form
+          </button>
+          <Link href="/forecast-requests/new">
+            <Button className="gap-2 shrink-0">
+              <Plus className="h-4 w-4" /> New Request
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filters */}

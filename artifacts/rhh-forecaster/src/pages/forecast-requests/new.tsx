@@ -191,17 +191,30 @@ export default function NewForecastRequest() {
   const showCommunityOther = community === "Other";
   const isReducedPmc = pmc !== "20%";
 
-  // filtered owner list
-  const filteredOwners = (owners as any[]).filter((o: any) => {
+  // filtered owner list — dedupe by ID, hide nameless entries, then search
+  const uniqueOwners = Array.from(
+    new Map((owners as any[]).map((o: any) => [o.id, o])).values()
+  ).filter((o: any) => {
+    const name = o.ownerType === "company"
+      ? (o.companyName ?? "").trim()
+      : [o.firstName, o.lastName].filter(Boolean).join(" ").trim();
+    return name.length > 0;
+  });
+
+  const filteredOwners = uniqueOwners.filter((o: any) => {
     const q = ownerSearch.toLowerCase();
     if (!q) return true;
     const name = [o.firstName, o.lastName].filter(Boolean).join(" ").toLowerCase();
     const company = (o.companyName ?? "").toLowerCase();
-    return name.includes(q) || company.includes(q) || (o.email ?? "").toLowerCase().includes(q) || (o.phone ?? "").toLowerCase().includes(q);
+    return name.includes(q) || company.includes(q) || (o.email ?? "").toLowerCase().includes(q) || (o.phone ?? "").toLowerCase().includes(q) || String(o.id).includes(q);
   }).slice(0, 8);
 
-  // filtered property list
-  const filteredProps = (properties as any[]).filter((p: any) => {
+  // filtered property list — dedupe by ID first
+  const uniqueProperties = Array.from(
+    new Map((properties as any[]).map((p: any) => [p.id, p])).values()
+  );
+
+  const filteredProps = uniqueProperties.filter((p: any) => {
     const q = propSearch.toLowerCase();
     if (!q) return true;
     const str = [p.development, p.community, p.unitNumber, p.area].filter(Boolean).join(" ").toLowerCase();

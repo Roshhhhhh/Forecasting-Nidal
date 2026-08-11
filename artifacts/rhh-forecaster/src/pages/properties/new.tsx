@@ -301,7 +301,16 @@ export default function PropertyNew() {
     // Only prefill if user hasn't changed anything yet
     if (fr.propertyEmirate) form.setValue("emirate", fr.propertyEmirate);
     if (fr.propertyArea) form.setValue("area", fr.propertyArea);
-    if (fr.propertyCommunity) form.setValue("projectBuilding", fr.propertyCommunity);
+    if (fr.propertyCommunity) {
+      // If the stored community is in the known list, select it directly.
+      // Otherwise fall back to "Other…" + free-text so the user can see and edit the value.
+      if (ABU_DHABI_COMMUNITIES.includes(fr.propertyCommunity)) {
+        form.setValue("projectBuilding", fr.propertyCommunity);
+      } else {
+        form.setValue("projectBuilding", "Other…");
+        setCustomCommunity(fr.propertyCommunity);
+      }
+    }
     if (fr.propertyUnitNumber) form.setValue("unitNumber", fr.propertyUnitNumber);
     // Map layout → bedrooms
     if (fr.propertyLayout) {

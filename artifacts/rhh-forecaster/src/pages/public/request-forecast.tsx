@@ -292,12 +292,11 @@ export default function PublicRequestForecast() {
           maxWidth: 680, margin: "0 auto", padding: "20px 20px 0",
         }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{
-              width: 36, height: 36, borderRadius: 8,
-              background: GOLD, display: "flex", alignItems: "center", justifyContent: "center",
-            }}>
-              <Building2 size={18} color="#fff" />
-            </div>
+            <img
+              src="/rhh-logo-mark.png"
+              alt="Royal Holiday Homes"
+              style={{ width: 40, height: 40, objectFit: "contain" }}
+            />
             <div>
               <p style={{ color: "#fff", fontSize: 14, fontWeight: 700, margin: 0, lineHeight: 1.2 }}>
                 Royal Holiday Homes

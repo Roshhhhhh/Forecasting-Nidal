@@ -514,9 +514,14 @@ export default function OwnerDetail() {
                                 <Link href={`/properties/${prop.id}`} className="font-medium text-foreground hover:text-primary transition-colors">
                                   {prop.projectBuilding ? `${prop.unitNumber ? prop.unitNumber + ", " : ""}${prop.projectBuilding}` : prop.area}
                                 </Link>
-                                {prop.isCoOwned && prop.coOwnership && (
-                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-amber-300 text-amber-700 bg-amber-50">
-                                    Co-owner · {prop.coOwnership.ownershipPercentage}%
+                                {prop.coOwnership && (
+                                  <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${prop.coOwnership.isPrimary ? "border-green-300 text-green-700 bg-green-50" : "border-amber-300 text-amber-700 bg-amber-50"}`}>
+                                    {prop.coOwnership.isPrimary ? "Primary" : "Co-owner"} · {prop.coOwnership.ownershipPercentage}%
+                                  </Badge>
+                                )}
+                                {prop.coOwnership?.ownershipType && prop.coOwnership.ownershipType !== "sole" && (
+                                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 capitalize">
+                                    {prop.coOwnership.ownershipType.replace(/_/g, " ")}
                                   </Badge>
                                 )}
                               </div>

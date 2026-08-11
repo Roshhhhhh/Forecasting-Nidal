@@ -10,7 +10,7 @@ import { z } from "zod";
 import { useLocation, Link, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { AmenitiesPicker } from "@/components/AmenitiesPicker";
 import { ForecastRequestContextBar } from "@/components/ForecastRequestContextBar";
@@ -212,8 +212,30 @@ const ABU_DHABI_COMMUNITIES = [
   "Other…",
 ];
 
+const LAYOUTS = [
+  "Studio",
+  "1 Bedroom", "2 Bedrooms", "3 Bedrooms", "4 Bedrooms",
+  "5 Bedrooms", "6 Bedrooms", "7 Bedrooms", "8 Bedrooms",
+  "9 Bedrooms", "10 Bedrooms", "10+ Bedrooms",
+];
+
+const OWNERSHIP_TYPES = [
+  { value: "sole",        label: "Sole Owner" },
+  { value: "joint_title", label: "Joint Title" },
+  { value: "trust",       label: "Trust / Family Trust" },
+  { value: "company",     label: "Company / Corporate" },
+  { value: "poa",         label: "Power of Attorney" },
+  { value: "other",       label: "Other" },
+];
+
+interface OwnerRow {
+  ownerId: number;
+  ownershipPercentage: number;
+  ownershipType: string;
+  isPrimary: boolean;
+}
+
 const propertySchema = z.object({
-  ownerId: z.coerce.number().min(1, "Owner is required"),
   emirate: z.string().min(1, "Emirate is required"),
   area: z.string().min(1, "Area is required"),
   projectBuilding: z.string().optional(),
@@ -242,13 +264,61 @@ export default function PropertyNew() {
   const [, setLocation] = useLocation();
   const searchString = useSearch();
   const searchParams = new URLSearchParams(searchString);
-  const initialOwnerId = searchParams.get("ownerId");
+  const initialOwnerIdStr = searchParams.get("ownerId");
+  const initialOwnerId = initialOwnerIdStr ? parseInt(initialOwnerIdStr, 10) : 0;
   const frIdStr = searchParams.get("forecastRequestId");
   const forecastRequestId = frIdStr ? parseInt(frIdStr, 10) : null;
 
   const { toast } = useToast();
   const createProperty = useCreateProperty();
   const { data: owners } = useListOwners();
+
+  // Multi-owner state — starts with one row seeded from URL param
+  const [ownerRows, setOwnerRows] = useState<OwnerRow[]>([
+    { ownerId: initialOwnerId, ownershipPercentage: 100, ownershipType: "sole", isPrimary: true },
+  ]);
+
+  // Layout selector — drives bedrooms auto-fill
+  const [layout, setLayout] = useState("");
+  const handleLayoutChange = (val: string) => {
+    setLayout(val);
+    if (val === "Studio") {
+      form.setValue("bedrooms", 0);
+      form.setValue("propertyType", "studio");
+    } else {
+      const m = val.match(/^(\d+)/);
+      if (m) form.setValue("bedrooms", parseInt(m[1], 10));
+    }
+  };
+
+  const totalOwnershipPct = ownerRows.reduce((s, r) => s + r.ownershipPercentage, 0);
+  const ownerRowError = ownerRows.every(r => r.ownerId === 0)
+    ? "At least one owner is required"
+    : null;
+
+  const addOwnerRow = useCallback(() => {
+    setOwnerRows(rows => [...rows, { ownerId: 0, ownershipPercentage: 0, ownershipType: "joint_title", isPrimary: false }]);
+  }, []);
+
+  const removeOwnerRow = useCallback((idx: number) => {
+    setOwnerRows(rows => {
+      const next = rows.filter((_, i) => i !== idx);
+      // Ensure one primary
+      if (next.length > 0 && !next.some(r => r.isPrimary)) next[0].isPrimary = true;
+      return next;
+    });
+  }, []);
+
+  const updateOwnerRow = useCallback((idx: number, patch: Partial<OwnerRow>) => {
+    setOwnerRows(rows => rows.map((r, i) => {
+      if (i !== idx) {
+        // If setting a new primary, clear others
+        if (patch.isPrimary) return { ...r, isPrimary: false };
+        return r;
+      }
+      return { ...r, ...patch };
+    }));
+  }, []);
 
   const { data: forecastRequest } = useQuery({
     queryKey: ["forecast-request", forecastRequestId],
@@ -260,7 +330,6 @@ export default function PropertyNew() {
   const form = useForm<PropertyFormValues>({
     resolver: zodResolver(propertySchema),
     defaultValues: {
-      ownerId: initialOwnerId ? parseInt(initialOwnerId, 10) : 0,
       emirate: "Abu Dhabi",
       propertyType: "apartment",
       bedrooms: 1,
@@ -312,8 +381,9 @@ export default function PropertyNew() {
       }
     }
     if (fr.propertyUnitNumber) form.setValue("unitNumber", fr.propertyUnitNumber);
-    // Map layout → bedrooms
+    // Map layout → layout state + bedrooms
     if (fr.propertyLayout) {
+      setLayout(fr.propertyLayout);
       if (fr.propertyLayout === "Studio") form.setValue("bedrooms", 0);
       else {
         const m = String(fr.propertyLayout).match(/^(\d+)/);
@@ -361,8 +431,34 @@ export default function PropertyNew() {
   const dateLabel = watchedVacancy === "off_plan" ? "Expected Handover Date" : "Expected Vacancy Date";
 
   const onSubmit = async (data: PropertyFormValues) => {
+    // Validate owners before submission
+    const validRows = ownerRows.filter(r => r.ownerId > 0);
+    if (validRows.length === 0) {
+      toast({ title: "Owner required", description: "Add at least one owner.", variant: "destructive" });
+      return;
+    }
+    // Reject duplicate owner selections
+    const ownerIdSet = new Set<number>();
+    for (const row of validRows) {
+      if (ownerIdSet.has(row.ownerId)) {
+        toast({ title: "Duplicate owner", description: "Each owner can only appear once. Remove the duplicate row.", variant: "destructive" });
+        return;
+      }
+      ownerIdSet.add(row.ownerId);
+    }
+
     try {
       const submitData: any = { ...data };
+      // Derive ownerId from primary (or first) owner for backward-compat column
+      const primaryOwner = validRows.find(r => r.isPrimary) ?? validRows[0];
+      submitData.ownerId = primaryOwner.ownerId;
+      // Include full owners array for junction table
+      submitData.owners = validRows.map((r, i) => ({
+        ownerId: r.ownerId,
+        ownershipPercentage: r.ownershipPercentage,
+        ownershipType: r.ownershipType || undefined,
+        isPrimary: r.isPrimary || i === 0,
+      }));
       if (!submitData.bathrooms) submitData.bathrooms = submitData.bedrooms;
       // Map vacancy fields to API fields
       if (data.vacancyStatus) submitData.currentTenancyStatus = data.vacancyStatus;
@@ -410,7 +506,7 @@ export default function PropertyNew() {
             body: JSON.stringify({ propertyId: result.id }),
           });
           toast({ title: "Property created & linked", description: "Now create the revenue forecast." });
-          const frOwnerId = (forecastRequest as any)?.ownerId ?? data.ownerId;
+          const frOwnerId = (forecastRequest as any)?.ownerId ?? (validRows.find(r => r.isPrimary) ?? validRows[0])?.ownerId;
           setLocation(`/forecasts/new?forecastRequestId=${forecastRequestId}&ownerId=${frOwnerId}&propertyId=${result.id}`);
         } catch {
           toast({ title: "Property created", description: "Could not auto-link to request.", variant: "destructive" });
@@ -451,35 +547,95 @@ export default function PropertyNew() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
           
+          {/* ── Multi-Owner Section ─────────────────────────────── */}
           <Card className="border-border/50 shadow-sm">
             <CardHeader className="border-b border-border bg-muted/20">
-              <CardTitle className="text-lg">Ownership</CardTitle>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Ownership</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-0.5">Assign one or more owners with their ownership stake.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {ownerRows.length > 1 && (
+                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${Math.round(totalOwnershipPct) === 100 ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+                      {totalOwnershipPct}% total
+                    </span>
+                  )}
+                  <Button type="button" variant="outline" size="sm" onClick={addOwnerRow} className="h-8 text-xs gap-1.5">
+                    <span className="text-base leading-none">+</span> Add Owner
+                  </Button>
+                </div>
+              </div>
             </CardHeader>
-            <CardContent className="p-6">
-              <FormField
-                control={form.control}
-                name="ownerId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Select Owner <span className="text-destructive">*</span></FormLabel>
-                    <FormControl>
-                      <SearchableSelect
-                        options={(owners ?? []).map(o => ({
-                          value: o.id.toString(),
-                          label: o.ownerType === "company" && o.companyName
-                            ? o.companyName
-                            : `${o.firstName} ${o.lastName}`,
-                        }))}
-                        value={field.value ? field.value.toString() : ""}
-                        onValueChange={(val) => field.onChange(parseInt(val))}
-                        placeholder="Choose an owner"
-                        searchPlaceholder="Search owners…"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+            <CardContent className="p-0">
+              {ownerRowError && (
+                <div className="px-6 pt-4 text-sm text-destructive">{ownerRowError}</div>
+              )}
+              {ownerRows.map((row, idx) => {
+                const ownerOptions = (owners ?? []).map(o => ({
+                  value: o.id.toString(),
+                  label: o.ownerType === "company" && o.companyName ? o.companyName : `${o.firstName} ${o.lastName ?? ""}`.trim(),
+                }));
+                return (
+                  <div key={idx} className={`p-6 ${idx < ownerRows.length - 1 ? "border-b border-border" : ""} grid grid-cols-1 md:grid-cols-12 gap-4 items-start`}>
+                    {/* Owner selector */}
+                    <div className="md:col-span-5">
+                      <label className="text-sm font-medium">Owner {ownerRows.length > 1 ? idx + 1 : ""} <span className="text-destructive">*</span></label>
+                      <div className="mt-1.5">
+                        <SearchableSelect
+                          options={ownerOptions}
+                          value={row.ownerId > 0 ? row.ownerId.toString() : ""}
+                          onValueChange={(val) => updateOwnerRow(idx, { ownerId: parseInt(val, 10) })}
+                          placeholder="Choose owner…"
+                          searchPlaceholder="Search owners…"
+                        />
+                      </div>
+                    </div>
+                    {/* Ownership % */}
+                    <div className="md:col-span-2">
+                      <label className="text-sm font-medium">Stake %</label>
+                      <div className="relative mt-1.5">
+                        <Input
+                          type="number" min={0} max={100} step={1}
+                          value={row.ownershipPercentage}
+                          onChange={e => updateOwnerRow(idx, { ownershipPercentage: parseFloat(e.target.value) || 0 })}
+                          className="pr-6"
+                        />
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                      </div>
+                    </div>
+                    {/* Ownership type */}
+                    <div className="md:col-span-3">
+                      <label className="text-sm font-medium">Type</label>
+                      <select
+                        value={row.ownershipType}
+                        onChange={e => updateOwnerRow(idx, { ownershipType: e.target.value })}
+                        className="mt-1.5 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        {OWNERSHIP_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                    </div>
+                    {/* Primary + remove */}
+                    <div className="md:col-span-2 flex items-center justify-between md:justify-end gap-3 pt-0 md:pt-7">
+                      <button
+                        type="button"
+                        title={row.isPrimary ? "Primary owner" : "Set as primary"}
+                        onClick={() => updateOwnerRow(idx, { isPrimary: true })}
+                        className={`flex items-center gap-1 text-xs font-medium transition-colors ${row.isPrimary ? "text-amber-600" : "text-muted-foreground hover:text-amber-500"}`}
+                      >
+                        <svg className="h-4 w-4 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                        {row.isPrimary ? "Primary" : "Set primary"}
+                      </button>
+                      {ownerRows.length > 1 && (
+                        <button type="button" onClick={() => removeOwnerRow(idx)}
+                          className="text-muted-foreground hover:text-red-600 transition-colors text-xs">
+                          Remove
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
 
@@ -652,14 +808,15 @@ export default function PropertyNew() {
               <CardTitle className="text-lg">Property Specifications</CardTitle>
             </CardHeader>
             <CardContent className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="col-span-1 md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Type + Layout */}
+              <div className="col-span-1 md:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField
                   control={form.control}
                   name="propertyType"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Type <span className="text-destructive">*</span></FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <Select onValueChange={field.onChange} value={field.value}>
                         <FormControl>
                           <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
                         </FormControl>
@@ -670,6 +827,8 @@ export default function PropertyNew() {
                           <SelectItem value="penthouse">Penthouse</SelectItem>
                           <SelectItem value="duplex">Duplex</SelectItem>
                           <SelectItem value="studio">Studio</SelectItem>
+                          <SelectItem value="hotel_apartment">Hotel Apartment</SelectItem>
+                          <SelectItem value="other">Other</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -677,6 +836,20 @@ export default function PropertyNew() {
                   )}
                 />
 
+                <div className="space-y-2">
+                  <label className="text-sm font-medium leading-none">Layout</label>
+                  <Select value={layout} onValueChange={handleLayoutChange}>
+                    <SelectTrigger><SelectValue placeholder="Select layout" /></SelectTrigger>
+                    <SelectContent>
+                      {LAYOUTS.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Auto-fills bedrooms</p>
+                </div>
+              </div>
+
+              {/* Bedrooms + Bathrooms */}
+              <div className="col-span-1 md:col-span-3 grid grid-cols-1 md:grid-cols-3 gap-6">
                 <FormField
                   control={form.control}
                   name="bedrooms"

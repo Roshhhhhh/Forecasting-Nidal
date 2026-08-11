@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation, useSearch } from "wouter";
-import { useListOwners, useListProperties, useCreateForecast } from "@workspace/api-client-react";
+import { useListOwners, useCreateForecast } from "@workspace/api-client-react";
+import { useQuery } from "@tanstack/react-query";
 import { ForecastRequestContextBar } from "@/components/ForecastRequestContextBar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,7 +50,6 @@ export default function ForecastWizard() {
   const createForecast = useCreateForecast();
   
   const { data: owners, isLoading: isOwnersLoading } = useListOwners();
-  const { data: properties, isLoading: isPropsLoading } = useListProperties();
 
   const form = useForm<WizardFormValues>({
     resolver: zodResolver(wizardSchema),
@@ -65,7 +65,20 @@ export default function ForecastWizard() {
   useState(() => { if (initialStep > 1) setStep(initialStep); });
 
   const selectedOwnerId = form.watch("ownerId");
-  const filteredProperties = properties?.filter(p => p.ownerId === selectedOwnerId) || [];
+
+  // Fetch only the properties this owner has a junction-table stake in (covers both primary and co-owned)
+  const { data: ownerProperties, isLoading: isPropsLoading } = useQuery<any[]>({
+    queryKey: ["/api/owners", selectedOwnerId, "properties"],
+    queryFn: async () => {
+      if (!selectedOwnerId) return [];
+      const r = await fetch(`/api/owners/${selectedOwnerId}/properties`, { credentials: "include" });
+      if (!r.ok) return [];
+      return r.json();
+    },
+    enabled: !!selectedOwnerId,
+    staleTime: 30_000,
+  });
+  const filteredProperties = ownerProperties ?? [];
 
   const handleNext = () => {
     if (step === 1 && !selectedOwnerId) {
@@ -200,7 +213,7 @@ export default function ForecastWizard() {
                           }))}
                           value={field.value ? field.value.toString() : ""}
                           onValueChange={(val) => field.onChange(parseInt(val))}
-                          placeholder={isPropsLoading ? "Loading…" : filteredProperties.length === 0 ? "No properties for this owner" : "Search properties…"}
+                          placeholder={!selectedOwnerId ? "Select an owner first…" : isPropsLoading ? "Loading…" : filteredProperties.length === 0 ? "No properties linked to this owner" : "Search properties…"}
                           searchPlaceholder="Type building or area…"
                           disabled={filteredProperties.length === 0}
                         />

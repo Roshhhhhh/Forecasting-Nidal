@@ -642,6 +642,17 @@ export const ListPropertiesResponseItem = zod.object({
   "id": zod.number(),
   "ownerId": zod.number(),
   "ownerName": zod.string().nullish(),
+  "coOwners": zod.array(zod.object({
+  "id": zod.number(),
+  "ownerId": zod.number(),
+  "ownerName": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "ownershipPercentage": zod.number(),
+  "isPrimary": zod.boolean(),
+  "ownershipType": zod.string().nullish(),
+  "notes": zod.string().nullish()
+})).optional(),
   "emirate": zod.string(),
   "area": zod.string(),
   "community": zod.string().nullish(),
@@ -679,7 +690,14 @@ export const ListPropertiesResponse = zod.array(ListPropertiesResponseItem)
  * @summary Create a new property
  */
 export const CreatePropertyBody = zod.object({
+  "ownerId": zod.number().optional(),
+  "owners": zod.array(zod.object({
   "ownerId": zod.number(),
+  "ownershipPercentage": zod.number().optional(),
+  "isPrimary": zod.boolean().optional(),
+  "ownershipType": zod.string().nullish(),
+  "notes": zod.string().nullish()
+})).optional(),
   "emirate": zod.string(),
   "area": zod.string(),
   "community": zod.string().optional(),
@@ -714,6 +732,17 @@ export const CreatePropertyResponse = zod.object({
   "id": zod.number(),
   "ownerId": zod.number(),
   "ownerName": zod.string().nullish(),
+  "coOwners": zod.array(zod.object({
+  "id": zod.number(),
+  "ownerId": zod.number(),
+  "ownerName": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "ownershipPercentage": zod.number(),
+  "isPrimary": zod.boolean(),
+  "ownershipType": zod.string().nullish(),
+  "notes": zod.string().nullish()
+})).optional(),
   "emirate": zod.string(),
   "area": zod.string(),
   "community": zod.string().nullish(),
@@ -757,6 +786,17 @@ export const GetPropertyResponse = zod.object({
   "id": zod.number(),
   "ownerId": zod.number(),
   "ownerName": zod.string().nullish(),
+  "coOwners": zod.array(zod.object({
+  "id": zod.number(),
+  "ownerId": zod.number(),
+  "ownerName": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "ownershipPercentage": zod.number(),
+  "isPrimary": zod.boolean(),
+  "ownershipType": zod.string().nullish(),
+  "notes": zod.string().nullish()
+})).optional(),
   "emirate": zod.string(),
   "area": zod.string(),
   "community": zod.string().nullish(),
@@ -822,6 +862,17 @@ export const UpdatePropertyResponse = zod.object({
   "id": zod.number(),
   "ownerId": zod.number(),
   "ownerName": zod.string().nullish(),
+  "coOwners": zod.array(zod.object({
+  "id": zod.number(),
+  "ownerId": zod.number(),
+  "ownerName": zod.string(),
+  "email": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "ownershipPercentage": zod.number(),
+  "isPrimary": zod.boolean(),
+  "ownershipType": zod.string().nullish(),
+  "notes": zod.string().nullish()
+})).optional(),
   "emirate": zod.string(),
   "area": zod.string(),
   "community": zod.string().nullish(),

@@ -532,6 +532,20 @@ export async function runStartupMigration() {
         ADD COLUMN IF NOT EXISTS property_layout TEXT
     `);
 
+    // property_owners — add ownershipType, notes, updatedAt columns
+    await db.execute(sql`ALTER TABLE property_owners ADD COLUMN IF NOT EXISTS ownership_type VARCHAR(100)`);
+    await db.execute(sql`ALTER TABLE property_owners ADD COLUMN IF NOT EXISTS notes TEXT`);
+    await db.execute(sql`ALTER TABLE property_owners ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`);
+
+    // Backfill junction rows from existing properties.owner_id so no data is lost
+    await db.execute(sql`
+      INSERT INTO property_owners (property_id, owner_id, ownership_percentage, is_primary, created_at, updated_at)
+      SELECT p.id, p.owner_id, 100, true, p.created_at, NOW()
+      FROM properties p
+      WHERE p.owner_id IS NOT NULL AND p.owner_id > 0
+      ON CONFLICT (property_id, owner_id) DO NOTHING
+    `);
+
     logger.info("Startup migration complete");
   } catch (err) {
     logger.error({ err }, "Startup migration failed");

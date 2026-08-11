@@ -8,9 +8,11 @@
 import type { PropertyInputFurnishingStatus } from './propertyInputFurnishingStatus';
 import type { PropertyInputPropertyCondition } from './propertyInputPropertyCondition';
 import type { PropertyInputPropertyType } from './propertyInputPropertyType';
+import type { PropertyOwnerInput } from './propertyOwnerInput';
 
 export interface PropertyInput {
-  ownerId: number;
+  ownerId?: number;
+  owners?: PropertyOwnerInput[];
   emirate: string;
   area: string;
   community?: string;

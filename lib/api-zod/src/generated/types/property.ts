@@ -5,6 +5,7 @@
  * RHH Property Revenue Forecaster API
  * OpenAPI spec version: 0.1.0
  */
+import type { CoOwner } from './coOwner';
 import type { PropertyFurnishingStatus } from './propertyFurnishingStatus';
 import type { PropertyPropertyCondition } from './propertyPropertyCondition';
 import type { PropertyPropertyType } from './propertyPropertyType';
@@ -14,6 +15,7 @@ export interface Property {
   ownerId: number;
   /** @nullable */
   ownerName?: string | null;
+  coOwners?: CoOwner[];
   emirate: string;
   area: string;
   /** @nullable */

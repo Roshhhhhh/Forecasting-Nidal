@@ -345,6 +345,32 @@ export interface RefereeUpdate {
   isActive?: boolean;
 }
 
+export interface CoOwner {
+  id: number;
+  ownerId: number;
+  ownerName: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  ownershipPercentage: number;
+  isPrimary: boolean;
+  /** @nullable */
+  ownershipType?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface PropertyOwnerInput {
+  ownerId: number;
+  ownershipPercentage?: number;
+  isPrimary?: boolean;
+  /** @nullable */
+  ownershipType?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
 export type PropertyPropertyType = typeof PropertyPropertyType[keyof typeof PropertyPropertyType];
 
 
@@ -387,6 +413,7 @@ export interface Property {
   ownerId: number;
   /** @nullable */
   ownerName?: string | null;
+  coOwners?: CoOwner[];
   emirate: string;
   area: string;
   /** @nullable */
@@ -472,7 +499,8 @@ export const PropertyInputPropertyCondition = {
 } as const;
 
 export interface PropertyInput {
-  ownerId: number;
+  ownerId?: number;
+  owners?: PropertyOwnerInput[];
   emirate: string;
   area: string;
   community?: string;

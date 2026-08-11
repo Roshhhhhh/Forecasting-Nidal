@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, real, boolean, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, real, boolean, timestamp, varchar, text } from "drizzle-orm/pg-core";
 
 export const propertyOwnersTable = pgTable("property_owners", {
   id:                  serial("id").primaryKey(),
@@ -6,5 +6,8 @@ export const propertyOwnersTable = pgTable("property_owners", {
   ownerId:             integer("owner_id").notNull(),
   ownershipPercentage: real("ownership_percentage").notNull().default(100),
   isPrimary:           boolean("is_primary").notNull().default(false),
+  ownershipType:       varchar("ownership_type", { length: 100 }),
+  notes:               text("notes"),
   createdAt:           timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt:           timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

@@ -33,35 +33,68 @@ function OwnershipCard({ propertyId, primaryOwnerId }: { propertyId: number; pri
   const [addOwnerId, setAddOwnerId] = useState("");
   const [addPct, setAddPct] = useState("100");
   const [addPrimary, setAddPrimary] = useState(false);
+  const [addOwnershipType, setAddOwnershipType] = useState("joint_title");
+  const [addNotes, setAddNotes] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editPct, setEditPct] = useState("");
+  const [editOwnershipType, setEditOwnershipType] = useState("");
+  const OWNERSHIP_TYPES = [
+    { value: "sole",        label: "Sole Owner" },
+    { value: "joint_title", label: "Joint Title" },
+    { value: "trust",       label: "Trust / Family Trust" },
+    { value: "company",     label: "Company / Corporate" },
+    { value: "poa",         label: "Power of Attorney" },
+    { value: "other",       label: "Other" },
+  ];
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["/api/properties", propertyId, "owners"] });
+
+  const checkOk = async (r: Response) => {
+    if (!r.ok) {
+      const body = await r.json().catch(() => ({}));
+      throw new Error((body as any)?.error ?? `Request failed (${r.status})`);
+    }
+    return r.json();
+  };
 
   const addMutation = useMutation({
     mutationFn: () => fetch(`/api/properties/${propertyId}/owners`, {
       method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ownerId: parseInt(addOwnerId, 10), ownershipPercentage: parseFloat(addPct), isPrimary: addPrimary }),
-    }).then(r => r.json()),
-    onSuccess: () => { invalidate(); setAddOpen(false); setAddOwnerId(""); setAddPct("100"); setAddPrimary(false); toast({ title: "Co-owner added" }); },
-    onError: () => toast({ title: "Failed to add co-owner", variant: "destructive" }),
+      body: JSON.stringify({
+        ownerId: parseInt(addOwnerId, 10),
+        ownershipPercentage: parseFloat(addPct),
+        isPrimary: addPrimary,
+        ownershipType: addOwnershipType || undefined,
+        notes: addNotes || undefined,
+      }),
+    }).then(checkOk),
+    onSuccess: () => {
+      invalidate();
+      setAddOpen(false);
+      setAddOwnerId(""); setAddPct("100"); setAddPrimary(false);
+      setAddOwnershipType("joint_title"); setAddNotes("");
+      toast({ title: "Co-owner added" });
+    },
+    onError: (e: Error) => toast({ title: "Failed to add co-owner", description: e.message, variant: "destructive" }),
   });
 
   const updateMutation = useMutation({
     mutationFn: (ownerId: number) => fetch(`/api/properties/${propertyId}/owners/${ownerId}`, {
       method: "PATCH", credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ownershipPercentage: parseFloat(editPct) }),
-    }).then(r => r.json()),
+      body: JSON.stringify({ ownershipPercentage: parseFloat(editPct), ownershipType: editOwnershipType || undefined }),
+    }).then(checkOk),
     onSuccess: () => { invalidate(); setEditingId(null); },
+    onError: (e: Error) => toast({ title: "Failed to update ownership", description: e.message, variant: "destructive" }),
   });
 
   const removeMutation = useMutation({
     mutationFn: (ownerId: number) => fetch(`/api/properties/${propertyId}/owners/${ownerId}`, {
       method: "DELETE", credentials: "include",
-    }).then(r => r.json()),
+    }).then(checkOk),
     onSuccess: () => { invalidate(); toast({ title: "Co-owner removed" }); },
+    onError: (e: Error) => toast({ title: "Failed to remove co-owner", description: e.message, variant: "destructive" }),
   });
 
   const setPrimaryMutation = useMutation({
@@ -69,8 +102,9 @@ function OwnershipCard({ propertyId, primaryOwnerId }: { propertyId: number; pri
       method: "PATCH", credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ isPrimary: true }),
-    }).then(r => r.json()),
+    }).then(checkOk),
     onSuccess: () => { invalidate(); toast({ title: "Primary owner updated" }); },
+    onError: (e: Error) => toast({ title: "Failed to set primary", description: e.message, variant: "destructive" }),
   });
 
   const existingIds = new Set(coOwners.map((o: any) => o.ownerId));
@@ -100,11 +134,11 @@ function OwnershipCard({ propertyId, primaryOwnerId }: { propertyId: number; pri
         {addOpen && (
           <div className="p-4 border-b border-border bg-muted/10 space-y-3">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Co-owner</p>
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <select
                 value={addOwnerId}
                 onChange={e => setAddOwnerId(e.target.value)}
-                className="flex-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                className="sm:col-span-1 h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">Select owner…</option>
                 {availableOwners.map((o: any) => (
@@ -113,19 +147,32 @@ function OwnershipCard({ propertyId, primaryOwnerId }: { propertyId: number; pri
               </select>
               <div className="flex items-center gap-1">
                 <Input
-                  type="number" min={0.1} max={100} step={0.5}
+                  type="number" min={0} max={100} step={1}
                   value={addPct}
                   onChange={e => setAddPct(e.target.value)}
-                  className="w-24 h-9 text-sm"
+                  className="w-20 h-9 text-sm"
                   placeholder="%"
                 />
                 <span className="text-sm text-muted-foreground">%</span>
               </div>
+              <select
+                value={addOwnershipType}
+                onChange={e => setAddOwnershipType(e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                {OWNERSHIP_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
             </div>
             <div className="flex items-center gap-2">
               <input type="checkbox" id="addPrimary" checked={addPrimary} onChange={e => setAddPrimary(e.target.checked)} className="h-4 w-4" />
               <label htmlFor="addPrimary" className="text-sm text-muted-foreground">Set as primary owner (receives proposals)</label>
             </div>
+            <Input
+              placeholder="Notes (optional)…"
+              value={addNotes}
+              onChange={e => setAddNotes(e.target.value)}
+              className="h-9 text-sm"
+            />
             <div className="flex gap-2">
               <Button size="sm" onClick={() => addMutation.mutate()} disabled={!addOwnerId || addMutation.isPending} className="h-8 text-xs">
                 {addMutation.isPending ? "Adding…" : "Add"}
@@ -157,23 +204,35 @@ function OwnershipCard({ propertyId, primaryOwnerId }: { propertyId: number; pri
                           <Star className="h-2.5 w-2.5" /> Primary
                         </Badge>
                       )}
+                      {o.ownershipType && o.ownershipType !== "sole" && (
+                        <Badge variant="outline" className="h-4 text-[10px] px-1.5 capitalize">
+                          {o.ownershipType.replace(/_/g, " ")}
+                        </Badge>
+                      )}
                     </div>
-                    <div className="text-xs text-muted-foreground">{o.email}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {o.email}
+                      {o.notes && <span className="ml-2 italic opacity-70">· {o.notes}</span>}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-shrink-0 ml-3">
                   {editingId === o.ownerId ? (
                     <div className="flex items-center gap-1">
-                      <Input type="number" min={0.1} max={100} step={0.5} value={editPct}
+                      <Input type="number" min={0} max={100} step={1} value={editPct}
                         onChange={e => setEditPct(e.target.value)}
-                        className="w-20 h-7 text-xs" />
+                        className="w-16 h-7 text-xs" />
                       <span className="text-xs text-muted-foreground">%</span>
+                      <select value={editOwnershipType} onChange={e => setEditOwnershipType(e.target.value)}
+                        className="h-7 rounded border border-input bg-background px-2 text-xs focus:outline-none">
+                        {OWNERSHIP_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
                       <Button size="sm" className="h-7 text-xs px-2" onClick={() => updateMutation.mutate(o.ownerId)} disabled={updateMutation.isPending}>Save</Button>
                       <Button size="sm" variant="ghost" className="h-7 text-xs px-2" onClick={() => setEditingId(null)}>✕</Button>
                     </div>
                   ) : (
                     <>
-                      <button onClick={() => { setEditingId(o.ownerId); setEditPct(String(o.ownershipPercentage)); }}
+                      <button onClick={() => { setEditingId(o.ownerId); setEditPct(String(o.ownershipPercentage)); setEditOwnershipType(o.ownershipType || ""); }}
                         className="text-sm font-semibold text-foreground hover:text-primary transition-colors min-w-[48px] text-right">
                         {o.ownershipPercentage}%
                       </button>

@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useCreateOwner, useListUsers, useListReferees, useCreateReferee, useCreateUser, useListRoles, getListRefereesQueryKey, getListUsersQueryKey } from "@workspace/api-client-react";
+import { useState, useEffect, useCallback } from "react";
+import { useCreateOwner, useListUsers, useListReferees, useCreateReferee, useCreateUser, useListRoles, useListProperties, getListRefereesQueryKey, getListUsersQueryKey } from "@workspace/api-client-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,23 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { UserCheck, Plus, Loader2, RefreshCw, Home, UserPlus } from "lucide-react";
+import { UserCheck, Plus, Loader2, RefreshCw, Home, UserPlus, X } from "lucide-react";
+
+const OWNERSHIP_TYPES = [
+  { value: "sole",        label: "Sole Owner" },
+  { value: "joint_title", label: "Joint Title" },
+  { value: "trust",       label: "Trust / Family Trust" },
+  { value: "company",     label: "Company / Corporate" },
+  { value: "poa",         label: "Power of Attorney" },
+  { value: "other",       label: "Other" },
+];
+
+interface PropertyRow {
+  propertyId: number;
+  ownershipPercentage: number;
+  ownershipType: string;
+  isPrimary: boolean;
+}
 
 const ownerSchema = z.object({
   ownerType: z.enum(["individual", "company"]),
@@ -69,10 +85,32 @@ export default function OwnerNew() {
   const searchParams = new URLSearchParams(searchString);
   const frIdStr = searchParams.get("forecastRequestId");
   const forecastRequestId = frIdStr ? parseInt(frIdStr, 10) : null;
+  const initialPropertyIdStr = searchParams.get("propertyId");
+  const initialPropertyId = initialPropertyIdStr ? parseInt(initialPropertyIdStr, 10) : 0;
 
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createOwner = useCreateOwner();
+  const { data: allProperties } = useListProperties();
+
+  // Owned Properties rows
+  const [propertyRows, setPropertyRows] = useState<PropertyRow[]>(
+    initialPropertyId > 0
+      ? [{ propertyId: initialPropertyId, ownershipPercentage: 100, ownershipType: "sole", isPrimary: true }]
+      : []
+  );
+
+  const addPropertyRow = useCallback(() => {
+    setPropertyRows(rows => [...rows, { propertyId: 0, ownershipPercentage: 0, ownershipType: "joint_title", isPrimary: false }]);
+  }, []);
+
+  const removePropertyRow = useCallback((idx: number) => {
+    setPropertyRows(rows => rows.filter((_, i) => i !== idx));
+  }, []);
+
+  const updatePropertyRow = useCallback((idx: number, patch: Partial<PropertyRow>) => {
+    setPropertyRows(rows => rows.map((r, i) => i === idx ? { ...r, ...patch } : r));
+  }, []);
 
   const { data: forecastRequest } = useQuery({
     queryKey: ["forecast-request", forecastRequestId],
@@ -148,6 +186,38 @@ export default function OwnerNew() {
       if (!submitData.companyName) delete submitData.companyName;
 
       const result = await createOwner.mutateAsync({ data: submitData });
+      const newOwnerId = (result as any).id;
+
+      // Write junction rows for any linked properties; collect and surface failures
+      const validPropRows = propertyRows.filter(r => r.propertyId > 0);
+      const linkFailures: number[] = [];
+      for (const row of validPropRows) {
+        try {
+          const linkRes = await fetch(`/api/properties/${row.propertyId}/owners`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
+            body: JSON.stringify({
+              ownerId: newOwnerId,
+              ownershipPercentage: row.ownershipPercentage,
+              ownershipType: row.ownershipType || undefined,
+              isPrimary: row.isPrimary,
+            }),
+          });
+          if (!linkRes.ok) {
+            linkFailures.push(row.propertyId);
+          }
+        } catch {
+          linkFailures.push(row.propertyId);
+        }
+      }
+      if (linkFailures.length > 0) {
+        toast({
+          title: "Some property links failed",
+          description: `${linkFailures.length} propert${linkFailures.length > 1 ? "ies" : "y"} could not be linked. You can link them from the property's Ownership panel.`,
+          variant: "destructive",
+        });
+      }
 
       if (forecastRequestId) {
         try {
@@ -157,14 +227,14 @@ export default function OwnerNew() {
             body: JSON.stringify({ ownerId: (result as any).id }),
           });
           toast({ title: "Owner created & linked", description: "Now add the property." });
-          setLocation(`/properties/new?forecastRequestId=${forecastRequestId}&ownerId=${(result as any).id}`);
+          setLocation(`/properties/new?forecastRequestId=${forecastRequestId}&ownerId=${newOwnerId}`);
         } catch {
           toast({ title: "Owner created", description: "Could not auto-link to request.", variant: "destructive" });
           setLocation(`/forecast-requests/${forecastRequestId}`);
         }
       } else {
         toast({ title: "Owner created", description: "The owner profile has been created successfully." });
-        setLocation(`/owners/${(result as any).id}`);
+        setLocation(`/owners/${newOwnerId}`);
       }
     } catch {
       toast({ title: "Error", description: "Failed to create owner.", variant: "destructive" });
@@ -565,6 +635,80 @@ export default function OwnerNew() {
                 />
               </div>
             </CardContent>
+          </Card>
+
+          {/* ── Owned Properties (optional) ──────────────────────── */}
+          <Card className="border-border/50 shadow-sm">
+            <CardHeader className="border-b border-border bg-muted/20">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg">Owned Properties</CardTitle>
+                  <p className="text-sm text-muted-foreground mt-0.5">Link existing properties to this owner (optional — can be done later).</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={addPropertyRow} className="h-8 text-xs gap-1.5">
+                  <Plus className="h-3.5 w-3.5" /> Add Property
+                </Button>
+              </div>
+            </CardHeader>
+            {propertyRows.length > 0 && (
+              <CardContent className="p-0">
+                {propertyRows.map((row, idx) => (
+                  <div key={idx} className={`p-4 grid grid-cols-1 md:grid-cols-12 gap-3 items-end ${idx < propertyRows.length - 1 ? "border-b border-border" : ""}`}>
+                    {/* Property selector */}
+                    <div className="md:col-span-5">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Property</label>
+                      <select
+                        value={row.propertyId > 0 ? row.propertyId : ""}
+                        onChange={e => updatePropertyRow(idx, { propertyId: parseInt(e.target.value, 10) || 0 })}
+                        className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        <option value="">Select property…</option>
+                        {(allProperties ?? []).map((p: any) => (
+                          <option key={p.id} value={p.id}>
+                            {p.unitNumber ? `${p.unitNumber}, ` : ""}{p.projectBuilding || p.area} — {p.bedrooms} Bed
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Ownership % */}
+                    <div className="md:col-span-2">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Stake %</label>
+                      <div className="relative mt-1">
+                        <Input
+                          type="number" min={0} max={100} step={1}
+                          value={row.ownershipPercentage}
+                          onChange={e => updatePropertyRow(idx, { ownershipPercentage: parseFloat(e.target.value) || 0 })}
+                          className="pr-6 h-9 text-sm"
+                        />
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                      </div>
+                    </div>
+                    {/* Ownership type */}
+                    <div className="md:col-span-3">
+                      <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Type</label>
+                      <select
+                        value={row.ownershipType}
+                        onChange={e => updatePropertyRow(idx, { ownershipType: e.target.value })}
+                        className="mt-1 flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        {OWNERSHIP_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                    </div>
+                    {/* Primary + remove */}
+                    <div className="md:col-span-2 flex items-center gap-3 pt-4 md:pt-0">
+                      <button type="button" onClick={() => updatePropertyRow(idx, { isPrimary: !row.isPrimary })}
+                        className={`text-xs font-medium ${row.isPrimary ? "text-amber-600" : "text-muted-foreground hover:text-amber-500"}`}>
+                        {row.isPrimary ? "★ Primary" : "☆ Primary"}
+                      </button>
+                      <button type="button" onClick={() => removePropertyRow(idx)}
+                        className="text-muted-foreground hover:text-red-600 transition-colors">
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            )}
           </Card>
 
           <div className="flex justify-end gap-4">

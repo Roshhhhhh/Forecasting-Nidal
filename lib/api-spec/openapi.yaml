@@ -2170,6 +2170,44 @@ components:
           type: boolean
 
     # PROPERTIES
+    CoOwner:
+      type: object
+      required: [id, ownerId, ownerName, ownershipPercentage, isPrimary]
+      properties:
+        id:
+          type: number
+        ownerId:
+          type: number
+        ownerName:
+          type: string
+        email:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        ownershipPercentage:
+          type: number
+        isPrimary:
+          type: boolean
+        ownershipType:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
+    PropertyOwnerInput:
+      type: object
+      required: [ownerId]
+      properties:
+        ownerId:
+          type: number
+        ownershipPercentage:
+          type: number
+        isPrimary:
+          type: boolean
+        ownershipType:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
+
     Property:
       type: object
       required: [id, ownerId, emirate, area, propertyType, bedrooms, bathrooms, internalArea, createdAt]
@@ -2180,6 +2218,10 @@ components:
           type: number
         ownerName:
           type: ["string", "null"]
+        coOwners:
+          type: array
+          items:
+            $ref: "#/components/schemas/CoOwner"
         emirate:
           type: string
         area:
@@ -2245,10 +2287,14 @@ components:
 
     PropertyInput:
       type: object
-      required: [ownerId, emirate, area, propertyType, bedrooms, bathrooms, internalArea]
+      required: [emirate, area, propertyType, bedrooms, bathrooms, internalArea]
       properties:
         ownerId:
           type: number
+        owners:
+          type: array
+          items:
+            $ref: "#/components/schemas/PropertyOwnerInput"
         emirate:
           type: string
         area:

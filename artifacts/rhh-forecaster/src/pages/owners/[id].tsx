@@ -6,7 +6,7 @@ import {
   useListForecastActuals, useGetForecastMonthly,
 } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";

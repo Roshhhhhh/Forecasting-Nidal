@@ -51,13 +51,13 @@ async function enrichRow(row: any) {
 const LIST_QUERY = sql`
   SELECT
     fr.*,
-    CONCAT(rep.first_name, ' ', rep.last_name) AS representative_name,
-    CONCAT(ref.first_name, ' ', ref.last_name)  AS referee_name,
-    CONCAT(cb.first_name, ' ', cb.last_name)    AS created_by_name
+    rep.name  AS representative_name,
+    ref.name  AS referee_name,
+    cb.name   AS created_by_name
   FROM forecast_requests fr
-  LEFT JOIN users rep ON rep.id = fr.representative_id
+  LEFT JOIN users rep    ON rep.id = fr.representative_id
   LEFT JOIN referees ref ON ref.id = fr.referee_id
-  LEFT JOIN users cb  ON cb.id  = fr.created_by_id
+  LEFT JOIN users cb     ON cb.id  = fr.created_by_id
   ORDER BY fr.created_at DESC
 `;
 
@@ -129,13 +129,13 @@ router.post("/forecast-requests", requireAuth, async (req, res): Promise<void> =
     // Return the full enriched row
     const row = await db.execute(sql`
       SELECT fr.*,
-        CONCAT(rep.first_name, ' ', rep.last_name) AS representative_name,
-        CONCAT(ref.first_name, ' ', ref.last_name)  AS referee_name,
-        CONCAT(cb.first_name, ' ', cb.last_name)    AS created_by_name
+        rep.name AS representative_name,
+        ref.name AS referee_name,
+        cb.name  AS created_by_name
       FROM forecast_requests fr
-      LEFT JOIN users rep ON rep.id = fr.representative_id
+      LEFT JOIN users rep    ON rep.id = fr.representative_id
       LEFT JOIN referees ref ON ref.id = fr.referee_id
-      LEFT JOIN users cb  ON cb.id  = fr.created_by_id
+      LEFT JOIN users cb     ON cb.id  = fr.created_by_id
       WHERE fr.id = ${newId}
     `);
 

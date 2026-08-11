@@ -19,6 +19,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
+import { getApiErrorMessage } from "@/lib/api-error";
 import {
   Plus,
   Pencil,
@@ -193,8 +194,8 @@ function AmenityDialog({ open, onOpenChange, amenity, existingCategories, onSave
       handleOpenChange(false);
       onSaved();
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to save amenity.", variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Failed to save amenity", description: getApiErrorMessage(error), variant: "destructive" });
     },
   });
 
@@ -495,8 +496,8 @@ export function AmenitiesTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["amenities-admin"] });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to update amenity.", variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Failed to update amenity", description: getApiErrorMessage(error), variant: "destructive" });
     },
   });
 
@@ -513,8 +514,8 @@ export function AmenitiesTab() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["amenities-admin"] });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to reorder amenity.", variant: "destructive" });
+    onError: (error) => {
+      toast({ title: "Failed to reorder amenity", description: getApiErrorMessage(error), variant: "destructive" });
     },
   });
 

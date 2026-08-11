@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation, Link, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useEffect, useState, useCallback } from "react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -523,7 +524,7 @@ export default function PropertyNew() {
         setLocation(`/properties/${result.id}`);
       }
     } catch (error) {
-      toast({ title: "Error", description: "Failed to add property.", variant: "destructive" });
+      toast({ title: "Failed to add property", description: getApiErrorMessage(error), variant: "destructive" });
     }
   };
 

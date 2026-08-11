@@ -29,6 +29,7 @@ import {
   MessageSquare, Activity, TrendingUp, TrendingDown, Minus,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getApiErrorMessage } from "@/lib/api-error";
 
 function formatRelativeTime(dateStr: string | null | undefined): string {
   if (!dateStr) return "Never";
@@ -289,8 +290,8 @@ export default function OwnerDetail() {
 
       toast({ title: "Profile updated" });
       setEditOpen(false);
-    } catch {
-      toast({ title: "Failed to save changes", variant: "destructive" });
+    } catch (error) {
+      toast({ title: "Failed to save changes", description: getApiErrorMessage(error), variant: "destructive" });
     }
   }
 
@@ -302,8 +303,8 @@ export default function OwnerDetail() {
       setAddRepOpen(false);
       repForm.reset({ name: "", email: "", password: "", role: "sales" });
       toast({ title: "Representative added", description: `${(newUser as any).name} created.` });
-    } catch {
-      toast({ title: "Failed to create representative", variant: "destructive" });
+    } catch (error) {
+      toast({ title: "Failed to create representative", description: getApiErrorMessage(error), variant: "destructive" });
     }
   }
 
@@ -315,8 +316,8 @@ export default function OwnerDetail() {
       setAddRefereeOpen(false);
       refereeForm.reset({ name: "", commissionPercent: 5 });
       toast({ title: "Referee created", description: `${(newRef as any).refereeCode} — ${(newRef as any).name}` });
-    } catch {
-      toast({ title: "Failed to create referee", variant: "destructive" });
+    } catch (error) {
+      toast({ title: "Failed to create referee", description: getApiErrorMessage(error), variant: "destructive" });
     }
   }
 

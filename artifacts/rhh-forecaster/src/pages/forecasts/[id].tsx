@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ResponsiveContainer, BarChart, Bar, LineChart, Line, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from "recharts";
 import { parseNarrative } from "@/lib/narrative";
+import { getApiErrorMessage } from "@/lib/api-error";
 import {
   useGetForecast, useUpdateForecast, useCalculateForecast,
   useListForecastScenarios, useGetForecastMonthly, useUpdateMonthlyOverride,
@@ -137,8 +138,8 @@ function MonthlyProjectionsTab({ forecastId, monthly }: {
       queryClient.invalidateQueries({ queryKey: [`/api/forecasts/${forecastId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/forecasts/${forecastId}/scenarios`] });
       toast({ title: "Override saved", description: `${m.monthName} updated and recalculated.` });
-    } catch {
-      toast({ title: "Save failed", description: "Could not save override.", variant: "destructive" });
+    } catch (error) {
+      toast({ title: "Could not save override", description: getApiErrorMessage(error), variant: "destructive" });
     } finally {
       setSaving(prev => ({ ...prev, [key]: false }));
     }
@@ -158,8 +159,8 @@ function MonthlyProjectionsTab({ forecastId, monthly }: {
       queryClient.invalidateQueries({ queryKey: [`/api/forecasts/${forecastId}`] });
       queryClient.invalidateQueries({ queryKey: [`/api/forecasts/${forecastId}/scenarios`] });
       toast({ title: "Override cleared", description: `${m.monthName} restored to calculated values.` });
-    } catch {
-      toast({ title: "Failed", description: "Could not clear override.", variant: "destructive" });
+    } catch (error) {
+      toast({ title: "Could not clear override", description: getApiErrorMessage(error), variant: "destructive" });
     } finally {
       setSaving(prev => ({ ...prev, [key]: false }));
     }
@@ -561,8 +562,8 @@ export default function ForecastDetail() {
       // managementFeePercent affects commission figures — bust referee caches
       invalidateCommissionQueries();
       toast({ title: "Inputs saved", description: "Your inputs have been saved as a draft." });
-    } catch {
-      toast({ title: "Save failed", variant: "destructive" });
+    } catch (error) {
+      toast({ title: "Failed to save inputs", description: getApiErrorMessage(error), variant: "destructive" });
     }
   }
 
@@ -691,8 +692,8 @@ export default function ForecastDetail() {
       setNarrativeSaved(true);
       setTimeout(() => setNarrativeSaved(false), 3000);
       toast({ title: "Narrative saved", description: "The cover narrative has been updated on the proposal." });
-    } catch {
-      toast({ title: "Save failed", variant: "destructive" });
+    } catch (error) {
+      toast({ title: "Failed to save narrative", description: getApiErrorMessage(error), variant: "destructive" });
     }
   }
 
@@ -2117,8 +2118,8 @@ export default function ForecastDetail() {
                   setActualsInput(prev => { const n = { ...prev }; delete n[monthNum]; return n; });
                   refetchActuals();
                   toast({ title: "Saved", description: `${proj?.monthName ?? `Month ${monthNum}`} actual recorded.` });
-                } catch {
-                  toast({ title: "Save failed", variant: "destructive" });
+                } catch (error) {
+                  toast({ title: "Failed to save actual", description: getApiErrorMessage(error), variant: "destructive" });
                 } finally {
                   setActualsSaving(prev => ({ ...prev, [monthNum]: false }));
                 }

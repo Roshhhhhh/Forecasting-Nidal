@@ -10,6 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useLocation, Link, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { ForecastRequestContextBar } from "@/components/ForecastRequestContextBar";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import LeadSourcePicker from "@/components/LeadSourcePicker";
@@ -236,8 +237,8 @@ export default function OwnerNew() {
         toast({ title: "Owner created", description: "The owner profile has been created successfully." });
         setLocation(`/owners/${newOwnerId}`);
       }
-    } catch {
-      toast({ title: "Error", description: "Failed to create owner.", variant: "destructive" });
+    } catch (error) {
+      toast({ title: "Failed to create owner", description: getApiErrorMessage(error), variant: "destructive" });
     }
   };
 
@@ -260,8 +261,8 @@ export default function OwnerNew() {
         title: "Referee created",
         description: `${(newReferee as any).refereeCode} — ${(newReferee as any).name}`,
       });
-    } catch {
-      toast({ title: "Failed to create referee", variant: "destructive" });
+    } catch (error) {
+      toast({ title: "Failed to create referee", description: getApiErrorMessage(error), variant: "destructive" });
     }
   }
 
@@ -281,8 +282,8 @@ export default function OwnerNew() {
       setAddRepOpen(false);
       repForm.reset({ name: "", email: "", password: "", roleId: "" });
       toast({ title: "Representative added", description: `${(newUser as any).name} can now log in with the provided credentials.` });
-    } catch {
-      toast({ title: "Failed to create representative", variant: "destructive" });
+    } catch (error) {
+      toast({ title: "Failed to create representative", description: getApiErrorMessage(error), variant: "destructive" });
     }
   }
 

@@ -11,6 +11,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useToast } from "@/hooks/use-toast";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { Check, ChevronRight } from "lucide-react";
 
 // For the wizard, we'll implement step 1 and 2 to create the entity, then redirect to the full editor.
@@ -116,7 +117,7 @@ export default function ForecastWizard() {
       toast({ title: "Draft Created", description: "Navigating to forecast builder..." });
       setLocation(`/forecasts/${result.id}`);
     } catch (error) {
-      toast({ title: "Error", description: "Failed to create forecast.", variant: "destructive" });
+      toast({ title: "Failed to create forecast", description: getApiErrorMessage(error), variant: "destructive" });
     }
   };
 

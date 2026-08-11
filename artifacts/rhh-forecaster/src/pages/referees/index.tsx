@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { SmartReport } from "@/components/SmartReport";
 import { useToast } from "@/hooks/use-toast";
+import { getApiErrorMessage } from "@/lib/api-error";
 import { DataTable, ColumnDef } from "@/components/DataTable";
 
 interface RefereeFormValues {
@@ -116,8 +117,8 @@ export default function RefereesList() {
       }
       queryClient.invalidateQueries({ queryKey: getListRefereesQueryKey() });
       setDialogOpen(false);
-    } catch {
-      toast({ title: "Error", variant: "destructive", description: "Failed to save referee." });
+    } catch (error) {
+      toast({ title: "Failed to save referee", description: getApiErrorMessage(error), variant: "destructive" });
     }
   }
 

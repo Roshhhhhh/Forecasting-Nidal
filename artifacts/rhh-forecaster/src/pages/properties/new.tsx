@@ -446,6 +446,12 @@ export default function PropertyNew() {
       }
       ownerIdSet.add(row.ownerId);
     }
+    // Reject if total ownership stake exceeds 100%
+    const total = validRows.reduce((s, r) => s + r.ownershipPercentage, 0);
+    if (Math.round(total * 10) > 1000) {
+      toast({ title: "Ownership exceeds 100%", description: `Total is ${total}%. Adjust the stakes so they add up to 100%.`, variant: "destructive" });
+      return;
+    }
 
     try {
       const submitData: any = { ...data };
@@ -557,8 +563,14 @@ export default function PropertyNew() {
                 </div>
                 <div className="flex items-center gap-2">
                   {ownerRows.length > 1 && (
-                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${Math.round(totalOwnershipPct) === 100 ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
-                      {totalOwnershipPct}% total
+                    <span className={`text-xs font-semibold px-2 py-1 rounded-full ${
+                      Math.round(totalOwnershipPct * 10) === 1000
+                        ? "bg-green-100 text-green-700"
+                        : totalOwnershipPct > 100
+                          ? "bg-red-100 text-red-700 border border-red-200"
+                          : "bg-amber-100 text-amber-700"
+                    }`}>
+                      {totalOwnershipPct}% total{totalOwnershipPct > 100 ? " — exceeds 100%" : ""}
                     </span>
                   )}
                   <Button type="button" variant="outline" size="sm" onClick={addOwnerRow} className="h-8 text-xs gap-1.5">

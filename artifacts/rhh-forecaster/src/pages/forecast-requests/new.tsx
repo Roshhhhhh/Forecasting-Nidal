@@ -259,9 +259,6 @@ export default function NewForecastRequest() {
       if (ownerType === "individual" && !ownerFirst.trim()) {
         toast({ title: "First name required", variant: "destructive" }); return;
       }
-      if (ownerType === "individual" && !ownerLast.trim()) {
-        toast({ title: "Last name required", variant: "destructive" }); return;
-      }
       if (ownerType === "company" && !ownerCompanyName.trim()) {
         toast({ title: "Company name required", variant: "destructive" }); return;
       }
@@ -481,7 +478,7 @@ export default function NewForecastRequest() {
                     <Input placeholder="First name" value={ownerFirst} onChange={e => setOwnerFirst(e.target.value)} className="h-9" />
                   </div>
                   <div>
-                    <FL required>Last Name</FL>
+                    <FL>Last Name</FL>
                     <Input placeholder="Last name" value={ownerLast} onChange={e => setOwnerLast(e.target.value)} className="h-9" />
                   </div>
                 </div>

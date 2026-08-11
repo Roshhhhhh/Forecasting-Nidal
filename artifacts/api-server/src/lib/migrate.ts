@@ -512,6 +512,18 @@ export async function runStartupMigration() {
       )
     `);
 
+    // forecast_requests — new fields for redesigned form
+    await db.execute(sql`
+      ALTER TABLE forecast_requests
+        ADD COLUMN IF NOT EXISTS proposed_management_commission TEXT NOT NULL DEFAULT '20%',
+        ADD COLUMN IF NOT EXISTS referee_name TEXT,
+        ADD COLUMN IF NOT EXISTS owner_title TEXT,
+        ADD COLUMN IF NOT EXISTS owner_company_name TEXT,
+        ADD COLUMN IF NOT EXISTS owner_contact_person TEXT,
+        ADD COLUMN IF NOT EXISTS owner_contact_position TEXT,
+        ADD COLUMN IF NOT EXISTS property_layout TEXT
+    `);
+
     logger.info("Startup migration complete");
   } catch (err) {
     logger.error({ err }, "Startup migration failed");

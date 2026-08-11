@@ -5,66 +5,80 @@ import { requireAuth } from "../middlewares/auth";
 
 const router = Router();
 
-// ── helpers ────────────────────────────────────────────────────────────────────
+// ── shared SQL fragment ────────────────────────────────────────────────────────
+const SELECT_COLS = sql`
+  fr.*,
+  rep.name AS representative_name,
+  cb.name  AS created_by_name
+`;
 
-async function enrichRow(row: any) {
+const JOINS = sql`
+  FROM forecast_requests fr
+  LEFT JOIN users rep ON rep.id = fr.representative_id
+  LEFT JOIN users cb  ON cb.id  = fr.created_by_id
+`;
+
+// ── enrichRow ──────────────────────────────────────────────────────────────────
+function enrichRow(row: any) {
   return {
-    id:                   row.id,
-    status:               row.status,
-    ownerId:              row.owner_id,
-    propertyId:           row.property_id,
-    representativeId:     row.representative_id,
-    representativeName:   row.representative_name ?? null,
-    refereeId:            row.referee_id,
-    refereeName:          row.referee_name ?? null,
-    ownerFirstName:       row.owner_first_name,
-    ownerLastName:        row.owner_last_name,
-    ownerEmail:           row.owner_email,
-    ownerPhone:           row.owner_phone,
-    ownerWhatsapp:        row.owner_whatsapp,
-    ownerNationality:     row.owner_nationality,
-    ownerType:            row.owner_type,
-    propertyEmirate:      row.property_emirate,
-    propertyArea:         row.property_area,
-    propertyCommunity:    row.property_community,
-    propertyDevelopment:  row.property_development,
-    propertyUnitNumber:   row.property_unit_number,
-    propertyType:         row.property_type,
-    propertyBedrooms:     row.property_bedrooms,
-    propertyBathrooms:    row.property_bathrooms,
-    propertyInternalArea: row.property_internal_area,
-    propertyFurnishing:   row.property_furnishing,
-    propertyCondition:    row.property_condition,
-    propertyView:         row.property_view,
-    propertyIsWaterfront: row.property_is_waterfront,
-    mediaUrls:            row.media_urls ?? [],
-    notes:                row.notes,
-    createdById:          row.created_by_id,
-    createdByName:        row.created_by_name ?? null,
-    reviewedById:         row.reviewed_by_id,
-    convertedForecastId:  row.converted_forecast_id,
-    createdAt:            row.created_at,
-    updatedAt:            row.updated_at,
+    id:                           row.id,
+    status:                       row.status,
+    ownerId:                      row.owner_id,
+    propertyId:                   row.property_id,
+    representativeId:             row.representative_id,
+    representativeName:           row.representative_name ?? null,
+    // free-text referee from form (new)
+    refereeName:                  row.referee_name ?? null,
+    // legacy FK (kept for compat, not used in new form)
+    refereeId:                    row.referee_id,
+    // owner fields
+    ownerTitle:                   row.owner_title ?? null,
+    ownerFirstName:               row.owner_first_name ?? null,
+    ownerLastName:                row.owner_last_name ?? null,
+    ownerCompanyName:             row.owner_company_name ?? null,
+    ownerContactPerson:           row.owner_contact_person ?? null,
+    ownerContactPosition:         row.owner_contact_position ?? null,
+    ownerEmail:                   row.owner_email ?? null,
+    ownerPhone:                   row.owner_phone ?? null,
+    ownerWhatsapp:                row.owner_whatsapp ?? null,
+    ownerNationality:             row.owner_nationality ?? null,
+    ownerType:                    row.owner_type ?? "individual",
+    // property fields
+    propertyEmirate:              row.property_emirate ?? null,
+    propertyArea:                 row.property_area ?? null,
+    propertyCommunity:            row.property_community ?? null,
+    propertyDevelopment:          row.property_development ?? null,
+    propertyUnitNumber:           row.property_unit_number ?? null,
+    propertyType:                 row.property_type ?? null,
+    propertyLayout:               row.property_layout ?? null,
+    propertyBedrooms:             row.property_bedrooms ?? null,
+    propertyBathrooms:            row.property_bathrooms ?? null,
+    propertyInternalArea:         row.property_internal_area ?? null,
+    propertyFurnishing:           row.property_furnishing ?? null,
+    propertyCondition:            row.property_condition ?? null,
+    propertyView:                 row.property_view ?? null,
+    propertyIsWaterfront:         row.property_is_waterfront ?? false,
+    // commercial
+    proposedManagementCommission: row.proposed_management_commission ?? "20%",
+    // media + notes
+    mediaUrls:                    row.media_urls ?? [],
+    notes:                        row.notes ?? null,
+    // meta
+    createdById:                  row.created_by_id ?? null,
+    createdByName:                row.created_by_name ?? null,
+    reviewedById:                 row.reviewed_by_id ?? null,
+    convertedForecastId:          row.converted_forecast_id ?? null,
+    createdAt:                    row.created_at ?? null,
+    updatedAt:                    row.updated_at ?? null,
   };
 }
-
-const LIST_QUERY = sql`
-  SELECT
-    fr.*,
-    rep.name  AS representative_name,
-    ref.name  AS referee_name,
-    cb.name   AS created_by_name
-  FROM forecast_requests fr
-  LEFT JOIN users rep    ON rep.id = fr.representative_id
-  LEFT JOIN referees ref ON ref.id = fr.referee_id
-  LEFT JOIN users cb     ON cb.id  = fr.created_by_id
-  ORDER BY fr.created_at DESC
-`;
 
 // ── GET /forecast-requests ─────────────────────────────────────────────────────
 router.get("/forecast-requests", requireAuth, async (_req, res): Promise<void> => {
   try {
-    const rows = await db.execute(LIST_QUERY);
+    const rows = await db.execute(sql`
+      SELECT ${SELECT_COLS} ${JOINS} ORDER BY fr.created_at DESC
+    `);
     res.json(rows.rows.map(enrichRow));
   } catch (err) {
     console.error("[forecast-requests] list error:", err);
@@ -79,26 +93,40 @@ router.post("/forecast-requests", requireAuth, async (req, res): Promise<void> =
     const b = req.body;
 
     const mediaUrls = Array.isArray(b.mediaUrls) ? b.mediaUrls : [];
-    // Build PG array literal safely
     const mediaLiteral = "'{" + mediaUrls.map((u: string) => `"${u.replace(/"/g, '\\"')}"`).join(",") + "}'";
+
+    // Derive bedrooms from layout
+    let bedrooms: number | null = null;
+    if (b.propertyLayout === "Studio") bedrooms = 0;
+    else if (b.propertyLayout) {
+      const m = String(b.propertyLayout).match(/^(\d+)/);
+      if (m) bedrooms = parseInt(m[1], 10);
+    }
+    if (b.propertyBedrooms !== undefined && b.propertyBedrooms !== null) {
+      bedrooms = parseInt(b.propertyBedrooms, 10);
+    }
 
     const result = await db.execute(sql`
       INSERT INTO forecast_requests (
-        owner_id, property_id, representative_id, referee_id,
-        owner_first_name, owner_last_name, owner_email, owner_phone,
-        owner_whatsapp, owner_nationality, owner_type,
+        owner_id, property_id,
+        owner_title, owner_first_name, owner_last_name,
+        owner_company_name, owner_contact_person, owner_contact_position,
+        owner_email, owner_phone, owner_whatsapp, owner_nationality, owner_type,
         property_emirate, property_area, property_community,
-        property_development, property_unit_number, property_type,
+        property_development, property_unit_number, property_type, property_layout,
         property_bedrooms, property_bathrooms, property_internal_area,
-        property_furnishing, property_condition, property_view,
-        property_is_waterfront, media_urls, notes, created_by_id
+        property_furnishing, property_condition, property_view, property_is_waterfront,
+        proposed_management_commission, referee_name,
+        media_urls, notes, created_by_id
       ) VALUES (
         ${b.ownerId ?? null},
         ${b.propertyId ?? null},
-        ${b.representativeId ?? null},
-        ${b.refereeId ?? null},
+        ${b.ownerTitle ?? null},
         ${b.ownerFirstName ?? null},
         ${b.ownerLastName ?? null},
+        ${b.ownerCompanyName ?? null},
+        ${b.ownerContactPerson ?? null},
+        ${b.ownerContactPosition ?? null},
         ${b.ownerEmail ?? null},
         ${b.ownerPhone ?? null},
         ${b.ownerWhatsapp ?? null},
@@ -110,13 +138,16 @@ router.post("/forecast-requests", requireAuth, async (req, res): Promise<void> =
         ${b.propertyDevelopment ?? null},
         ${b.propertyUnitNumber ?? null},
         ${b.propertyType ?? null},
-        ${b.propertyBedrooms ?? null},
+        ${b.propertyLayout ?? null},
+        ${bedrooms},
         ${b.propertyBathrooms ?? null},
         ${b.propertyInternalArea ?? null},
         ${b.propertyFurnishing ?? null},
         ${b.propertyCondition ?? null},
         ${b.propertyView ?? null},
         ${b.propertyIsWaterfront ?? false},
+        ${b.proposedManagementCommission ?? "20%"},
+        ${b.refereeName ?? null},
         ${sql.raw(mediaLiteral)}::text[],
         ${b.notes ?? null},
         ${user?.id ?? null}
@@ -125,20 +156,9 @@ router.post("/forecast-requests", requireAuth, async (req, res): Promise<void> =
     `);
 
     const newId = (result.rows[0] as any).id;
-
-    // Return the full enriched row
     const row = await db.execute(sql`
-      SELECT fr.*,
-        rep.name AS representative_name,
-        ref.name AS referee_name,
-        cb.name  AS created_by_name
-      FROM forecast_requests fr
-      LEFT JOIN users rep    ON rep.id = fr.representative_id
-      LEFT JOIN referees ref ON ref.id = fr.referee_id
-      LEFT JOIN users cb     ON cb.id  = fr.created_by_id
-      WHERE fr.id = ${newId}
+      SELECT ${SELECT_COLS} ${JOINS} WHERE fr.id = ${newId}
     `);
-
     res.status(201).json(enrichRow(row.rows[0]));
   } catch (err) {
     console.error("[forecast-requests] create error:", err);
@@ -151,15 +171,7 @@ router.get("/forecast-requests/:id", requireAuth, async (req, res): Promise<void
   try {
     const id = parseInt(req.params.id, 10);
     const row = await db.execute(sql`
-      SELECT fr.*,
-        CONCAT(rep.first_name, ' ', rep.last_name) AS representative_name,
-        CONCAT(ref.first_name, ' ', ref.last_name)  AS referee_name,
-        CONCAT(cb.first_name, ' ', cb.last_name)    AS created_by_name
-      FROM forecast_requests fr
-      LEFT JOIN users rep ON rep.id = fr.representative_id
-      LEFT JOIN referees ref ON ref.id = fr.referee_id
-      LEFT JOIN users cb  ON cb.id  = fr.created_by_id
-      WHERE fr.id = ${id}
+      SELECT ${SELECT_COLS} ${JOINS} WHERE fr.id = ${id}
     `);
     if (!row.rows[0]) { res.status(404).json({ error: "Not found" }); return; }
     res.json(enrichRow(row.rows[0]));
@@ -187,15 +199,7 @@ router.patch("/forecast-requests/:id/status", requireAuth, async (req, res): Pro
       WHERE id = ${id}
     `);
     const row = await db.execute(sql`
-      SELECT fr.*,
-        CONCAT(rep.first_name, ' ', rep.last_name) AS representative_name,
-        CONCAT(ref.first_name, ' ', ref.last_name)  AS referee_name,
-        CONCAT(cb.first_name, ' ', cb.last_name)    AS created_by_name
-      FROM forecast_requests fr
-      LEFT JOIN users rep ON rep.id = fr.representative_id
-      LEFT JOIN referees ref ON ref.id = fr.referee_id
-      LEFT JOIN users cb  ON cb.id  = fr.created_by_id
-      WHERE fr.id = ${id}
+      SELECT ${SELECT_COLS} ${JOINS} WHERE fr.id = ${id}
     `);
     res.json(enrichRow(row.rows[0]));
   } catch (err) {

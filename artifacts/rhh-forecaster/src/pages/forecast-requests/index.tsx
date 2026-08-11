@@ -2,24 +2,24 @@ import { useState } from "react";
 import { Link } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ClipboardList, Plus, Clock, Eye, CheckCircle2, XCircle,
-  RefreshCw, Building2, User, Users, Paperclip, ChevronRight
+  Building2, User, MapPin, Percent, UserCheck, Paperclip,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
+// ── status meta ────────────────────────────────────────────────────────────────
 const STATUS_META: Record<string, { label: string; color: string; icon: React.FC<any> }> = {
-  pending:    { label: "Pending",    color: "bg-amber-100 text-amber-700 border-amber-200",   icon: Clock },
-  in_review:  { label: "In Review",  color: "bg-blue-100 text-blue-700 border-blue-200",      icon: Eye },
-  converted:  { label: "Converted",  color: "bg-green-100 text-green-700 border-green-200",   icon: CheckCircle2 },
-  declined:   { label: "Declined",   color: "bg-red-100 text-red-700 border-red-200",         icon: XCircle },
+  pending:   { label: "Pending Review", color: "bg-amber-100 text-amber-700 border-amber-200",  icon: Clock },
+  in_review: { label: "In Review",      color: "bg-blue-100 text-blue-700 border-blue-200",     icon: Eye },
+  converted: { label: "Converted",      color: "bg-green-100 text-green-700 border-green-200",  icon: CheckCircle2 },
+  declined:  { label: "Declined",       color: "bg-red-100 text-red-700 border-red-200",        icon: XCircle },
 };
 
 function StatusBadge({ status }: { status: string }) {
-  const meta = STATUS_META[status] ?? { label: status, color: "bg-muted text-muted-foreground", icon: Clock };
+  const meta = STATUS_META[status] ?? { label: status, color: "bg-muted text-muted-foreground border-border", icon: Clock };
   const Icon = meta.icon;
   return (
     <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${meta.color}`}>
@@ -29,16 +29,53 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function timeAgo(dateStr: string) {
-  const diff = Date.now() - new Date(dateStr).getTime();
+// ── date helpers ───────────────────────────────────────────────────────────────
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "Date unavailable";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "Date unavailable";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function timeAgo(dateStr: string | null | undefined): string {
+  if (!dateStr) return "Date unavailable";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "Date unavailable";
+  const diff = Date.now() - d.getTime();
+  if (diff < 0) return formatDate(dateStr);
   const mins = Math.floor(diff / 60000);
   if (mins < 1) return "just now";
   if (mins < 60) return `${mins}m ago`;
   const hrs = Math.floor(mins / 60);
   if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return formatDate(dateStr);
 }
 
+// ── owner display name ─────────────────────────────────────────────────────────
+function ownerDisplayName(req: any): string {
+  if (req.ownerId) return `Owner #${req.ownerId}`;
+  if (req.ownerType === "company" && req.ownerCompanyName) return req.ownerCompanyName;
+  const parts = [req.ownerTitle, req.ownerFirstName, req.ownerLastName].filter(Boolean);
+  if (parts.length > 0) return parts.join(" ");
+  if (req.ownerContactPerson) return req.ownerContactPerson;
+  return null!;
+}
+
+// ── property summary ───────────────────────────────────────────────────────────
+function propertySummary(req: any): { primary: string; secondary: string } {
+  if (req.propertyId) return { primary: `Property #${req.propertyId}`, secondary: "" };
+
+  const layout = req.propertyLayout || "";
+  const type = req.propertyType || "";
+  const unitParts = [req.propertyCommunity || req.propertyDevelopment, req.propertyUnitNumber && `Unit ${req.propertyUnitNumber}`].filter(Boolean);
+  const primary = [unitParts.join(" "), layout && type ? `${layout} ${type}` : layout || type].filter(Boolean).join(" · ");
+  const secondary = [req.propertyArea, req.propertyEmirate].filter(Boolean).join(", ");
+  return { primary: primary || "Property details provided", secondary };
+}
+
+// ── list ───────────────────────────────────────────────────────────────────────
 export default function ForecastRequestsList() {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -63,9 +100,10 @@ export default function ForecastRequestsList() {
   });
 
   const filtered = filter === "all" ? requests : requests.filter((r: any) => r.status === filter);
+  const pendingCount = requests.filter((r: any) => r.status === "pending").length;
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+    <div className="max-w-3xl mx-auto px-4 py-6 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div>
@@ -74,7 +112,7 @@ export default function ForecastRequestsList() {
             Forecast Requests
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            {requests.filter((r: any) => r.status === "pending").length} pending review
+            {pendingCount > 0 ? `${pendingCount} pending review` : "No pending requests"}
           </p>
         </div>
         <Link href="/forecast-requests/new">
@@ -84,9 +122,9 @@ export default function ForecastRequestsList() {
         </Link>
       </div>
 
-      {/* Filter */}
-      <div className="flex gap-2 items-center flex-wrap">
-        {["all", "pending", "in_review", "converted", "declined"].map(s => (
+      {/* Filters */}
+      <div className="flex gap-2 flex-wrap">
+        {(["all", "pending", "in_review", "converted", "declined"] as const).map(s => (
           <button
             key={s}
             onClick={() => setFilter(s)}
@@ -109,9 +147,7 @@ export default function ForecastRequestsList() {
       {/* List */}
       {isLoading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-24 rounded-xl bg-muted/40 animate-pulse" />
-          ))}
+          {[1, 2, 3].map(i => <div key={i} className="h-28 rounded-xl bg-muted/40 animate-pulse" />)}
         </div>
       ) : filtered.length === 0 ? (
         <Card className="border-dashed border-border/50">
@@ -128,20 +164,17 @@ export default function ForecastRequestsList() {
       ) : (
         <div className="space-y-3">
           {filtered.map((req: any) => {
-            const ownerName = req.ownerId
-              ? `Owner #${req.ownerId}`
-              : [req.ownerFirstName, req.ownerLastName].filter(Boolean).join(" ") || "Unknown Owner";
-            const propSummary = req.propertyId
-              ? `Property #${req.propertyId}`
-              : [req.propertyType, req.propertyArea, req.propertyEmirate].filter(Boolean).join(" · ") || "Property details provided";
+            const owner = ownerDisplayName(req);
+            const prop = propertySummary(req);
+            const isReducedPmc = req.proposedManagementCommission && req.proposedManagementCommission !== "20%";
 
             return (
               <Card key={req.id} className="shadow-sm border-border/50 hover:border-primary/20 transition-colors">
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      {/* Top row */}
-                      <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0 space-y-2">
+                      {/* Top row: status + time */}
+                      <div className="flex items-center gap-2 flex-wrap">
                         <StatusBadge status={req.status} />
                         <span className="text-xs text-muted-foreground">{timeAgo(req.createdAt)}</span>
                         {req.mediaUrls?.length > 0 && (
@@ -150,37 +183,51 @@ export default function ForecastRequestsList() {
                           </span>
                         )}
                       </div>
+
                       {/* Owner */}
-                      <div className="flex items-center gap-1.5 mb-0.5">
+                      <div className="flex items-center gap-1.5">
                         <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="text-sm font-medium truncate">{ownerName}</span>
+                        <span className="text-sm font-medium truncate">{owner || <span className="italic text-muted-foreground">Owner not specified</span>}</span>
                       </div>
+
                       {/* Property */}
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <span className="text-xs text-muted-foreground truncate">{propSummary}</span>
-                      </div>
-                      {/* Rep */}
-                      {req.representativeName && (
-                        <div className="flex items-center gap-1.5">
-                          <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                          <span className="text-xs text-muted-foreground truncate">{req.representativeName}</span>
+                      {prop.primary && (
+                        <div className="flex items-start gap-1.5">
+                          <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                          <div className="min-w-0">
+                            <p className="text-xs font-medium truncate">{prop.primary}</p>
+                            {prop.secondary && <p className="text-xs text-muted-foreground truncate">{prop.secondary}</p>}
+                          </div>
                         </div>
                       )}
-                      {/* Notes */}
+
+                      {/* PMC + Referee row */}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {req.proposedManagementCommission && (
+                          <div className="flex items-center gap-1">
+                            <Percent className="h-3 w-3 text-muted-foreground" />
+                            <span className={`text-xs font-medium ${isReducedPmc ? "text-amber-600" : "text-muted-foreground"}`}>
+                              PMC {req.proposedManagementCommission}
+                            </span>
+                          </div>
+                        )}
+                        {req.refereeName && (
+                          <div className="flex items-center gap-1">
+                            <UserCheck className="h-3 w-3 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground truncate">via {req.refereeName}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Notes preview */}
                       {req.notes && (
-                        <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2 italic">
-                          "{req.notes}"
-                        </p>
+                        <p className="text-xs text-muted-foreground line-clamp-1 italic">"{req.notes}"</p>
                       )}
                     </div>
 
                     {/* Status selector */}
                     <div className="shrink-0">
-                      <Select
-                        value={req.status}
-                        onValueChange={status => updateStatus({ id: req.id, status })}
-                      >
+                      <Select value={req.status} onValueChange={status => updateStatus({ id: req.id, status })}>
                         <SelectTrigger className="h-7 w-28 text-xs">
                           <SelectValue />
                         </SelectTrigger>

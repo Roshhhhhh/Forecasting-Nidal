@@ -1,0 +1,1144 @@
+Redesign the existing “New Forecast Request” form to make it much faster, simpler, and easier for internal users to submit a forecast request.
+
+The current form asks for too much detail at the request stage.
+
+The purpose of this form is NOT to create the full forecast.
+
+It is only to collect the minimum information required for the Revenue Manager to understand:
+
+1. Who is the owner
+2. What is the property
+3. Where is the property
+4. What management commission is being proposed
+5. Who referred the owner, if applicable
+6. Any useful supporting media or notes
+
+The Revenue Manager will later review the request, assign themselves or another representative, complete the full property profile, pricing assumptions, ADRs, LTR benchmark, expenses, amenities, and generate the forecast.
+
+==================================================
+1. REDESIGN PRINCIPLE
+==================================================
+
+The request form must be:
+
+- Fast
+- Mobile-first
+- Minimal
+- Easy to complete in under 2 minutes
+- Clear for Sales, Client Relations, Management and other internal users
+- No unnecessary fields
+- No duplicate fields
+- No representative assignment by the requesting user
+- No detailed forecast inputs at this stage
+
+Use one page with compact collapsible sections.
+
+Recommended sections:
+
+1. Owner Details
+2. Property Details
+3. Commercial Details
+4. Media & Notes
+
+Keep the sticky bottom button:
+
+Submit Forecast Request
+
+==================================================
+2. OWNER DETAILS
+==================================================
+
+Section title:
+
+Owner Details
+
+Keep the toggle:
+
+Existing Owner
+New Owner
+
+If Existing Owner:
+
+Show searchable dropdown:
+
+Select Existing Owner
+
+Search by:
+- Owner name
+- Company name
+- Mobile
+- Email
+
+Once selected, auto-fill owner details and display a compact summary card.
+
+If New Owner:
+
+First ask:
+
+Owner Type
+
+Dropdown:
+- Individual
+- Company
+
+--------------------------------------------------
+IF INDIVIDUAL
+--------------------------------------------------
+
+Fields:
+
+Title
+Dropdown:
+- Mr.
+- Mrs.
+- Ms.
+- Dr.
+- Sheikh
+- Sheikha
+- Other
+
+First Name
+Required
+
+Last Name
+Required
+
+Nationality
+Optional
+
+Email
+Optional
+
+Mobile Number
+Required
+
+WhatsApp Number
+Optional
+
+Add toggle:
+
+Same as Mobile
+
+If selected, automatically copy the mobile number.
+
+--------------------------------------------------
+IF COMPANY
+--------------------------------------------------
+
+Fields:
+
+Company Name
+Required
+
+Contact Person Name
+Required
+
+Contact Person Position
+Optional
+
+Email
+Optional
+
+Mobile Number
+Required
+
+WhatsApp Number
+Optional
+
+Nationality should NOT be required for a company.
+
+==================================================
+3. PROPERTY DETAILS
+==================================================
+
+Section title:
+
+Property Details
+
+Keep:
+
+Existing Property
+New Property
+
+If Existing Property:
+
+Show searchable dropdown:
+
+Select Existing Property
+
+Search by:
+- Building
+- Project
+- Unit Number
+- Owner
+- Area
+
+Once selected, display property summary.
+
+If New Property:
+
+Use the following fields only.
+
+--------------------------------------------------
+EMIRATE
+--------------------------------------------------
+
+Dropdown.
+
+Default:
+
+Abu Dhabi
+
+Options:
+- Abu Dhabi
+- Dubai
+- Sharjah
+- Ajman
+- Ras Al Khaimah
+- Umm Al Quwain
+- Fujairah
+- Other
+
+If Other:
+show text input.
+
+--------------------------------------------------
+AREA
+--------------------------------------------------
+
+Required searchable dropdown.
+
+For Abu Dhabi, populate from the Market Data database.
+
+Examples:
+
+- Yas Island
+- Saadiyat Island
+- Al Reem Island
+- Al Raha Beach
+- Al Maryah Island
+- Masdar City
+- Khalifa City
+- Al Reef
+- Al Raha Gardens
+- Al Muneera
+- Al Zeina
+- Al Bateen
+- Corniche
+- Al Khalidiyah
+- Al Mushrif
+- Al Manhal
+- Al Rawdah
+- Al Raha
+- Al Shamkha
+- Al Shawamekh
+- Al Ghadeer
+- Al Hudayriyat
+- Al Jubail Island
+- Al Raha Beach
+- Al Raha Gardens
+- Al Raha Golf Gardens
+- Al Matar
+- Tourist Club Area
+- Al Danah
+- Al Nahyan
+- Al Zahiyah
+- Al Marina
+- Other
+
+Always include:
+
+Other
+
+If Other is selected:
+show free-text field:
+
+Enter Area
+
+Do NOT force users to choose an incorrect area when the property is not yet in the database.
+
+--------------------------------------------------
+COMMUNITY / PROJECT
+--------------------------------------------------
+
+Searchable dropdown.
+
+Populate dynamically based on selected area.
+
+Examples for Yas Island may include:
+
+- Waters Edge
+- Ansam
+- Mayan
+- Yas Golf Collection
+- Noya
+- Noya Viva
+- Noya Luma
+- West Yas
+- Yas Acres
+- Yas Park Views
+- Yas Park Gate
+- Gardenia Bay
+- The Sustainable City Yas Island
+- Yas Riva
+- Yas Canopies
+- Other
+
+For Saadiyat:
+
+- Mamsha Al Saadiyat
+- Saadiyat Beach Residences
+- Hidd Al Saadiyat
+- Louvre Abu Dhabi Residences
+- Grove
+- Saadiyat Lagoons
+- Jawaher
+- Nobu Residences
+- Other
+
+The exact options should come from the Market Data / Projects database, not hardcoded only in the form.
+
+Always include:
+
+Other
+
+If Other selected:
+show text field:
+
+Enter Community / Project
+
+--------------------------------------------------
+DEVELOPMENT / BUILDING
+--------------------------------------------------
+
+Searchable dropdown where known.
+
+Populate based on Community / Project when possible.
+
+Always include:
+
+Other
+
+If Other:
+show text field:
+
+Enter Building / Development
+
+This should allow entries such as:
+
+Mamsha
+Building Lilac 5
+
+or:
+
+Waters Edge
+Building 10
+
+--------------------------------------------------
+UNIT NUMBER
+--------------------------------------------------
+
+Optional text field.
+
+Example:
+402
+
+--------------------------------------------------
+PROPERTY TYPE
+--------------------------------------------------
+
+Dropdown:
+
+- Apartment
+- Duplex
+- Penthouse
+- Townhouse
+- Villa
+- Hotel Apartment
+- Other
+
+If Other:
+show free-text field.
+
+==================================================
+4. APARTMENT / PROPERTY LAYOUT
+==================================================
+
+Add a dedicated field:
+
+Layout
+
+Use a dropdown.
+
+Options:
+
+- Studio
+- 1 Bedroom
+- 2 Bedrooms
+- 3 Bedrooms
+- 4 Bedrooms
+- 5 Bedrooms
+- 6 Bedrooms
+- 7 Bedrooms
+- 8 Bedrooms
+- 9 Bedrooms
+- 10 Bedrooms
+
+Do not use a numeric free-text bedroom field anymore at the forecast request stage.
+
+If the property type is Villa, Townhouse, Penthouse, Apartment or Duplex, use the same bedroom dropdown.
+
+For Studio:
+
+store bedrooms = 0
+
+For:
+1 Bedroom:
+store bedrooms = 1
+
+Continue accordingly until:
+10 Bedrooms
+
+Optionally add:
+
+10+ Bedrooms
+
+If selected:
+show numeric input.
+
+==================================================
+5. BATHROOMS
+==================================================
+
+Make bathrooms optional at request stage.
+
+Use dropdown:
+
+- 1 Bathroom
+- 1.5 Bathrooms
+- 2 Bathrooms
+- 2.5 Bathrooms
+- 3 Bathrooms
+- 3.5 Bathrooms
+- 4 Bathrooms
+- 4.5 Bathrooms
+- 5 Bathrooms
+- 5.5 Bathrooms
+- 6 Bathrooms
+- 7 Bathrooms
+- 8 Bathrooms
+- 9 Bathrooms
+- 10 Bathrooms
+- 10+ Bathrooms
+- Unknown
+
+Default:
+
+Unknown
+
+==================================================
+6. PROPERTY SIZE
+==================================================
+
+Optional.
+
+Field:
+
+Approx. Size
+
+Numeric input
+
+Unit:
+
+Sq Ft
+
+Do not make size mandatory for submitting a forecast request.
+
+If the user does not know it, the Revenue Manager can complete it later.
+
+==================================================
+7. VIEW
+==================================================
+
+Optional searchable dropdown.
+
+Options:
+
+- Sea View
+- Full Sea View
+- Partial Sea View
+- Canal View
+- Marina View
+- Waterfront View
+- Pool View
+- Golf View
+- Park View
+- Community View
+- City View
+- Skyline View
+- Landmark View
+- Mangrove View
+- Yas Waterworld View
+- Ferrari World View
+- Theme Park View
+- Garden View
+- Street View
+- Other
+- Unknown
+
+If Other:
+show text input.
+
+Do not force View as required.
+
+==================================================
+8. FURNISHING
+==================================================
+
+Optional dropdown:
+
+- Unfurnished
+- Partially Furnished
+- Fully Furnished
+- Premium Furnished
+- Previously Managed as Holiday Home
+- Unknown
+
+Default:
+
+Unknown
+
+==================================================
+9. PROPERTY CONDITION
+==================================================
+
+Optional dropdown:
+
+- Brand New
+- Excellent
+- Good
+- Requires Minor Improvements
+- Requires Renovation
+- Unknown
+
+Default:
+
+Unknown
+
+==================================================
+10. WATERFRONT FLAG
+==================================================
+
+Keep the checkbox:
+
+Waterfront / Beachfront Property
+
+But make it optional.
+
+Do not add the full Amenities module to this simplified forecast request.
+
+The detailed Amenities module belongs in the full Property Profile completed later by the Revenue Manager.
+
+==================================================
+11. PMC / MANAGEMENT COMMISSION
+==================================================
+
+Add a new section:
+
+Commercial Details
+
+Field:
+
+Proposed RHH Management Commission
+
+Use a dropdown.
+
+Default value:
+
+20%
+
+Options:
+
+- 20%
+- 19.5%
+- 19%
+- 18.5%
+- 18%
+- 17.5%
+- 17%
+- 16.5%
+- 16%
+- 15.5%
+- 15%
+
+15% is the minimum allowed commission.
+
+Do not allow any requesting user to enter below 15%.
+
+Do not allow free-text commission entry.
+
+Store this as:
+
+proposedManagementCommission
+
+Add helper text:
+
+“Default RHH management commission is 20%. Any reduced commission is subject to internal approval.”
+
+If commission is below 20%:
+
+show a subtle warning:
+
+“Reduced commission selected.”
+
+Optional internal note:
+
+“Final management commission remains subject to management approval.”
+
+==================================================
+12. REFEREE
+==================================================
+
+Remove the entire:
+
+Assigned Representative
+
+field from the request form.
+
+The requesting user must NOT assign a representative.
+
+The Revenue Manager will assign:
+
+- Revenue Manager
+- Sales Representative
+- Client Relations Representative
+
+after receiving the request.
+
+Replace the current “Representative & Referee” section with:
+
+Referral
+
+Field:
+
+Referee Name
+
+Simple free-text input.
+
+Placeholder:
+
+e.g. Ahmed Al Mansoori
+
+Optional.
+
+No referee database selection required.
+
+No “New Referee” modal required at this stage.
+
+Store:
+
+refereeName
+
+Optionally include:
+
+Referee Contact
+Optional
+
+But keep it collapsed under:
+
+Add referee contact
+
+The main request should require only the name.
+
+==================================================
+13. MEDIA UPLOAD
+==================================================
+
+Section:
+
+Photos & Media
+
+Optional.
+
+Allow:
+
+- JPG
+- JPEG
+- PNG
+- HEIC
+- WEBP
+- PDF
+- MP4
+- MOV
+
+Examples:
+
+- Property photos
+- Floorplan
+- Brochure
+- Video
+- Existing listing screenshots
+- Owner documents related to the property
+
+Allow multiple files.
+
+Show:
+
+- Upload progress
+- Thumbnail preview
+- File name
+- File size
+- Remove button
+
+Do not make media mandatory.
+
+Helper text:
+
+“Upload any property photos, floorplans, videos or brochures available. You can also submit the request without media.”
+
+==================================================
+14. ADDITIONAL NOTES
+==================================================
+
+Keep a final optional section:
+
+Additional Notes
+
+Single textarea.
+
+Placeholder:
+
+“Add anything useful for the Revenue Manager, such as expected rent, owner expectations, current operator, previous holiday-home performance, urgency, property availability, or special instructions.”
+
+Character limit:
+
+1,500
+
+==================================================
+15. FIELDS TO REMOVE FROM REQUEST FORM
+==================================================
+
+Remove the following from the New Forecast Request workflow:
+
+- Assigned Representative
+- Representative selector
+- Existing Referee database selector
+- Full Amenities selection
+- Detailed maintenance assumptions
+- ADR values
+- LTR benchmark
+- Expense inputs
+- Occupancy assumptions
+- Revenue scenarios
+- Forecast narrative
+- AI recommendations
+- Detailed licensing information
+- Detailed vacancy dates
+- Full property scoring
+- Full operational readiness assessment
+
+These belong to the Revenue Manager’s forecast workspace after the request is submitted.
+
+==================================================
+16. REQUEST FORM STRUCTURE
+==================================================
+
+Final form layout:
+
+--------------------------------
+NEW FORECAST REQUEST
+--------------------------------
+
+SECTION 1
+Owner Details
+
+Existing Owner | New Owner
+
+[Owner fields]
+
+--------------------------------
+
+SECTION 2
+Property Details
+
+Existing Property | New Property
+
+Emirate
+Area
+Community / Project
+Development / Building
+Unit Number
+Property Type
+Layout
+Bathrooms
+Approx. Size
+View
+Furnishing
+Condition
+Waterfront / Beachfront
+
+--------------------------------
+
+SECTION 3
+Commercial & Referral
+
+Proposed Management Commission
+Referee Name
+
+--------------------------------
+
+SECTION 4
+Photos & Media
+
+Upload files
+
+--------------------------------
+
+SECTION 5
+Additional Notes
+
+Textarea
+
+--------------------------------
+
+Sticky CTA:
+
+Submit Forecast Request
+
+==================================================
+17. SMART FORM BEHAVIOUR
+==================================================
+
+The form should dynamically hide irrelevant fields.
+
+Examples:
+
+If Existing Owner selected:
+do not show new owner fields.
+
+If Existing Property selected:
+do not show new property fields.
+
+If Area = Other:
+show Enter Area.
+
+If Community = Other:
+show Enter Community / Project.
+
+If Building = Other:
+show Enter Building / Development.
+
+If Owner Type = Company:
+replace First Name / Last Name with:
+Company Name + Contact Person.
+
+If WhatsApp Same as Mobile:
+auto-copy mobile number.
+
+If layout = Studio:
+store bedrooms = 0.
+
+If management commission < 20%:
+show “Reduced Commission” badge.
+
+==================================================
+18. REQUIRED FIELDS ONLY
+==================================================
+
+Keep mandatory fields to the absolute minimum.
+
+For New Individual Owner:
+
+Required:
+- First Name
+- Last Name
+- Mobile
+
+For New Company:
+
+Required:
+- Company Name
+- Contact Person
+- Mobile
+
+Property required:
+
+- Emirate
+- Area
+- Community / Project
+- Property Type
+- Layout
+
+Recommended but not mandatory:
+
+- Building
+- Unit Number
+- Bathrooms
+- Size
+- View
+- Furnishing
+- Condition
+- Media
+
+Commercial required:
+
+- Proposed Management Commission
+
+Default:
+20%
+
+Referral:
+Optional
+
+Notes:
+Optional
+
+==================================================
+19. SUBMISSION
+==================================================
+
+When Submit Forecast Request is clicked:
+
+Validate only required information.
+
+Create ForecastRequest record.
+
+Status:
+
+Pending Review
+
+Record:
+
+- Submitted by user
+- Submission date and time
+- Owner details
+- Property details
+- Proposed management commission
+- Referee name
+- Media
+- Additional notes
+
+Do NOT create a completed Forecast yet.
+
+The Revenue Manager must review and convert the request.
+
+After submission show:
+
+Forecast Request Submitted
+
+“Your request has been sent to the Revenue Management team for review.”
+
+Display:
+
+Request Reference
+FR-2026-XXXX
+
+Status:
+Pending Review
+
+Buttons:
+
+View Request
+Submit Another Request
+Return to Dashboard
+
+==================================================
+20. REVENUE MANAGER WORKFLOW
+==================================================
+
+When Revenue Manager opens a Pending Request:
+
+Display all submitted information in a concise review page.
+
+Actions:
+
+- Assign to Me
+- Assign Revenue Manager
+- Request More Information
+- Edit Request
+- Decline Request
+- Convert to Forecast
+
+When Convert to Forecast is clicked:
+
+1. Create or match owner record.
+2. Create or match property record.
+3. Copy submitted property information.
+4. Copy proposed management commission.
+5. Copy referee name.
+6. Copy media.
+7. Copy notes.
+8. Create forecast draft.
+9. Assign Revenue Manager.
+10. Change request status to Converted.
+11. Link request to created forecast.
+
+Then Revenue Manager continues into the full Forecast Wizard.
+
+==================================================
+21. FIX CURRENT REQUEST CARDS
+==================================================
+
+The current Forecast Requests page is displaying:
+
+“NaNd ago”
+
+and:
+
+“Unknown Owner”
+
+This must be fixed.
+
+For request timestamps:
+
+If date is missing or invalid:
+display:
+“Date unavailable”
+
+Never display:
+NaNd ago
+
+Use reliable date parsing.
+
+For owner:
+
+If new owner:
+build display name from request owner fields.
+
+If company:
+show company name.
+
+If existing owner:
+show existing owner name.
+
+Never show “Unknown Owner” when the submitted request contains owner details.
+
+Request card should display:
+
+OWNER
+Mr. Amine Natik
+
+PROPERTY
+Mamsha | Lilac 5
+2 Bedroom Apartment
+
+LOCATION
+Saadiyat Island, Abu Dhabi
+
+PMC
+20%
+
+REFEREE
+Ahmed Al Mansoori
+
+SUBMITTED
+11 Aug 2026, 8:28 PM
+
+STATUS
+Pending Review
+
+On mobile, show only the most important information initially and expand for details.
+
+==================================================
+22. UI / UX DESIGN
+==================================================
+
+Keep the existing Royal Holiday Homes visual language:
+
+- White
+- Warm gold
+- Charcoal
+- Rounded cards
+- Clear icons
+- Premium minimalist appearance
+
+But reduce vertical length significantly.
+
+Avoid oversized spacing between every field.
+
+On desktop:
+
+Use 2-column fields where logical.
+
+Example:
+
+First Name | Last Name
+
+Mobile | WhatsApp
+
+Area | Community
+
+Property Type | Layout
+
+Bathrooms | Size
+
+View | Furnishing
+
+Commission | Referee
+
+On mobile:
+
+Single column.
+
+Use compact field heights.
+
+Use collapsible sections but keep current active section open.
+
+Show progress at top:
+
+1 Owner
+2 Property
+3 Commercial
+4 Submit
+
+Do NOT make this a complicated multi-step wizard.
+
+It should remain one page with progressive sections.
+
+==================================================
+23. MOBILE STICKY CTA
+==================================================
+
+Keep the sticky bottom CTA.
+
+Button:
+
+Submit Forecast Request
+
+Ensure:
+
+- It does not cover form inputs.
+- Add sufficient bottom padding to the page.
+- It sits above iOS browser controls and safe area.
+- Use env(safe-area-inset-bottom).
+- When keyboard is open, it should not obscure the active field.
+
+==================================================
+24. FINAL ACCEPTANCE CRITERIA
+==================================================
+
+The redesigned request form is complete when:
+
+1. A user can submit a forecast request in approximately 2 minutes.
+2. Users only provide initial owner and property information.
+3. Existing Owner and New Owner both work.
+4. Existing Property and New Property both work.
+5. Area is a searchable dropdown.
+6. Community / Project is a dependent searchable dropdown.
+7. “Other” allows free-text entry.
+8. Building supports dropdown + Other.
+9. Layout supports Studio through 10 Bedrooms.
+10. Proposed PMC defaults to 20%.
+11. PMC dropdown allows values down to 15% only.
+12. Users cannot enter less than 15%.
+13. Representative assignment is removed.
+14. Referee is simply a free-text name.
+15. Media upload is optional.
+16. Additional notes are optional.
+17. Revenue Manager assigns the representative later.
+18. Request can be converted into a full Forecast.
+19. Submitted data is copied to the resulting owner/property/forecast records.
+20. “NaNd ago” is fixed.
+21. “Unknown Owner” is fixed.
+22. The form is excellent on mobile.
+23. Existing functionality for the full Forecast Wizard remains unchanged.

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import {
   Plus, Search, MoreHorizontal, X, TrendingUp, TrendingDown, Eye, Pencil,
-  FileText, CheckCircle, Copy,
+  FileText, CheckCircle, Copy, Trash2,
 } from "lucide-react";
 import { useState, useMemo, useCallback, useRef } from "react";
 import {

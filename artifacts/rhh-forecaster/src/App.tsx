@@ -34,6 +34,7 @@ import ForecastRequestsList from '@/pages/forecast-requests/index';
 import NewForecastRequest from '@/pages/forecast-requests/new';
 import ForecastRequestDetail from '@/pages/forecast-requests/[id]';
 import Leaderboard from '@/pages/analytics/leaderboard';
+import AreaIntelligence from '@/pages/analytics/areas';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -72,6 +73,7 @@ function ProtectedRouter() {
         <Route path="/forecast-requests/new" component={NewForecastRequest} />
         <Route path="/forecast-requests/:id" component={ForecastRequestDetail} />
         <Route path="/analytics/leaderboard" component={Leaderboard} />
+        <Route path="/analytics/areas" component={AreaIntelligence} />
         <Route component={NotFound} />
       </Switch>
     </AppLayout>

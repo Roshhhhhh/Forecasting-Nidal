@@ -1,21 +1,21 @@
 import { FC, ReactNode, useEffect, useRef, useState, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, UserCheck, ShieldCheck, LayoutGrid, Bell, Eye, CheckCircle, Send, X, ClipboardList, Trophy } from "lucide-react";
+import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, UserCheck, ShieldCheck, LayoutGrid, Bell, Eye, CheckCircle, Send, X, ClipboardList, Trophy, MapPin } from "lucide-react";
 import { useLogout, useGetMe, useListProposals } from "@workspace/api-client-react";
 import { usePermission } from "@/hooks/usePermission";
 import { useToast } from "@/hooks/use-toast";
 
 const NAV_ITEMS = [
-  { label: "Dashboard",  href: "/dashboard", icon: LayoutDashboard },
-  { label: "Pipeline",   href: "/pipeline",  icon: LayoutGrid },
-  { label: "Owners", href: "/owners", icon: Users },
-  { label: "Properties", href: "/properties", icon: Home },
-  { label: "Forecasts", href: "/forecasts", icon: TrendingUp },
-  { label: "Market Data", href: "/market", icon: LineChart },
-  { label: "Proposals", href: "/proposals", icon: FileText },
-  { label: "Referees", href: "/referees", icon: UserCheck },
-  { label: "Forecast Requests", href: "/forecast-requests", icon: ClipboardList },
+  { label: "Dashboard",        href: "/dashboard",          icon: LayoutDashboard },
+  { label: "Pipeline",         href: "/pipeline",           icon: LayoutGrid },
+  { label: "Owners",           href: "/owners",             icon: Users },
+  { label: "Properties",       href: "/properties",         icon: Home },
+  { label: "Forecasts",        href: "/forecasts",          icon: TrendingUp },
+  { label: "Market Data",      href: "/market",             icon: LineChart },
+  { label: "Proposals",        href: "/proposals",          icon: FileText },
+  { label: "Referees",         href: "/referees",           icon: UserCheck },
+  { label: "Forecast Requests",href: "/forecast-requests",  icon: ClipboardList },
 ];
 
 const STORAGE_KEY = "rhh_notif_last_seen";
@@ -301,14 +301,24 @@ export const AppSidebar: FC = () => {
           <p className="text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider mb-2">Management</p>
           <SidebarMenu>
             {(user?.role === "super_admin" || user?.role === "revenue_manager") && (
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild isActive={location.startsWith("/analytics/leaderboard")}>
-                  <Link href="/analytics/leaderboard" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-sidebar-accent">
-                    <Trophy className="h-4 w-4" />
-                    <span>Leaderboard</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              <>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location.startsWith("/analytics/leaderboard")}>
+                    <Link href="/analytics/leaderboard" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-sidebar-accent">
+                      <Trophy className="h-4 w-4" />
+                      <span>Leaderboard</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location.startsWith("/analytics/areas")}>
+                    <Link href="/analytics/areas" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-sidebar-accent">
+                      <MapPin className="h-4 w-4" />
+                      <span>Area Intelligence</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              </>
             )}
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={location === "/settings"}>

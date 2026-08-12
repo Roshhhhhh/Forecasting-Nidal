@@ -122,4 +122,129 @@ router.get(
   }
 );
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Area Intelligence — community-level revenue aggregates
+// ─────────────────────────────────────────────────────────────────────────────
+
+const AREA_STATUSES = `'approved','published','viewed','owner_called','accepted','declined','expired'`;
+const PROPOSAL_SENT_STATUSES = `'published','viewed','owner_called','accepted','declined','expired'`;
+
+router.get(
+  "/analytics/areas",
+  requireRole("super_admin", "revenue_manager"),
+  async (req, res): Promise<void> => {
+  const { emirate, bedrooms, createdFrom, createdTo } = req.query as Record<string, string | undefined>;
+
+  // Build optional filter fragments
+  const emirateFilter  = emirate && emirate !== "all"
+    ? sql`AND p.emirate = ${emirate}`
+    : sql``;
+
+  const bedroomsFilter = bedrooms && bedrooms !== "all"
+    ? bedrooms === "3+"
+      ? sql`AND p.bedrooms >= 3`
+      : sql`AND p.bedrooms = ${parseInt(bedrooms)}`
+    : sql``;
+
+  const dateFromFilter = createdFrom
+    ? sql`AND f.created_at >= ${createdFrom + "T00:00:00Z"}::timestamptz`
+    : sql``;
+
+  const dateToFilter = createdTo
+    ? sql`AND f.created_at <= ${createdTo + "T23:59:59Z"}::timestamptz`
+    : sql``;
+
+  // Community aggregates
+  const aggResult = await db.execute(sql`
+    SELECT
+      COALESCE(p.community, p.area, 'Unknown') AS community,
+      p.emirate,
+      COUNT(f.id)                                                                                     AS forecast_count,
+      ROUND(AVG(f.gross_annual_revenue)::numeric, 0)                                                 AS avg_gross_revenue,
+      ROUND(AVG(f.net_owner_income)::numeric, 0)                                                     AS avg_net_income,
+      ROUND(AVG(CASE WHEN f.recommended_occupancy IS NOT NULL THEN f.recommended_occupancy * 100 END)::numeric, 1) AS avg_occupancy_pct,
+      ROUND(AVG(f.weighted_adr)::numeric, 0)                                                         AS avg_adr,
+      COUNT(CASE WHEN f.status = 'accepted' THEN 1 END)                                              AS accepted_count,
+      COUNT(CASE WHEN f.status IN (${sql.raw(PROPOSAL_SENT_STATUSES)}) THEN 1 END)                  AS proposal_sent_count
+    FROM forecasts f
+    JOIN properties p ON p.id = f.property_id AND p.is_archived = false
+    WHERE f.is_archived = false
+      AND f.status IN (${sql.raw(AREA_STATUSES)})
+      ${emirateFilter}
+      ${bedroomsFilter}
+      ${dateFromFilter}
+      ${dateToFilter}
+    GROUP BY COALESCE(p.community, p.area, 'Unknown'), p.emirate
+    ORDER BY avg_gross_revenue DESC NULLS LAST
+  `);
+
+  // Individual forecast details (for row expansion)
+  const detailResult = await db.execute(sql`
+    SELECT
+      f.id,
+      f.reference_number,
+      f.status,
+      ROUND(f.gross_annual_revenue::numeric, 0) AS gross_annual_revenue,
+      ROUND(f.net_owner_income::numeric, 0)     AS net_owner_income,
+      p.unit_number,
+      p.project_building,
+      p.bedrooms,
+      COALESCE(p.community, p.area, 'Unknown') AS community,
+      COALESCE(o.company_name, CONCAT(o.first_name, ' ', o.last_name)) AS owner_name
+    FROM forecasts f
+    JOIN properties p ON p.id = f.property_id AND p.is_archived = false
+    JOIN owners o     ON o.id = f.owner_id
+    WHERE f.is_archived = false
+      AND f.status IN (${sql.raw(AREA_STATUSES)})
+      ${emirateFilter}
+      ${bedroomsFilter}
+      ${dateFromFilter}
+      ${dateToFilter}
+    ORDER BY f.gross_annual_revenue DESC NULLS LAST
+  `);
+
+  // Group detail rows by composite key community|emirate
+  const detailByKey = new Map<string, any[]>();
+  for (const row of detailResult.rows) {
+    const key = `${row.community as string}|${row.emirate as string}`;
+    if (!detailByKey.has(key)) detailByKey.set(key, []);
+    detailByKey.get(key)!.push({
+      id:               Number(row.id),
+      referenceNumber:  row.reference_number as string,
+      status:           row.status as string,
+      grossRevenue:     row.gross_annual_revenue != null ? Number(row.gross_annual_revenue) : null,
+      netIncome:        row.net_owner_income     != null ? Number(row.net_owner_income)     : null,
+      unitNumber:       row.unit_number    as string | null,
+      building:         row.project_building as string | null,
+      bedrooms:         row.bedrooms != null ? Number(row.bedrooms) : null,
+      ownerName:        row.owner_name as string,
+    });
+  }
+
+  const communities = aggResult.rows.map(r => {
+    const community    = r.community as string;
+    const emirate      = r.emirate as string;
+    const compositeKey = `${community}|${emirate}`;
+    const proposalSent = Number(r.proposal_sent_count);
+    const accepted     = Number(r.accepted_count);
+    return {
+      key:            compositeKey,
+      community,
+      emirate,
+      forecastCount:  Number(r.forecast_count),
+      avgGrossRevenue:r.avg_gross_revenue  != null ? Number(r.avg_gross_revenue)  : null,
+      avgNetIncome:   r.avg_net_income     != null ? Number(r.avg_net_income)     : null,
+      avgOccupancyPct:r.avg_occupancy_pct  != null ? Number(r.avg_occupancy_pct)  : null,
+      avgAdr:         r.avg_adr            != null ? Number(r.avg_adr)            : null,
+      proposalSentCount: proposalSent,
+      acceptedCount:  accepted,
+      acceptanceRate: proposalSent > 0 ? Math.round((accepted / proposalSent) * 100) : null,
+      forecasts:      detailByKey.get(compositeKey) ?? [],
+    };
+  });
+
+  res.json({ communities });
+  }
+);
+
 export default router;

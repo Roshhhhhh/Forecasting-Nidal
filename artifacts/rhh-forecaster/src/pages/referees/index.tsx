@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import {
-  useListReferees, useCreateReferee, useUpdateReferee, getListRefereesQueryKey,
+  useListReferees, useCreateReferee, useUpdateReferee, useDeleteReferee, useGetMe, getListRefereesQueryKey,
 } from "@workspace/api-client-react";
 import { usePermission } from "@/hooks/usePermission";
 import { useQueryClient } from "@tanstack/react-query";
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/select";
 import {
   Plus, UserCheck, Phone, Mail, Building, Users, Loader2, Pencil,
-  RefreshCw, Home, TrendingUp, Search, X,
+  RefreshCw, Home, TrendingUp, Search, X, Trash2,
 } from "lucide-react";
 import { SmartReport } from "@/components/SmartReport";
 import { useToast } from "@/hooks/use-toast";
@@ -67,9 +67,12 @@ export default function RefereesList() {
   const { toast } = useToast();
   const canCreateReferee = usePermission("referees.create");
   const canEditReferee   = usePermission("referees.edit");
+  const { data: me } = useGetMe();
+  const isSuperAdmin = (me as any)?.role === "super_admin";
   const { data: referees, isLoading } = useListReferees();
   const createReferee = useCreateReferee();
   const updateReferee = useUpdateReferee();
+  const deleteReferee = useDeleteReferee();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -119,6 +122,18 @@ export default function RefereesList() {
       setDialogOpen(false);
     } catch (error) {
       toast({ title: "Failed to save referee", description: getApiErrorMessage(error), variant: "destructive" });
+    }
+  }
+
+  async function handleDeactivate(referee: any) {
+    const label = referee.name || "this referee";
+    if (!confirm(`Deactivate ${label}? They will be hidden from active lists but their commission history is preserved.`)) return;
+    try {
+      await deleteReferee.mutateAsync({ id: referee.id });
+      queryClient.invalidateQueries({ queryKey: getListRefereesQueryKey() });
+      toast({ title: "Referee deactivated", description: `${label} has been marked inactive.` });
+    } catch (err: any) {
+      toast({ title: "Failed to deactivate referee", description: err?.message ?? "Unknown error", variant: "destructive" });
     }
   }
 
@@ -368,23 +383,37 @@ export default function RefereesList() {
                 )}
               </div>
             }
-            actions={canEditReferee ? (referee: any) => (
+            actions={(referee: any) => (
               <div className="flex items-center justify-end gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-8 w-8 p-0"
-                  onClick={() => openEdit(referee)}
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </Button>
+                {canEditReferee && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    onClick={() => openEdit(referee)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                )}
                 <Button variant="outline" size="sm" className="text-xs gap-1" asChild>
                   <Link href={`/referees/${referee.id}`}>
                     <Users className="h-3 w-3" /> Owners
                   </Link>
                 </Button>
+                {isSuperAdmin && referee.isActive && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    title="Deactivate referee (super admin)"
+                    onClick={() => handleDeactivate(referee)}
+                    disabled={deleteReferee.isPending}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
-            ) : undefined}
+            )}
           />
         </CardContent>
       </Card>

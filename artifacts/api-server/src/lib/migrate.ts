@@ -546,6 +546,21 @@ export async function runStartupMigration() {
       ON CONFLICT (property_id, owner_id) DO NOTHING
     `);
 
+    // app_config — generic key/value config store
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS app_config (
+        key        TEXT PRIMARY KEY,
+        value      TEXT NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    // Seed default follow-up threshold (idempotent)
+    await db.execute(sql`
+      INSERT INTO app_config (key, value)
+      VALUES ('follow_up_threshold_days', '3')
+      ON CONFLICT (key) DO NOTHING
+    `);
+
     logger.info("Startup migration complete");
   } catch (err) {
     logger.error({ err }, "Startup migration failed");

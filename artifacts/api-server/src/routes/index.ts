@@ -17,6 +17,8 @@ import notificationsRouter from "./notifications";
 import storageRouter from "./storage";
 import forecastRequestsRouter from "./forecast-requests";
 import analyticsRouter from "./analytics";
+import configRouter from "./config";
+import followUpsRouter from "./follow-ups";
 
 const router: IRouter = Router();
 
@@ -38,5 +40,7 @@ router.use(notificationsRouter);
 router.use(storageRouter);
 router.use(forecastRequestsRouter);
 router.use(analyticsRouter);
+router.use(configRouter);
+router.use(followUpsRouter);
 
 export default router;

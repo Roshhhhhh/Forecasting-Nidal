@@ -1,5 +1,5 @@
-import { useGetCompanySettings, useUpdateCompanySettings, getGetCompanySettingsQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useGetCompanySettings, useUpdateCompanySettings, useGetMe, getGetCompanySettingsQueryKey } from "@workspace/api-client-react";
+import { useQueryClient, useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useToast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
-import { useEffect } from "react";
-import { Save } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Save, Bell } from "lucide-react";
 import { AmenitiesTab } from "./settings/amenities-tab";
 import { MarketDataTab } from "./settings/market-data-tab";
 
@@ -324,7 +324,106 @@ function GeneralTab() {
   );
 }
 
+// ── Pipeline settings tab (super_admin only) ──────────────────────────────────
+
+function PipelineTab() {
+  const { toast } = useToast();
+  const [threshold, setThreshold] = useState<number>(3);
+  const [dirty, setDirty] = useState(false);
+
+  const { data: config, isLoading } = useQuery<Record<string, string>>({
+    queryKey: ["app-config"],
+    queryFn: async () => {
+      const res = await fetch("/api/config", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load config");
+      return res.json();
+    },
+  });
+
+  useEffect(() => {
+    if (config?.follow_up_threshold_days) {
+      setThreshold(parseInt(config.follow_up_threshold_days) || 3);
+      setDirty(false);
+    }
+  }, [config]);
+
+  const saveMutation = useMutation({
+    mutationFn: async (value: number) => {
+      const res = await fetch("/api/config/follow_up_threshold_days", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ value: String(value) }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Saved", description: "Follow-up threshold updated." });
+      setDirty(false);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Could not save setting.", variant: "destructive" });
+    },
+  });
+
+  if (isLoading) return <div className="py-8 text-center text-muted-foreground">Loading…</div>;
+
+  return (
+    <Card className="border-border/50 shadow-sm">
+      <CardHeader className="border-b border-border bg-muted/20">
+        <div className="flex items-center gap-2">
+          <Bell className="h-4 w-4 text-amber-500" />
+          <CardTitle className="text-lg font-serif">Follow-up Reminders</CardTitle>
+        </div>
+        <CardDescription>
+          Control when the "Follow-ups Due" alert appears on the dashboard and pipeline for unresponsive owners.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-6 space-y-4">
+        <div className="flex items-end gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-foreground">
+              Days without owner response before alerting
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Applies to proposals in <strong>Sent</strong> or <strong>Viewed</strong> status with no owner action.
+            </p>
+            <div className="flex items-center gap-3 mt-1">
+              <Input
+                type="number"
+                min={1}
+                max={30}
+                value={threshold}
+                onChange={e => {
+                  setThreshold(parseInt(e.target.value) || 1);
+                  setDirty(true);
+                }}
+                className="w-24"
+              />
+              <span className="text-sm text-muted-foreground">days</span>
+            </div>
+          </div>
+        </div>
+        <div className="pt-2">
+          <Button
+            onClick={() => saveMutation.mutate(threshold)}
+            disabled={!dirty || saveMutation.isPending}
+            size="sm"
+          >
+            <Save className="mr-2 h-4 w-4" />
+            {saveMutation.isPending ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function Settings() {
+  const { data: me } = useGetMe();
+  const isSuperAdmin = (me as any)?.role === "super_admin";
+
   return (
     <div className="p-8 max-w-[1000px] mx-auto space-y-6 pb-24">
       <div>
@@ -337,6 +436,7 @@ export default function Settings() {
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="amenities">Amenities</TabsTrigger>
           <TabsTrigger value="market-data">Market Data</TabsTrigger>
+          {isSuperAdmin && <TabsTrigger value="pipeline">Pipeline</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="general">
@@ -350,6 +450,12 @@ export default function Settings() {
         <TabsContent value="market-data">
           <MarketDataTab />
         </TabsContent>
+
+        {isSuperAdmin && (
+          <TabsContent value="pipeline">
+            <PipelineTab />
+          </TabsContent>
+        )}
       </Tabs>
     </div>
   );

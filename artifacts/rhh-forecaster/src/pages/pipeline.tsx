@@ -21,6 +21,7 @@ interface PipelineCard {
   area: string | null;
   community: string | null;
   daysInStage: number;
+  followUpDue: boolean;
 }
 
 interface PipelineStage {
@@ -95,8 +96,19 @@ function OwnerCard({ card, accent }: { card: PipelineCard; accent: string }) {
   return (
     <div
       className="bg-white rounded-lg border border-border shadow-sm hover:shadow-md transition-all p-3 space-y-2 group"
-      style={{ borderLeftWidth: 3, borderLeftColor: accent }}
+      style={{
+        borderLeftWidth: 3,
+        borderLeftColor: card.followUpDue ? "#f59e0b" : accent,
+        boxShadow: card.followUpDue ? "0 0 0 1px #fcd34d, 0 1px 3px rgba(0,0,0,0.08)" : undefined,
+      }}
     >
+      {/* Follow-up due banner */}
+      {card.followUpDue && (
+        <div className="flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 -mx-0.5">
+          <AlertTriangle className="h-3 w-3" />
+          Follow-up due
+        </div>
+      )}
       {/* Name + days */}
       <div className="flex items-start justify-between gap-2">
         <Link href={`/owners/${card.ownerId}`} className="flex items-center gap-1.5 min-w-0 cursor-pointer">

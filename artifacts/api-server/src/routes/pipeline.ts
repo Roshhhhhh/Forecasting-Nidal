@@ -36,6 +36,14 @@ const STAGE_ORDER = [
 ] as const;
 
 router.get("/pipeline", requireAuth, async (_req, res) => {
+  // Read follow-up threshold from config (default 3 days)
+  const cfgRow = await db.execute(sql`
+    SELECT value FROM app_config WHERE key = 'follow_up_threshold_days'
+  `);
+  const thresholdDays = cfgRow.rows.length > 0
+    ? parseFloat(cfgRow.rows[0].value as string) || 3
+    : 3;
+
   const result = await db.execute(sql`
     SELECT
       o.id              AS owner_id,
@@ -56,7 +64,9 @@ router.get("/pipeline", requireAuth, async (_req, res) => {
       p.area,
       p.community,
       fr.id             AS forecast_request_id,
-      fr.updated_at     AS fr_updated_at
+      fr.updated_at     AS fr_updated_at,
+      lp.owner_action   AS proposal_owner_action,
+      lp.updated_at     AS proposal_updated_at
     FROM owners o
     LEFT JOIN users u ON u.id = o.assigned_to_id
     LEFT JOIN LATERAL (
@@ -100,6 +110,13 @@ router.get("/pipeline", requireAuth, async (_req, res) => {
       ORDER BY created_at DESC
       LIMIT 1
     ) fr ON true
+    LEFT JOIN LATERAL (
+      SELECT owner_action, updated_at
+      FROM proposals
+      WHERE forecast_id = f.id
+      ORDER BY created_at DESC
+      LIMIT 1
+    ) lp ON true
     WHERE o.is_archived = false
     ORDER BY o.created_at DESC
   `);
@@ -127,6 +144,17 @@ router.get("/pipeline", requireAuth, async (_req, res) => {
       ? Math.floor((now - new Date(stageDate).getTime()) / 86_400_000)
       : 0;
 
+    // followUpDue: proposal sent/viewed, no owner action, older than threshold
+    const proposalUpdatedAt = row.proposal_updated_at as string | null;
+    const daysSinceProposal = proposalUpdatedAt
+      ? Math.floor((now - new Date(proposalUpdatedAt).getTime()) / 86_400_000)
+      : 0;
+    const forecastStatus = row.forecast_status as string | null;
+    const followUpDue =
+      (forecastStatus === "published" || forecastStatus === "viewed") &&
+      !row.proposal_owner_action &&
+      daysSinceProposal >= thresholdDays;
+
     const card = {
       ownerId:            row.owner_id,
       ownerName:          row.company_name
@@ -137,7 +165,7 @@ router.get("/pipeline", requireAuth, async (_req, res) => {
       isExistingClient:   row.is_existing_client,
       assignedToName:     row.assigned_to_name ?? null,
       forecastId:         row.forecast_id ?? null,
-      forecastStatus:     row.forecast_status ?? null,
+      forecastStatus:     forecastStatus ?? null,
       forecastRequestId:  row.forecast_request_id ?? null,
       projectedPayout:    row.net_owner_income != null ? Number(row.net_owner_income) : null,
       propertyType:       row.property_type ?? null,
@@ -145,6 +173,7 @@ router.get("/pipeline", requireAuth, async (_req, res) => {
       area:               row.area ?? null,
       community:          row.community ?? null,
       daysInStage,
+      followUpDue,
     };
 
     if (stage === "lost") lostCards.push(card);

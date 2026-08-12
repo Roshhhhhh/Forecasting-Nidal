@@ -1,10 +1,131 @@
 import { useGetDashboardKpis, useGetRecentForecasts, useGetAreaPerformance, useGetConversionStats } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { FileText, TrendingUp, CheckCircle, GripVertical } from "lucide-react";
+import { FileText, TrendingUp, CheckCircle, GripVertical, Bell, Clock, User, ChevronDown, ChevronUp } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { useRef, useState, useCallback, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+
+// ── Follow-up banner ──────────────────────────────────────────────────────────
+
+interface FollowUpItem {
+  proposalId: number;
+  referenceNumber: string;
+  proposalStatus: string;
+  daysSinceUpdate: number;
+  forecastId: number;
+  ownerId: number;
+  ownerName: string;
+  propertyLine: string | null;
+  repName: string | null;
+}
+
+function FollowUpCard() {
+  const [collapsed, setCollapsed] = useState(false);
+
+  const { data, isLoading } = useQuery<{ items: FollowUpItem[]; thresholdDays: number }>({
+    queryKey: ["follow-ups"],
+    queryFn: async () => {
+      const res = await fetch("/api/follow-ups", { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load follow-ups");
+      return res.json();
+    },
+    refetchInterval: 120_000,
+  });
+
+  const items = data?.items ?? [];
+  if (!isLoading && items.length === 0) return null;
+
+  return (
+    <Card className="border-amber-200 bg-amber-50/60 shadow-sm">
+      <CardHeader className="pb-2 pt-4 px-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bell className="h-4 w-4 text-amber-600" />
+            <CardTitle className="text-sm font-semibold text-amber-800">
+              Follow-ups Due
+              {items.length > 0 && (
+                <span className="ml-2 inline-flex items-center justify-center h-5 min-w-[20px] px-1 rounded-full bg-amber-500 text-white text-[11px] font-bold">
+                  {items.length}
+                </span>
+              )}
+            </CardTitle>
+            {data && (
+              <span className="text-xs text-amber-600/70">
+                No owner response in {data.thresholdDays}+ days
+              </span>
+            )}
+          </div>
+          <button
+            onClick={() => setCollapsed(c => !c)}
+            className="text-amber-700 hover:text-amber-900 transition-colors"
+            aria-label={collapsed ? "Expand" : "Collapse"}
+          >
+            {collapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+          </button>
+        </div>
+      </CardHeader>
+
+      {!collapsed && (
+        <CardContent className="px-5 pb-4">
+          {isLoading ? (
+            <p className="text-xs text-amber-700 animate-pulse">Checking for overdue follow-ups…</p>
+          ) : (
+            <div className="space-y-2">
+              {items.map(item => (
+                <div
+                  key={item.proposalId}
+                  className="flex items-center gap-3 bg-white/80 border border-amber-200 rounded-lg px-3 py-2.5"
+                >
+                  <User className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Link
+                        href={`/owners/${item.ownerId}`}
+                        className="text-sm font-semibold text-foreground hover:text-primary transition-colors truncate"
+                      >
+                        {item.ownerName}
+                      </Link>
+                      {item.propertyLine && (
+                        <span className="text-xs text-muted-foreground truncate">{item.propertyLine}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <Link
+                        href={`/proposals/${item.proposalId}`}
+                        className="text-xs text-primary hover:underline font-medium"
+                      >
+                        {item.referenceNumber}
+                      </Link>
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] capitalize ${
+                          item.proposalStatus === "viewed"
+                            ? "bg-orange-50 text-orange-700 border-orange-200"
+                            : "bg-amber-50 text-amber-700 border-amber-200"
+                        }`}
+                      >
+                        {item.proposalStatus}
+                      </Badge>
+                      {item.repName && (
+                        <span className="text-[10px] text-muted-foreground">→ {item.repName}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="shrink-0 flex items-center gap-1 text-amber-700 text-xs font-semibold">
+                    <Clock className="h-3 w-3" />
+                    {item.daysSinceUpdate}d
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      )}
+    </Card>
+  );
+}
 
 // ── Resizable split pane hook ─────────────────────────────────────────────────
 function useResizableSplit(defaultPct = 65, minPct = 30, maxPct = 80) {
@@ -72,6 +193,9 @@ export default function Dashboard() {
 
   return (
     <div className="p-8 max-w-[1600px] mx-auto space-y-8">
+      {/* Follow-up banner — hidden when empty */}
+      <FollowUpCard />
+
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-serif font-bold text-foreground">Overview</h1>

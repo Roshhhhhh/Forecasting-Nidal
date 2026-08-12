@@ -11,7 +11,8 @@ import { useLocation, Link, useSearch } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { getApiErrorMessage } from "@/lib/api-error";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { AlertTriangle, X } from "lucide-react";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { AmenitiesPicker } from "@/components/AmenitiesPicker";
 import { ForecastRequestContextBar } from "@/components/ForecastRequestContextBar";
@@ -360,6 +361,8 @@ export default function PropertyNew() {
   const [customCommunity, setCustomCommunity]   = useState("");
   const [amenityIds, setAmenityIds]             = useState<number[]>([]);
   const [customTags, setCustomTags]             = useState<string[]>([]);
+  const [duplicatePropertyId, setDuplicatePropertyId] = useState<number | null>(null);
+  const bannerRef = useRef<HTMLDivElement>(null);
 
   const watchedCommunity = form.watch("projectBuilding");
   const isOtherCommunity = watchedCommunity === "Other…";
@@ -523,7 +526,15 @@ export default function PropertyNew() {
         toast({ title: "Property created", description: "The property has been added to the portfolio." });
         setLocation(`/properties/${result.id}`);
       }
-    } catch (error) {
+    } catch (error: any) {
+      // 409 = duplicate unit in same building
+      const existingId = error?.data?.existingId;
+      if (existingId) {
+        setDuplicatePropertyId(existingId);
+        // Scroll banner into view
+        setTimeout(() => bannerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" }), 50);
+        return;
+      }
       toast({ title: "Failed to add property", description: getApiErrorMessage(error), variant: "destructive" });
     }
   };
@@ -550,6 +561,36 @@ export default function PropertyNew() {
           {forecastRequestId ? "Form pre-filled from the forecast request. Review and save." : "Register a new unit to generate revenue forecasts."}
         </p>
       </div>
+
+      {/* Duplicate property warning banner */}
+      {duplicatePropertyId && (
+        <div
+          ref={bannerRef}
+          className="flex items-start gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900"
+        >
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+          <div className="flex-1 text-sm">
+            <p className="font-semibold">A property at this unit already exists.</p>
+            <p className="mt-0.5 text-amber-800">
+              A non-archived property with the same unit number and building is already on record.{" "}
+              <Link
+                href={`/properties/${duplicatePropertyId}`}
+                className="underline font-medium hover:text-amber-900 transition-colors"
+              >
+                View existing property →
+              </Link>
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setDuplicatePropertyId(null)}
+            className="shrink-0 rounded p-0.5 text-amber-600 hover:text-amber-900 hover:bg-amber-100 transition-colors"
+            aria-label="Dismiss"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">

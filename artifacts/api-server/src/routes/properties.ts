@@ -106,6 +106,28 @@ router.post("/properties", requireAuth, async (req, res): Promise<void> => {
 
   const parsed = CreatePropertyBody.safeParse(bodyWithoutOwners);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  // Duplicate detection: block if unit_number AND project_building already exist on a non-archived property
+  const { unitNumber, projectBuilding } = parsed.data as any;
+  if (unitNumber && projectBuilding) {
+    const [existing] = await db
+      .select({ id: propertiesTable.id })
+      .from(propertiesTable)
+      .where(and(
+        eq(propertiesTable.isArchived, false),
+        eq((propertiesTable as any).unitNumber, unitNumber),
+        eq((propertiesTable as any).projectBuilding, projectBuilding),
+      ))
+      .limit(1);
+    if (existing) {
+      res.status(409).json({
+        error: `A property with unit ${unitNumber} in ${projectBuilding} already exists. Check the existing record before creating a new one.`,
+        existingId: existing.id,
+      });
+      return;
+    }
+  }
+
   const [prop] = await db.insert(propertiesTable).values({ ...parsed.data, createdById: req.session.userId }).returning();
 
   if (ownersArray.length > 0) {

@@ -179,7 +179,10 @@ export default function OwnerNew() {
 
   const selectedReferee = referees?.find((r: any) => r.id === selectedRefereeId);
 
+  const [duplicateOwnerId, setDuplicateOwnerId] = useState<number | null>(null);
+
   const onSubmit = async (data: OwnerFormValues) => {
+    setDuplicateOwnerId(null);
     try {
       const submitData: any = { ...data };
       if (submitData.assignedToId === 0 || !submitData.assignedToId) delete submitData.assignedToId;
@@ -237,7 +240,12 @@ export default function OwnerNew() {
         toast({ title: "Owner created", description: "The owner profile has been created successfully." });
         setLocation(`/owners/${newOwnerId}`);
       }
-    } catch (error) {
+    } catch (error: any) {
+      const existingId = error?.data?.existingId ?? error?.response?.data?.existingId ?? null;
+      if (existingId) {
+        setDuplicateOwnerId(existingId);
+        return;
+      }
       toast({ title: "Failed to create owner", description: getApiErrorMessage(error), variant: "destructive" });
     }
   };
@@ -711,6 +719,26 @@ export default function OwnerNew() {
               </CardContent>
             )}
           </Card>
+
+          {duplicateOwnerId && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
+              <span className="text-amber-600 text-lg leading-none mt-0.5">⚠</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-amber-800">Duplicate owner detected</p>
+                <p className="text-sm text-amber-700 mt-0.5">
+                  An owner with the same mobile number or email already exists in the system.
+                </p>
+                <div className="mt-2 flex gap-2">
+                  <Link href={`/owners/${duplicateOwnerId}`} className="text-sm font-medium text-amber-800 underline hover:text-amber-900">
+                    View existing owner →
+                  </Link>
+                  <button type="button" onClick={() => setDuplicateOwnerId(null)} className="text-sm text-amber-600 hover:text-amber-800 ml-4">
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex justify-end gap-4">
             <Link href="/owners" className="inline-flex h-10 items-center justify-center rounded-md border border-border bg-background px-8 text-sm font-medium hover:bg-muted transition-colors">

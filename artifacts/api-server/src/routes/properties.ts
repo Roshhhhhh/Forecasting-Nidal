@@ -7,7 +7,7 @@ import {
   GetPropertyParams,
   UpdatePropertyParams,
 } from "@workspace/api-zod";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireRole } from "../middlewares/auth";
 import { z } from "zod";
 
 const router: IRouter = Router();
@@ -368,6 +368,13 @@ router.delete("/properties/:id/owners/:ownerId", requireAuth, async (req, res): 
   });
 
   res.json(await getCoOwners(propertyId));
+});
+
+router.delete("/properties/:id", requireAuth, requireRole("super_admin"), async (req, res): Promise<void> => {
+  const id = parseInt(req.params.id as string, 10);
+  if (!id) { res.status(400).json({ error: "Invalid id" }); return; }
+  await db.update(propertiesTable).set({ isArchived: true } as any).where(eq(propertiesTable.id, id));
+  res.json({ message: "Property archived" });
 });
 
 export default router;

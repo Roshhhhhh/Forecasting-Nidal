@@ -18,7 +18,7 @@ import { DataTable, ColumnDef } from "@/components/DataTable";
 import { SmartReport } from "@/components/SmartReport";
 import { PageTabs } from "@/components/PageTabs";
 import DuplicateForecastModal from "@/components/DuplicateForecastModal";
-import { useDeleteForecast, getListForecastsQueryKey } from "@workspace/api-client-react";
+import { useDeleteForecast, getListForecastsQueryKey, useGetMe } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 
 const STATUSES = [
@@ -198,6 +198,8 @@ const FORECAST_COLUMNS: ColumnDef<Forecast>[] = [
 
 export default function ForecastsList() {
   const { data: forecasts, isLoading } = useListForecasts();
+  const { data: me } = useGetMe();
+  const isSuperAdmin = (me as any)?.role === "super_admin";
   const canCreateForecast = usePermission("forecasts.create");
   const canEditForecast   = usePermission("forecasts.edit");
 
@@ -429,14 +431,19 @@ export default function ForecastsList() {
                       >
                         <Copy className="h-4 w-4" /> Duplicate
                       </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        onClick={() => handleArchive(forecast)}
-                        disabled={archivingIds.has(forecast.id)}
-                        className="text-destructive focus:text-destructive"
-                      >
-                        {archivingIds.has(forecast.id) ? "Archiving…" : "Archive"}
-                      </DropdownMenuItem>
+                      {isSuperAdmin && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleArchive(forecast)}
+                            disabled={archivingIds.has(forecast.id)}
+                            className="text-destructive focus:text-destructive gap-2"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            {archivingIds.has(forecast.id) ? "Archiving…" : "Archive"}
+                          </DropdownMenuItem>
+                        </>
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 )}

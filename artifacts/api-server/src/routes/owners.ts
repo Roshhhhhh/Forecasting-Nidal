@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, sql } from "drizzle-orm";
+import { eq, desc, sql, or } from "drizzle-orm";
 import { db, ownersTable, usersTable, refereesTable, propertiesTable, propertyOwnersTable } from "@workspace/db";
 import {
   CreateOwnerBody,
@@ -8,7 +8,7 @@ import {
   UpdateOwnerParams,
   DeleteOwnerParams,
 } from "@workspace/api-zod";
-import { requireAuth } from "../middlewares/auth";
+import { requireAuth, requireRole } from "../middlewares/auth";
 import { bustCommissionCache } from "./referees";
 
 const router: IRouter = Router();
@@ -49,6 +49,27 @@ router.get("/owners", requireAuth, async (_req, res): Promise<void> => {
 router.post("/owners", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateOwnerBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
+
+  // Duplicate detection: block if phone or email already exists on an active owner
+  const { phone, email } = parsed.data;
+  const conditions = [];
+  if (phone) conditions.push(eq(ownersTable.phone, phone));
+  if (email) conditions.push(eq(ownersTable.email, email));
+  if (conditions.length > 0) {
+    const [existing] = await db.select({ id: ownersTable.id, phone: ownersTable.phone, email: ownersTable.email })
+      .from(ownersTable)
+      .where(and(eq(ownersTable.isArchived, false), or(...conditions)))
+      .limit(1);
+    if (existing) {
+      const field = phone && existing.phone === phone ? "mobile number" : "email address";
+      res.status(409).json({
+        error: `An owner with this ${field} already exists. Please check the owner list before creating a new profile.`,
+        existingId: existing.id,
+      });
+      return;
+    }
+  }
+
   const [owner] = await db.insert(ownersTable).values({
     ...parsed.data,
     createdById: req.session.userId,
@@ -142,7 +163,7 @@ router.get("/owners/:id/properties", requireAuth, async (req, res): Promise<void
   res.json(result);
 });
 
-router.delete("/owners/:id", requireAuth, async (req, res): Promise<void> => {
+router.delete("/owners/:id", requireAuth, requireRole("super_admin"), async (req, res): Promise<void> => {
   const params = DeleteOwnerParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.update(ownersTable).set({ isArchived: true }).where(eq(ownersTable.id, params.data.id));

@@ -1,15 +1,17 @@
-import { useListOwners } from "@workspace/api-client-react";
+import { useListOwners, useGetMe, getListOwnersQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Plus, Search, Mail, Phone, X, Building2, User, Eye, Users } from "lucide-react";
+import { Plus, Search, Mail, Phone, X, Building2, User, Eye, Users, Trash2 } from "lucide-react";
 import { useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { usePermission } from "@/hooks/usePermission";
 import { DataTable, ColumnDef } from "@/components/DataTable";
 import { SmartReport } from "@/components/SmartReport";
 import { PageTabs } from "@/components/PageTabs";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 const LEAD_SOURCE_OPTIONS = [
   { value: "all",          label: "All Sources" },
@@ -120,8 +122,24 @@ const OWNER_COLUMNS: ColumnDef<OwnerRow>[] = [
 
 export default function OwnersList() {
   const { data: owners, isLoading } = useListOwners();
+  const { data: me } = useGetMe();
+  const isSuperAdmin = (me as any)?.role === "super_admin";
   const canCreateOwner    = usePermission("owners.create");
   const canCreateProperty = usePermission("properties.create");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const archiveOwner = useMutation({
+    mutationFn: async (id: number) => {
+      const r = await fetch(`/api/owners/${id}`, { method: "DELETE", credentials: "include" });
+      if (!r.ok) { const b = await r.json().catch(() => ({})); throw new Error((b as any).error ?? "Failed to archive"); }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: getListOwnersQueryKey() });
+      toast({ title: "Owner archived" });
+    },
+    onError: (e: Error) => toast({ title: "Failed to archive owner", description: e.message, variant: "destructive" }),
+  });
 
   const [search, setSearch]         = useState("");
   const [ownerType, setOwnerType]   = useState("all");
@@ -299,6 +317,20 @@ export default function OwnersList() {
                       <Plus className="h-3.5 w-3.5" />
                     </button>
                   </Link>
+                )}
+                {isSuperAdmin && (
+                  <button
+                    onClick={() => {
+                      if (confirm(`Archive ${owner.firstName} ${owner.lastName || ""}? This will hide them from all lists.`)) {
+                        archiveOwner.mutate(owner.id);
+                      }
+                    }}
+                    disabled={archiveOwner.isPending}
+                    className="h-7 w-7 rounded-md hover:bg-red-50 flex items-center justify-center text-muted-foreground hover:text-red-600 transition-colors"
+                    title="Archive owner (super admin)"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 )}
               </div>
             )}

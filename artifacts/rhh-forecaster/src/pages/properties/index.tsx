@@ -1,15 +1,17 @@
-import { useListProperties } from "@workspace/api-client-react";
+import { useListProperties, useGetMe } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Plus, Search, MapPin, Home, MoreHorizontal, X, SlidersHorizontal, ChevronDown, Building } from "lucide-react";
+import { Plus, Search, MapPin, Home, MoreHorizontal, X, SlidersHorizontal, ChevronDown, Building, Trash2 } from "lucide-react";
 import { SmartReport, Metric } from "@/components/SmartReport";
 import { useState, useMemo } from "react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { usePermission } from "@/hooks/usePermission";
 import { DataTable, ColumnDef } from "@/components/DataTable";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 const BEDROOM_OPTIONS = [
   { label: "Any", value: "all" },
@@ -165,8 +167,24 @@ const PROPERTY_COLUMNS: ColumnDef<PropertyRow>[] = [
 
 export default function PropertiesList() {
   const { data: properties, isLoading } = useListProperties();
+  const { data: me } = useGetMe();
+  const isSuperAdmin = (me as any)?.role === "super_admin";
   const canCreateProperty = usePermission("properties.create");
   const canCreateForecast = usePermission("forecasts.create");
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const archiveProperty = useMutation({
+    mutationFn: async (id: number) => {
+      const r = await fetch(`/api/properties/${id}`, { method: "DELETE", credentials: "include" });
+      if (!r.ok) { const b = await r.json().catch(() => ({})); throw new Error((b as any).error ?? "Failed to archive"); }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["properties"] });
+      toast({ title: "Property archived" });
+    },
+    onError: (e: Error) => toast({ title: "Failed to archive property", description: e.message, variant: "destructive" }),
+  });
 
   const smartMetrics = useMemo((): Metric[] => {
     const all = properties ?? [];
@@ -391,6 +409,21 @@ export default function PropertiesList() {
                     <DropdownMenuItem asChild>
                       <Link href={`/forecasts/new?propertyId=${property.id}`}>Create Forecast</Link>
                     </DropdownMenuItem>
+                  )}
+                  {isSuperAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive gap-2"
+                        onClick={() => {
+                          if (confirm(`Archive this property? It will be hidden from all lists.`)) {
+                            archiveProperty.mutate(property.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" /> Archive property
+                      </DropdownMenuItem>
+                    </>
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>

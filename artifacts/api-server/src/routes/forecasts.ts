@@ -216,7 +216,7 @@ router.patch("/forecasts/:id", requireAuth, async (req, res): Promise<void> => {
   res.json({ id: f.id, referenceNumber: f.referenceNumber, status: f.status, grossAnnualRevenue: f.grossAnnualRevenue, netOwnerIncome: f.netOwnerIncome, createdAt: f.createdAt, updatedAt: f.updatedAt });
 });
 
-router.delete("/forecasts/:id", requireAuth, async (req, res): Promise<void> => {
+router.delete("/forecasts/:id", requireAuth, requireRole("super_admin"), async (req, res): Promise<void> => {
   const params = DeleteForecastParams.safeParse(req.params);
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
   await db.update(forecastsTable).set({ isArchived: true, status: "archived" }).where(eq(forecastsTable.id, params.data.id));

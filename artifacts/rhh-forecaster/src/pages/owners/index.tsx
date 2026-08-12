@@ -299,7 +299,7 @@ export default function OwnersList() {
               </div>
             }
             actions={owner => (
-              <div className="flex items-center gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-1 justify-end">
                 <Link href={`/owners/${owner.id}`}>
                   <button
                     className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"

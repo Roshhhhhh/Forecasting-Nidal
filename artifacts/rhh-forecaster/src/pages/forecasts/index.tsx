@@ -5,13 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import {
-  Plus, Search, MoreHorizontal, X, TrendingUp, TrendingDown, Eye, Pencil,
+  Plus, Search, X, TrendingUp, TrendingDown, Eye, Pencil,
   FileText, CheckCircle, Copy, Trash2,
 } from "lucide-react";
 import { useState, useMemo, useCallback, useRef } from "react";
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { usePermission } from "@/hooks/usePermission";
 import { DataTable, ColumnDef } from "@/components/DataTable";
@@ -397,7 +394,7 @@ export default function ForecastsList() {
               </div>
             }
             actions={forecast => (
-              <div className="flex items-center gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-1 justify-end">
                 <Link href={`/forecasts/${forecast.id}`}>
                   <button
                     className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
@@ -417,35 +414,24 @@ export default function ForecastsList() {
                   </Link>
                 )}
                 {canEditForecast && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors">
-                        <MoreHorizontal className="h-3.5 w-3.5" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem
-                        onClick={() => { if (!isDuplicating) setDuplicateForecast(forecast); }}
-                        disabled={isDuplicating}
-                        className="gap-2"
-                      >
-                        <Copy className="h-4 w-4" /> Duplicate
-                      </DropdownMenuItem>
-                      {isSuperAdmin && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleArchive(forecast)}
-                            disabled={archivingIds.has(forecast.id)}
-                            className="text-destructive focus:text-destructive gap-2"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                            {archivingIds.has(forecast.id) ? "Archiving…" : "Archive"}
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <button
+                    className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                    title="Duplicate Forecast"
+                    onClick={() => { if (!isDuplicating) setDuplicateForecast(forecast); }}
+                    disabled={isDuplicating}
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                )}
+                {isSuperAdmin && (
+                  <button
+                    className="h-7 w-7 rounded-md hover:bg-red-50 flex items-center justify-center text-muted-foreground hover:text-red-600 transition-colors"
+                    title="Archive Forecast"
+                    onClick={() => handleArchive(forecast)}
+                    disabled={archivingIds.has(forecast.id)}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 )}
               </div>
             )}

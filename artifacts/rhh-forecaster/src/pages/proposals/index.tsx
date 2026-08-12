@@ -1,12 +1,13 @@
-import { useListProposals } from "@workspace/api-client-react";
+import { useListProposals, useGetMe, useUpdateProposal, getListProposalsQueryKey } from "@workspace/api-client-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
 import {
-  Search, Globe, Bell, X, Eye, EyeOff, Clock, Building2, User, ExternalLink, Send, CheckCircle,
+  Search, Globe, Bell, X, Eye, EyeOff, Clock, Building2, User, ExternalLink, Send, CheckCircle, Trash2,
 } from "lucide-react";
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { DataTable, ColumnDef } from "@/components/DataTable";
@@ -220,9 +221,24 @@ const PROPOSAL_COLUMNS: ColumnDef<ProposalRow>[] = [
 
 export default function ProposalsList() {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: me } = useGetMe();
+  const isSuperAdmin = (me as any)?.role === "super_admin";
+  const updateProposal = useUpdateProposal();
   const { data: proposals, isLoading } = useListProposals({
     query: { refetchInterval: 30_000 } as any,
   });
+
+  const handleDeactivateLink = useCallback(async (proposal: any) => {
+    if (!confirm(`Deactivate the share link for proposal ${proposal.referenceNumber}? The owner will no longer be able to access it.`)) return;
+    try {
+      await updateProposal.mutateAsync({ id: proposal.id, data: { isLinkActive: false } as any });
+      queryClient.invalidateQueries({ queryKey: getListProposalsQueryKey() });
+      toast({ title: "Share link deactivated", description: `Proposal ${proposal.referenceNumber} is no longer accessible to the owner.` });
+    } catch (err: any) {
+      toast({ title: "Failed to deactivate link", description: err?.message ?? "Unknown error", variant: "destructive" });
+    }
+  }, [updateProposal, queryClient, toast]);
 
   const [search, setSearch]         = useState("");
   const [status, setStatus]         = useState("all");
@@ -442,7 +458,7 @@ export default function ProposalsList() {
               </div>
             }
             actions={proposal => (
-              <div className="flex items-center gap-0.5 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="flex items-center gap-1 justify-end">
                 <Link href={`/proposals/${proposal.id}`}>
                   <button
                     className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
@@ -460,6 +476,16 @@ export default function ProposalsList() {
                       <Globe className="h-3.5 w-3.5" />
                     </button>
                   </a>
+                )}
+                {isSuperAdmin && (proposal as any).isLinkActive && (
+                  <button
+                    className="h-7 w-7 rounded-md hover:bg-red-50 flex items-center justify-center text-muted-foreground hover:text-red-600 transition-colors"
+                    title="Deactivate share link (super admin)"
+                    onClick={() => handleDeactivateLink(proposal)}
+                    disabled={updateProposal.isPending}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 )}
               </div>
             )}

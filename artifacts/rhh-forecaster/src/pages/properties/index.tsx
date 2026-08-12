@@ -3,10 +3,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Plus, Search, MapPin, Home, MoreHorizontal, X, SlidersHorizontal, ChevronDown, Building, Trash2 } from "lucide-react";
+import { Plus, Search, MapPin, Home, Eye, Pencil, FileText, X, SlidersHorizontal, ChevronDown, Building, Trash2 } from "lucide-react";
 import { SmartReport, Metric } from "@/components/SmartReport";
 import { useState, useMemo } from "react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { usePermission } from "@/hooks/usePermission";
 import { DataTable, ColumnDef } from "@/components/DataTable";
@@ -394,39 +393,48 @@ export default function PropertiesList() {
               </div>
             }
             actions={property => (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" className="h-8 w-8 p-0">
-                    <span className="sr-only">Open menu</span>
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem asChild>
-                    <Link href={`/properties/${property.id}`}>View Property</Link>
-                  </DropdownMenuItem>
-                  {canCreateForecast && (
-                    <DropdownMenuItem asChild>
-                      <Link href={`/forecasts/new?propertyId=${property.id}`}>Create Forecast</Link>
-                    </DropdownMenuItem>
-                  )}
-                  {isSuperAdmin && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem
-                        className="text-destructive focus:text-destructive gap-2"
-                        onClick={() => {
-                          if (confirm(`Archive this property? It will be hidden from all lists.`)) {
-                            archiveProperty.mutate(property.id);
-                          }
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" /> Archive property
-                      </DropdownMenuItem>
-                    </>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="flex items-center gap-1 justify-end">
+                <Link href={`/properties/${property.id}`}>
+                  <button
+                    className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                    title="View Property"
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                  </button>
+                </Link>
+                <Link href={`/properties/${property.id}`}>
+                  <button
+                    className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                    title="Edit Property"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                </Link>
+                {canCreateForecast && (
+                  <Link href={`/forecasts/new?propertyId=${property.id}`}>
+                    <button
+                      className="h-7 w-7 rounded-md hover:bg-muted flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                      title="Create Forecast"
+                    >
+                      <FileText className="h-3.5 w-3.5" />
+                    </button>
+                  </Link>
+                )}
+                {isSuperAdmin && (
+                  <button
+                    className="h-7 w-7 rounded-md hover:bg-red-50 flex items-center justify-center text-muted-foreground hover:text-red-600 transition-colors"
+                    title="Archive property (super admin)"
+                    onClick={() => {
+                      if (confirm(`Archive this property? It will be hidden from all lists.`)) {
+                        archiveProperty.mutate(property.id);
+                      }
+                    }}
+                    disabled={archiveProperty.isPending}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
             )}
           />
         </CardContent>

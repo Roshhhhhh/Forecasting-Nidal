@@ -57,6 +57,10 @@ import type {
   MonthlyProjection,
   NarrativeDraftResponse,
   Owner,
+  OwnerActivitiesResponse,
+  OwnerActivity,
+  OwnerActivityInput,
+  OwnerActivityUpdate,
   OwnerInput,
   OwnerUpdate,
   PortalCacheEntry,
@@ -1440,6 +1444,302 @@ export const useDeleteOwner = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getDeleteOwnerMutationOptions(options));
+    }
+
+export const getListOwnerActivitiesUrl = (id: number,) => {
+
+
+
+
+  return `/api/owners/${id}/activities`
+}
+
+/**
+ * @summary List activity log entries for an owner
+ */
+export const listOwnerActivities = async (id: number, options?: Parameters<typeof customFetch>[1]): Promise<OwnerActivitiesResponse> => {
+
+  return customFetch<OwnerActivitiesResponse>(getListOwnerActivitiesUrl(id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListOwnerActivitiesQueryKey = (id: number,) => {
+    return [
+    `/api/owners/${id}/activities`
+    ] as const;
+    }
+
+
+export const getListOwnerActivitiesQueryOptions = <TData = Awaited<ReturnType<typeof listOwnerActivities>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOwnerActivities>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListOwnerActivitiesQueryKey(id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listOwnerActivities>>> = ({ signal }) => listOwnerActivities(id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listOwnerActivities>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListOwnerActivitiesQueryResult = NonNullable<Awaited<ReturnType<typeof listOwnerActivities>>>
+export type ListOwnerActivitiesQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary List activity log entries for an owner
+ */
+
+export function useListOwnerActivities<TData = Awaited<ReturnType<typeof listOwnerActivities>>, TError = ErrorType<unknown>>(
+ id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listOwnerActivities>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListOwnerActivitiesQueryOptions(id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateOwnerActivityUrl = (id: number,) => {
+
+
+
+
+  return `/api/owners/${id}/activities`
+}
+
+/**
+ * @summary Log a new activity entry for an owner
+ */
+export const createOwnerActivity = async (id: number,
+    ownerActivityInput: OwnerActivityInput, options?: Parameters<typeof customFetch>[1]): Promise<OwnerActivity> => {
+
+  return customFetch<OwnerActivity>(getCreateOwnerActivityUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(ownerActivityInput)
+  }
+);}
+
+
+
+
+
+export const getCreateOwnerActivityMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOwnerActivity>>, TError,{id: number;data: BodyType<OwnerActivityInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createOwnerActivity>>, TError,{id: number;data: BodyType<OwnerActivityInput>}, TContext> => {
+
+const mutationKey = ['createOwnerActivity'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createOwnerActivity>>, {id: number;data: BodyType<OwnerActivityInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  createOwnerActivity(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateOwnerActivityMutationResult = NonNullable<Awaited<ReturnType<typeof createOwnerActivity>>>
+    export type CreateOwnerActivityMutationBody = BodyType<OwnerActivityInput>
+    export type CreateOwnerActivityMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Log a new activity entry for an owner
+ */
+export const useCreateOwnerActivity = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createOwnerActivity>>, TError,{id: number;data: BodyType<OwnerActivityInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof createOwnerActivity>>,
+        TError,
+        {id: number;data: BodyType<OwnerActivityInput>},
+        TContext
+      > => {
+      return useMutation(getCreateOwnerActivityMutationOptions(options));
+    }
+
+export const getUpdateOwnerActivityUrl = (id: number,
+    activityId: number,) => {
+
+
+
+
+  return `/api/owners/${id}/activities/${activityId}`
+}
+
+/**
+ * @summary Update an activity entry (content, completion, due date)
+ */
+export const updateOwnerActivity = async (id: number,
+    activityId: number,
+    ownerActivityUpdate: OwnerActivityUpdate, options?: Parameters<typeof customFetch>[1]): Promise<OwnerActivity> => {
+
+  return customFetch<OwnerActivity>(getUpdateOwnerActivityUrl(id,activityId),
+  {
+    ...options,
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(ownerActivityUpdate)
+  }
+);}
+
+
+
+
+
+export const getUpdateOwnerActivityMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOwnerActivity>>, TError,{id: number;activityId: number;data: BodyType<OwnerActivityUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateOwnerActivity>>, TError,{id: number;activityId: number;data: BodyType<OwnerActivityUpdate>}, TContext> => {
+
+const mutationKey = ['updateOwnerActivity'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateOwnerActivity>>, {id: number;activityId: number;data: BodyType<OwnerActivityUpdate>}> = (props) => {
+          const {id,activityId,data} = props ?? {};
+
+          return  updateOwnerActivity(id,activityId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateOwnerActivityMutationResult = NonNullable<Awaited<ReturnType<typeof updateOwnerActivity>>>
+    export type UpdateOwnerActivityMutationBody = BodyType<OwnerActivityUpdate>
+    export type UpdateOwnerActivityMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update an activity entry (content, completion, due date)
+ */
+export const useUpdateOwnerActivity = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateOwnerActivity>>, TError,{id: number;activityId: number;data: BodyType<OwnerActivityUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateOwnerActivity>>,
+        TError,
+        {id: number;activityId: number;data: BodyType<OwnerActivityUpdate>},
+        TContext
+      > => {
+      return useMutation(getUpdateOwnerActivityMutationOptions(options));
+    }
+
+export const getDeleteOwnerActivityUrl = (id: number,
+    activityId: number,) => {
+
+
+
+
+  return `/api/owners/${id}/activities/${activityId}`
+}
+
+/**
+ * @summary Delete an activity entry (author or super_admin only)
+ */
+export const deleteOwnerActivity = async (id: number,
+    activityId: number, options?: Parameters<typeof customFetch>[1]): Promise<MessageResponse> => {
+
+  return customFetch<MessageResponse>(getDeleteOwnerActivityUrl(id,activityId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+
+export const getDeleteOwnerActivityMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOwnerActivity>>, TError,{id: number;activityId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteOwnerActivity>>, TError,{id: number;activityId: number}, TContext> => {
+
+const mutationKey = ['deleteOwnerActivity'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteOwnerActivity>>, {id: number;activityId: number}> = (props) => {
+          const {id,activityId} = props ?? {};
+
+          return  deleteOwnerActivity(id,activityId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeleteOwnerActivityMutationResult = NonNullable<Awaited<ReturnType<typeof deleteOwnerActivity>>>
+
+    export type DeleteOwnerActivityMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Delete an activity entry (author or super_admin only)
+ */
+export const useDeleteOwnerActivity = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteOwnerActivity>>, TError,{id: number;activityId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof deleteOwnerActivity>>,
+        TError,
+        {id: number;activityId: number},
+        TContext
+      > => {
+      return useMutation(getDeleteOwnerActivityMutationOptions(options));
     }
 
 export const getListRefereesUrl = () => {

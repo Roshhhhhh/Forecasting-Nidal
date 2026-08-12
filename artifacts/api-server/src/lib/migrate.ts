@@ -546,6 +546,26 @@ export async function runStartupMigration() {
       ON CONFLICT (property_id, owner_id) DO NOTHING
     `);
 
+    // owner_activities — CRM-style activity log per owner
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS owner_activities (
+        id            SERIAL PRIMARY KEY,
+        owner_id      INTEGER NOT NULL REFERENCES owners(id) ON DELETE CASCADE,
+        type          TEXT NOT NULL CHECK (type IN ('call','meeting','note','task')),
+        content       TEXT NOT NULL,
+        due_date      DATE,
+        is_completed  BOOLEAN NOT NULL DEFAULT FALSE,
+        completed_at  TIMESTAMPTZ,
+        created_by_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `);
+    await db.execute(sql`
+      CREATE INDEX IF NOT EXISTS idx_owner_activities_owner
+        ON owner_activities (owner_id, created_at DESC)
+    `);
+
     // app_config — generic key/value config store
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS app_config (

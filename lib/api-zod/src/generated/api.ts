@@ -409,6 +409,101 @@ export const DeleteOwnerResponse = zod.object({
 
 
 /**
+ * @summary List activity log entries for an owner
+ */
+export const ListOwnerActivitiesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListOwnerActivitiesResponse = zod.object({
+  "activities": zod.array(zod.object({
+  "id": zod.number(),
+  "ownerId": zod.number(),
+  "type": zod.enum(['call', 'meeting', 'note', 'task']),
+  "content": zod.string(),
+  "dueDate": zod.string().nullish(),
+  "isCompleted": zod.boolean(),
+  "completedAt": zod.string().nullish(),
+  "createdById": zod.number().nullable(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})),
+  "openTaskCount": zod.number()
+})
+
+
+/**
+ * @summary Log a new activity entry for an owner
+ */
+export const CreateOwnerActivityParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CreateOwnerActivityBody = zod.object({
+  "type": zod.enum(['call', 'meeting', 'note', 'task']),
+  "content": zod.string(),
+  "dueDate": zod.string().optional()
+})
+
+export const CreateOwnerActivityResponse = zod.object({
+  "id": zod.number(),
+  "ownerId": zod.number(),
+  "type": zod.enum(['call', 'meeting', 'note', 'task']),
+  "content": zod.string(),
+  "dueDate": zod.string().nullish(),
+  "isCompleted": zod.boolean(),
+  "completedAt": zod.string().nullish(),
+  "createdById": zod.number().nullable(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Update an activity entry (content, completion, due date)
+ */
+export const UpdateOwnerActivityParams = zod.object({
+  "id": zod.coerce.number(),
+  "activityId": zod.coerce.number()
+})
+
+export const UpdateOwnerActivityBody = zod.object({
+  "content": zod.string().optional(),
+  "dueDate": zod.string().nullish(),
+  "isCompleted": zod.boolean().optional()
+})
+
+export const UpdateOwnerActivityResponse = zod.object({
+  "id": zod.number(),
+  "ownerId": zod.number(),
+  "type": zod.enum(['call', 'meeting', 'note', 'task']),
+  "content": zod.string(),
+  "dueDate": zod.string().nullish(),
+  "isCompleted": zod.boolean(),
+  "completedAt": zod.string().nullish(),
+  "createdById": zod.number().nullable(),
+  "createdByName": zod.string().nullish(),
+  "createdAt": zod.coerce.date(),
+  "updatedAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Delete an activity entry (author or super_admin only)
+ */
+export const DeleteOwnerActivityParams = zod.object({
+  "id": zod.coerce.number(),
+  "activityId": zod.coerce.number()
+})
+
+export const DeleteOwnerActivityResponse = zod.object({
+  "message": zod.string()
+})
+
+
+/**
  * @summary List all referees
  */
 export const ListRefereesResponseItem = zod.object({

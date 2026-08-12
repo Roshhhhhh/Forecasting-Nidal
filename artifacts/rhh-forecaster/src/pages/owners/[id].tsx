@@ -2,7 +2,9 @@ import { useState } from "react";
 import {
   useGetOwner, useUpdateOwner, useListProperties, useListForecasts,
   useListUsers, useListReferees, useCreateReferee, useCreateUser,
-  useListProposals, useGetProposalActivity,
+  useListProposals, useGetProposalActivity, useGetMe,
+  useListOwnerActivities, useCreateOwnerActivity, useUpdateOwnerActivity, useDeleteOwnerActivity,
+  getListOwnerActivitiesQueryKey,
   useListForecastActuals, useGetForecastMonthly,
 } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
@@ -27,6 +29,8 @@ import {
   Plus, Mail, Phone, MapPin, FileText, Pencil, Home, Globe,
   UserCheck, UserPlus, Loader2, Search, Eye, Clock, Download,
   MessageSquare, Activity, TrendingUp, TrendingDown, Minus,
+  PhoneCall, Handshake, StickyNote, ListTodo, Trash2, Calendar,
+  AlertCircle, Check, ChevronDown, ChevronUp,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { getApiErrorMessage } from "@/lib/api-error";
@@ -140,6 +144,303 @@ function ProposalActivityTimeline({ proposalId }: { proposalId: number }) {
   );
 }
 
+// ── Activity Log Tab ──────────────────────────────────────────────────────────
+
+type ActivityType = "call" | "meeting" | "note" | "task";
+
+const ACTIVITY_META: Record<ActivityType, { label: string; icon: React.ElementType; color: string; bg: string }> = {
+  call:    { label: "Call",    icon: PhoneCall,  color: "text-blue-600",   bg: "bg-blue-50 border-blue-200"   },
+  meeting: { label: "Meeting", icon: Handshake,  color: "text-purple-600", bg: "bg-purple-50 border-purple-200" },
+  note:    { label: "Note",    icon: StickyNote, color: "text-amber-600",  bg: "bg-amber-50 border-amber-200"  },
+  task:    { label: "Task",    icon: ListTodo,   color: "text-green-600",  bg: "bg-green-50 border-green-200"  },
+};
+
+function formatDate(dateStr: string | null | undefined) {
+  if (!dateStr) return null;
+  return new Date(dateStr).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+function ActivityTab({ ownerId, currentUserId, isSuperAdmin }: {
+  ownerId: number;
+  currentUserId: number | null;
+  isSuperAdmin: boolean;
+}) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const { data, isLoading } = useListOwnerActivities(ownerId);
+  const createActivity  = useCreateOwnerActivity();
+  const updateActivity  = useUpdateOwnerActivity();
+  const deleteActivity  = useDeleteOwnerActivity();
+
+  const [formOpen, setFormOpen]     = useState(false);
+  const [formType, setFormType]     = useState<ActivityType>("note");
+  const [formContent, setFormContent] = useState("");
+  const [formDueDate, setFormDueDate] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [editingId, setEditingId]   = useState<number | null>(null);
+  const [editContent, setEditContent] = useState("");
+
+  const activities  = data?.activities ?? [];
+  const openTaskCount = data?.openTaskCount ?? 0;
+
+  function invalidate() {
+    qc.invalidateQueries({ queryKey: getListOwnerActivitiesQueryKey(ownerId) });
+  }
+
+  async function handleSubmit() {
+    if (!formContent.trim()) return;
+    setSubmitting(true);
+    try {
+      await createActivity.mutateAsync({
+        id: ownerId,
+        data: {
+          type: formType,
+          content: formContent.trim(),
+          ...(formType === "task" && formDueDate ? { dueDate: formDueDate } : {}),
+        },
+      });
+      invalidate();
+      setFormContent("");
+      setFormDueDate("");
+      setFormOpen(false);
+      toast({ title: "Activity logged" });
+    } catch (err) {
+      toast({ title: "Failed to log activity", description: getApiErrorMessage(err), variant: "destructive" });
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleToggleComplete(activityId: number, current: boolean) {
+    try {
+      await updateActivity.mutateAsync({ id: ownerId, activityId, data: { isCompleted: !current } });
+      invalidate();
+    } catch {
+      toast({ title: "Could not update task", variant: "destructive" });
+    }
+  }
+
+  async function handleSaveEdit(activityId: number) {
+    if (!editContent.trim()) return;
+    try {
+      await updateActivity.mutateAsync({ id: ownerId, activityId, data: { content: editContent.trim() } });
+      invalidate();
+      setEditingId(null);
+    } catch {
+      toast({ title: "Could not update entry", variant: "destructive" });
+    }
+  }
+
+  async function handleDelete(activityId: number) {
+    if (!confirm("Delete this activity entry? This cannot be undone.")) return;
+    try {
+      await deleteActivity.mutateAsync({ id: ownerId, activityId });
+      invalidate();
+      toast({ title: "Entry deleted" });
+    } catch (err) {
+      toast({ title: "Could not delete entry", description: getApiErrorMessage(err), variant: "destructive" });
+    }
+  }
+
+  return (
+    <div className="mt-6 space-y-4">
+      {/* Log Activity button / inline form */}
+      {!formOpen ? (
+        <Button variant="outline" size="sm" className="gap-2" onClick={() => setFormOpen(true)}>
+          <Plus className="h-4 w-4" /> Log Activity
+        </Button>
+      ) : (
+        <Card className="border-border/60 shadow-sm">
+          <CardContent className="p-4 space-y-3">
+            {/* Type selector */}
+            <div className="flex gap-2 flex-wrap">
+              {(Object.keys(ACTIVITY_META) as ActivityType[]).map(t => {
+                const meta = ACTIVITY_META[t];
+                const Icon = meta.icon;
+                return (
+                  <button
+                    key={t}
+                    onClick={() => setFormType(t)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                      formType === t
+                        ? `${meta.bg} ${meta.color} border-current`
+                        : "bg-background border-border text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <Icon className="h-3.5 w-3.5" /> {meta.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Content */}
+            <Textarea
+              rows={3}
+              placeholder={
+                formType === "call"    ? "Who did you call, what was discussed?" :
+                formType === "meeting" ? "Who attended, what was agreed?" :
+                formType === "task"    ? "What needs to be done?" :
+                "Add a note…"
+              }
+              value={formContent}
+              onChange={e => setFormContent(e.target.value)}
+              className="resize-none text-sm"
+            />
+
+            {/* Due date (tasks only) */}
+            {formType === "task" && (
+              <div className="flex items-center gap-2">
+                <Calendar className="h-4 w-4 text-muted-foreground shrink-0" />
+                <Input
+                  type="date"
+                  value={formDueDate}
+                  onChange={e => setFormDueDate(e.target.value)}
+                  className="w-44 text-sm"
+                />
+                <span className="text-xs text-muted-foreground">Due date (optional)</span>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleSubmit} disabled={!formContent.trim() || submitting}>
+                {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                Save
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => { setFormOpen(false); setFormContent(""); setFormDueDate(""); }}>
+                Cancel
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Feed */}
+      {isLoading ? (
+        <div className="py-8 text-center text-muted-foreground text-sm">Loading activity…</div>
+      ) : activities.length === 0 ? (
+        <div className="py-10 text-center">
+          <Activity className="h-9 w-9 text-muted-foreground/30 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No activity yet. Log a call, meeting, note, or task.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {activities.map(entry => {
+            const type   = (entry.type ?? "note") as ActivityType;
+            const meta   = ACTIVITY_META[type] ?? ACTIVITY_META.note;
+            const Icon   = meta.icon;
+            const isTask = type === "task";
+            const isDone = Boolean((entry as any).isCompleted);
+            const dueDate = (entry as any).dueDate as string | null;
+            const isOverdue = isTask && !isDone && dueDate && new Date(dueDate) < new Date();
+            const canDelete = isSuperAdmin || entry.createdById === currentUserId;
+            const isEditing = editingId === entry.id;
+
+            return (
+              <Card
+                key={entry.id}
+                className={`shadow-sm border transition-colors ${
+                  isOverdue ? "border-amber-300 bg-amber-50/40" : "border-border/50"
+                }`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    {/* Type icon / task checkbox */}
+                    {isTask ? (
+                      <button
+                        onClick={() => handleToggleComplete(entry.id, isDone)}
+                        className={`mt-0.5 shrink-0 h-5 w-5 rounded border-2 flex items-center justify-center transition-colors ${
+                          isDone
+                            ? "bg-green-500 border-green-500 text-white"
+                            : "border-muted-foreground hover:border-green-500"
+                        }`}
+                        aria-label={isDone ? "Mark incomplete" : "Mark complete"}
+                      >
+                        {isDone && <Check className="h-3 w-3" />}
+                      </button>
+                    ) : (
+                      <div className={`mt-0.5 h-7 w-7 rounded-full border flex items-center justify-center shrink-0 ${meta.bg}`}>
+                        <Icon className={`h-3.5 w-3.5 ${meta.color}`} />
+                      </div>
+                    )}
+
+                    <div className="flex-1 min-w-0">
+                      {/* Content or edit field */}
+                      {isEditing ? (
+                        <div className="space-y-2">
+                          <Textarea
+                            rows={2}
+                            value={editContent}
+                            onChange={e => setEditContent(e.target.value)}
+                            className="text-sm resize-none"
+                            autoFocus
+                          />
+                          <div className="flex gap-2">
+                            <Button size="sm" onClick={() => handleSaveEdit(entry.id)}>Save</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditingId(null)}>Cancel</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className={`text-sm ${isDone ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                          {entry.content}
+                        </p>
+                      )}
+
+                      {/* Meta row */}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-muted-foreground">
+                        <span>
+                          {entry.createdByName ?? "Unknown"} · {formatRelativeTime(entry.createdAt as any)}
+                        </span>
+                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 ${meta.bg} ${meta.color} border-current capitalize`}>
+                          {meta.label}
+                        </Badge>
+                        {isTask && dueDate && (
+                          <span className={`flex items-center gap-1 ${isOverdue ? "text-amber-700 font-medium" : ""}`}>
+                            {isOverdue && <AlertCircle className="h-3 w-3" />}
+                            <Calendar className="h-3 w-3" />
+                            Due {formatDate(dueDate)}
+                            {isOverdue && " — overdue"}
+                          </span>
+                        )}
+                        {isTask && isDone && (
+                          <span className="text-green-600 font-medium flex items-center gap-1">
+                            <Check className="h-3 w-3" /> Completed {formatRelativeTime((entry as any).completedAt)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {!isEditing && (
+                        <button
+                          onClick={() => { setEditingId(entry.id); setEditContent(entry.content); }}
+                          className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          aria-label="Edit"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      {canDelete && !isEditing && (
+                        <button
+                          onClick={() => handleDelete(entry.id)}
+                          className="p-1 rounded text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
+                          aria-label="Delete"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const LEAD_SOURCE_LABELS: Record<string, string> = {
   direct_call: "Direct Call",
   website: "Website Inquiry",
@@ -211,6 +512,14 @@ export default function OwnerDetail() {
   const ownerId = parseInt(id || "0", 10);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const { data: me } = useGetMe();
+  const currentUserId  = (me as any)?.id   ?? null;
+  const isSuperAdmin   = (me as any)?.role === "super_admin";
+
+  // Fetch activity count early (before early returns) so the badge is always reactive
+  const { data: activitiesData } = useListOwnerActivities(ownerId);
+  const openTaskCountForBadge = activitiesData?.openTaskCount ?? 0;
 
   const { data: owner, isLoading: isOwnerLoading } = useGetOwner(ownerId);
   const { data: properties, isLoading: isPropsLoading } = useListProperties();
@@ -468,7 +777,7 @@ export default function OwnerDetail() {
 
         <div className="md:col-span-2">
           <Tabs defaultValue="properties" className="w-full">
-            <TabsList className="grid w-full grid-cols-3 max-w-[560px] sm:max-w-[560px]">
+            <TabsList className="grid w-full grid-cols-4 max-w-[740px]">
               <TabsTrigger value="properties">Properties ({ownerProperties.length})</TabsTrigger>
               <TabsTrigger value="forecasts">Forecasts ({ownerForecasts.length})</TabsTrigger>
               <TabsTrigger value="engagement" className="flex items-center gap-1.5">
@@ -477,6 +786,15 @@ export default function OwnerDetail() {
                 {engagementProposal && (engagementProposal.totalViews ?? 0) > 0 && (
                   <span className="ml-1 h-4 min-w-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-1">
                     {engagementProposal.totalViews}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="flex items-center gap-1.5">
+                <Activity className="h-3.5 w-3.5" />
+                Activity
+                {openTaskCountForBadge > 0 && (
+                  <span className="ml-1 h-4 min-w-4 rounded-full bg-amber-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+                    {openTaskCountForBadge}
                   </span>
                 )}
               </TabsTrigger>
@@ -648,6 +966,15 @@ export default function OwnerDetail() {
                   <ProposalActivityTimeline proposalId={engagementProposal.id} />
                 </>
               )}
+            </TabsContent>
+
+            {/* ── Activity Log Tab ── */}
+            <TabsContent value="activity">
+              <ActivityTab
+                ownerId={ownerId}
+                currentUserId={currentUserId}
+                isSuperAdmin={isSuperAdmin}
+              />
             </TabsContent>
           </Tabs>
         </div>

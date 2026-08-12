@@ -352,6 +352,101 @@ paths:
               schema:
                 $ref: "#/components/schemas/MessageResponse"
 
+  # OWNER ACTIVITIES
+  /owners/{id}/activities:
+    get:
+      operationId: listOwnerActivities
+      tags: [owners]
+      summary: List activity log entries for an owner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Activity entries (reverse-chronological)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerActivitiesResponse"
+    post:
+      operationId: createOwnerActivity
+      tags: [owners]
+      summary: Log a new activity entry for an owner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OwnerActivityInput"
+      responses:
+        "201":
+          description: Created activity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerActivity"
+
+  /owners/{id}/activities/{activityId}:
+    patch:
+      operationId: updateOwnerActivity
+      tags: [owners]
+      summary: Update an activity entry (content, completion, due date)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OwnerActivityUpdate"
+      responses:
+        "200":
+          description: Updated activity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OwnerActivity"
+    delete:
+      operationId: deleteOwnerActivity
+      tags: [owners]
+      summary: Delete an activity entry (author or super_admin only)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: number
+        - name: activityId
+          in: path
+          required: true
+          schema:
+            type: number
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
   # REFEREES
   /referees:
     get:
@@ -1793,6 +1888,70 @@ components:
           type: boolean
         phone:
           type: string
+
+    # OWNER ACTIVITIES
+    OwnerActivity:
+      type: object
+      required: [id, ownerId, type, content, isCompleted, createdById, createdAt, updatedAt]
+      properties:
+        id:
+          type: number
+        ownerId:
+          type: number
+        type:
+          type: string
+          enum: [call, meeting, note, task]
+        content:
+          type: string
+        dueDate:
+          type: ["string", "null"]
+        isCompleted:
+          type: boolean
+        completedAt:
+          type: ["string", "null"]
+        createdById:
+          type: ["number", "null"]
+        createdByName:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    OwnerActivityInput:
+      type: object
+      required: [type, content]
+      properties:
+        type:
+          type: string
+          enum: [call, meeting, note, task]
+        content:
+          type: string
+        dueDate:
+          type: string
+
+    OwnerActivityUpdate:
+      type: object
+      properties:
+        content:
+          type: string
+        dueDate:
+          type: ["string", "null"]
+        isCompleted:
+          type: boolean
+
+    OwnerActivitiesResponse:
+      type: object
+      required: [activities, openTaskCount]
+      properties:
+        activities:
+          type: array
+          items:
+            $ref: "#/components/schemas/OwnerActivity"
+        openTaskCount:
+          type: number
 
     # OWNERS
     Owner:

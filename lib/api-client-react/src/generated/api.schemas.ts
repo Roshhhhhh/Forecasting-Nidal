@@ -107,6 +107,62 @@ export interface UserUpdate {
   phone?: string;
 }
 
+export type OwnerActivityType = typeof OwnerActivityType[keyof typeof OwnerActivityType];
+
+
+export const OwnerActivityType = {
+  call: 'call',
+  meeting: 'meeting',
+  note: 'note',
+  task: 'task',
+} as const;
+
+export interface OwnerActivity {
+  id: number;
+  ownerId: number;
+  type: OwnerActivityType;
+  content: string;
+  /** @nullable */
+  dueDate?: string | null;
+  isCompleted: boolean;
+  /** @nullable */
+  completedAt?: string | null;
+  /** @nullable */
+  createdById: number | null;
+  /** @nullable */
+  createdByName?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type OwnerActivityInputType = typeof OwnerActivityInputType[keyof typeof OwnerActivityInputType];
+
+
+export const OwnerActivityInputType = {
+  call: 'call',
+  meeting: 'meeting',
+  note: 'note',
+  task: 'task',
+} as const;
+
+export interface OwnerActivityInput {
+  type: OwnerActivityInputType;
+  content: string;
+  dueDate?: string;
+}
+
+export interface OwnerActivityUpdate {
+  content?: string;
+  /** @nullable */
+  dueDate?: string | null;
+  isCompleted?: boolean;
+}
+
+export interface OwnerActivitiesResponse {
+  activities: OwnerActivity[];
+  openTaskCount: number;
+}
+
 export type OwnerOwnerType = typeof OwnerOwnerType[keyof typeof OwnerOwnerType];
 
 

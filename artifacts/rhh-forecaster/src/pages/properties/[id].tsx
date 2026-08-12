@@ -312,17 +312,27 @@ export default function PropertyDetail() {
   const [draftIds, setDraftIds] = useState<number[]>([]);
   const [draftTags, setDraftTags] = useState<string[]>([]);
 
+  const { toast: propertyToast } = useToast();
   const saveAmenities = useMutation({
-    mutationFn: (ids: number[]) =>
-      fetch(`/api/properties/${propertyId}/amenities`, {
+    mutationFn: async (ids: number[]) => {
+      const r = await fetch(`/api/properties/${propertyId}/amenities`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ amenityIds: ids }),
-      }).then(r => r.json()),
+      });
+      if (!r.ok) {
+        const body = await r.text().catch(() => "");
+        throw new Error(`Failed to save amenities: ${body || r.statusText}`);
+      }
+      return r.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/properties", propertyId, "amenities"] });
       setEditing(false);
+    },
+    onError: (err: Error) => {
+      propertyToast({ title: "Could not save amenities", description: err.message, variant: "destructive" });
     },
   });
 

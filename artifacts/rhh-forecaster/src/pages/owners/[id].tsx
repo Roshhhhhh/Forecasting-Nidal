@@ -630,10 +630,7 @@ export default function OwnerDetail() {
     }
   }
 
-  if (isOwnerLoading) return <div className="p-8 text-center text-muted-foreground">Loading owner profile...</div>;
-  if (!owner) return <div className="p-8 text-center text-red-500">Owner not found.</div>;
-
-  // Fetch all properties for this owner (primary + co-owned)
+  // Fetch all properties for this owner (primary + co-owned) — must be before early returns (Rules of Hooks)
   const { data: ownerPropertiesRaw, isLoading: isOwnerPropsLoading } = useQuery<any[]>({
     queryKey: ["/api/owners", ownerId, "properties"],
     queryFn: async () => {
@@ -643,6 +640,10 @@ export default function OwnerDetail() {
     },
     enabled: !!ownerId,
   });
+
+  if (isOwnerLoading) return <div className="p-8 text-center text-muted-foreground">Loading owner profile...</div>;
+  if (!owner) return <div className="p-8 text-center text-red-500">Owner not found.</div>;
+
   const ownerProperties = ownerPropertiesRaw ?? properties?.filter(p => p.ownerId === ownerId) ?? [];
   const ownerForecasts = forecasts?.filter(f => f.ownerId === ownerId) || [];
   // Find the most recent accepted/approved forecast for the performance badge

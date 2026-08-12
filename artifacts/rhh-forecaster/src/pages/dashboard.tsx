@@ -216,7 +216,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{isKpisLoading ? "-" : kpis?.totalForecasts}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              <span className="text-primary font-medium">{kpis?.draftForecasts}</span> in draft state
+              <span className="text-primary font-medium">{isKpisLoading ? "…" : (kpis?.draftForecasts ?? 0)}</span> in draft state
             </p>
           </CardContent>
         </Card>
@@ -229,7 +229,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{isKpisLoading ? "-" : `${kpis?.conversionRate}%`}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              <span className="text-green-600 font-medium">{kpis?.acceptedProposals}</span> signed deals
+              <span className="text-green-600 font-medium">{isKpisLoading ? "…" : (kpis?.acceptedProposals ?? 0)}</span> signed deals
             </p>
           </CardContent>
         </Card>
@@ -394,7 +394,7 @@ export default function Dashboard() {
                       </Badge>
                     </td>
                     <td className="px-4 py-3 text-muted-foreground">
-                      {new Date(forecast.createdAt).toLocaleDateString()}
+                      {forecast.createdAt ? new Date(forecast.createdAt).toLocaleDateString() : '—'}
                     </td>
                   </tr>
                 ))}

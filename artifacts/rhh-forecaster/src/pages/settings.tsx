@@ -21,8 +21,8 @@ const settingsSchema = z.object({
   currency: z.string().default("AED"),
   phone: z.string().optional(),
   website: z.string().optional(),
-  ownerEmail: z.string().email().optional(),
-  guestEmail: z.string().email().optional(),
+  ownerEmail: z.string().email("Must be a valid email").optional().or(z.literal("")),
+  guestEmail: z.string().email("Must be a valid email").optional().or(z.literal("")),
   address: z.string().optional(),
   defaultManagementFeePercent: z.coerce.number().min(0).max(100),
   defaultLtrVacancyPercent: z.coerce.number().min(0).max(100),
@@ -56,10 +56,11 @@ function GeneralTab() {
     },
   });
 
-  // Sync form to server data every time it (re)loads — no one-shot guard so
-  // navigating away and back always shows the latest saved values.
+  // Populate the form from server data on first load (and after a save clears the dirty flag).
+  // The isDirty guard prevents a background refetch from wiping unsaved edits mid-session.
   useEffect(() => {
     if (!settings) return;
+    if (form.formState.isDirty) return; // user has unsaved changes — don't overwrite them
     form.reset({
       companyName: settings.companyName,
       brandName: settings.brandName,
@@ -85,7 +86,9 @@ function GeneralTab() {
   const onSubmit = async (data: SettingsFormValues) => {
     try {
       await updateSettings.mutateAsync({ data: data as any });
-      // Invalidate cache so the next mount always fetches fresh data from the server.
+      // Reset with the submitted values so isDirty clears, allowing the next
+      // server refetch to sync fresh data without overwriting anything.
+      form.reset(data);
       await queryClient.invalidateQueries({ queryKey: getGetCompanySettingsQueryKey() });
       toast({ title: "Settings Saved", description: "Company configuration updated successfully." });
     } catch (error) {

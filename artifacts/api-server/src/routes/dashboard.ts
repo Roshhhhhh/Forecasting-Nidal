@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
-import { db, forecastsTable, proposalsTable, ownersTable } from "@workspace/db";
+import { db, forecastsTable, proposalsTable, ownersTable, propertiesTable } from "@workspace/db";
 import { requireAuth } from "../middlewares/auth";
 
 const router: IRouter = Router();
@@ -47,17 +47,50 @@ router.get("/dashboard/kpis", requireAuth, async (_req, res): Promise<void> => {
 });
 
 router.get("/dashboard/recent", requireAuth, async (_req, res): Promise<void> => {
-  const forecasts = await db.select().from(forecastsTable)
+  const rows = await db
+    .select({
+      id: forecastsTable.id,
+      referenceNumber: forecastsTable.referenceNumber,
+      status: forecastsTable.status,
+      grossAnnualRevenue: forecastsTable.grossAnnualRevenue,
+      netOwnerIncome: forecastsTable.netOwnerIncome,
+      netLtrIncome: forecastsTable.netLtrIncome,
+      increaseVsLtrPct: forecastsTable.increaseVsLtrPct,
+      weightedAdr: forecastsTable.weightedAdr,
+      recommendedOccupancy: forecastsTable.recommendedOccupancy,
+      createdAt: forecastsTable.createdAt,
+      updatedAt: forecastsTable.updatedAt,
+      ownerFirstName: ownersTable.firstName,
+      ownerLastName: ownersTable.lastName,
+      ownerCompanyName: ownersTable.companyName,
+      propertyArea: propertiesTable.area,
+      propertyProjectBuilding: propertiesTable.projectBuilding,
+      propertyUnitNumber: propertiesTable.unitNumber,
+    })
+    .from(forecastsTable)
+    .leftJoin(ownersTable, eq(forecastsTable.ownerId, ownersTable.id))
+    .leftJoin(propertiesTable, eq(forecastsTable.propertyId, propertiesTable.id))
     .where(eq(forecastsTable.isArchived, false))
     .orderBy(desc(forecastsTable.updatedAt))
     .limit(10);
-  res.json(forecasts.map(f => ({
-    id: f.id, referenceNumber: f.referenceNumber, status: f.status,
-    grossAnnualRevenue: f.grossAnnualRevenue, netOwnerIncome: f.netOwnerIncome,
-    netLtrIncome: f.netLtrIncome, increaseVsLtrPct: f.increaseVsLtrPct,
-    weightedAdr: f.weightedAdr, recommendedOccupancy: f.recommendedOccupancy,
-    createdAt: f.createdAt, updatedAt: f.updatedAt,
-  })));
+
+  res.json(rows.map(r => {
+    const ownerName = r.ownerCompanyName
+      ? r.ownerCompanyName
+      : r.ownerFirstName && r.ownerLastName
+        ? `${r.ownerFirstName} ${r.ownerLastName}`
+        : null;
+    const propertyAddress = [r.propertyUnitNumber, r.propertyProjectBuilding, r.propertyArea]
+      .filter(Boolean).join(', ') || null;
+    return {
+      id: r.id, referenceNumber: r.referenceNumber, status: r.status,
+      grossAnnualRevenue: r.grossAnnualRevenue, netOwnerIncome: r.netOwnerIncome,
+      netLtrIncome: r.netLtrIncome, increaseVsLtrPct: r.increaseVsLtrPct,
+      weightedAdr: r.weightedAdr, recommendedOccupancy: r.recommendedOccupancy,
+      createdAt: r.createdAt, updatedAt: r.updatedAt,
+      ownerName, propertyAddress,
+    };
+  }));
 });
 
 router.get("/dashboard/area-performance", requireAuth, async (_req, res): Promise<void> => {

@@ -30,7 +30,6 @@ import {
   Sofa, Wind, Plus, Trash2, ExternalLink, BarChart2, TrendingDown, Info,
   AlertTriangle,
 } from "lucide-react";
-import { Tooltip as RadixTooltip, TooltipTrigger as RadixTooltipTrigger, TooltipContent as RadixTooltipContent } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 
 // ── Revenue-yield colour coding ────────────────────────────────────────────────
@@ -761,9 +760,7 @@ export default function ForecastDetail() {
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               <span className="hidden sm:inline">Save Draft</span>
             </Button>
-            <RadixTooltip>
-              <RadixTooltipTrigger asChild>
-                <span>
+            <span title={specGapTooltip}>
                   <Button
                     size="sm"
                     onClick={handleCalculate}
@@ -775,9 +772,6 @@ export default function ForecastDetail() {
                     <span className="sm:hidden text-[11px]">Calc</span>
                   </Button>
                 </span>
-              </RadixTooltipTrigger>
-              {specGapTooltip && <RadixTooltipContent className="max-w-xs">{specGapTooltip}</RadixTooltipContent>}
-            </RadixTooltip>
             <Button
               variant="default" size="sm" className="gap-1.5 px-2 sm:px-3 bg-primary/90 hover:bg-primary"
               onClick={handlePublishProposal}
@@ -1003,9 +997,7 @@ export default function ForecastDetail() {
                       <p className="text-xs text-muted-foreground mb-3">
                         Generate optimized ADRs from market comps. Pre-fills the Data Inputs form.
                       </p>
-                      <RadixTooltip>
-                        <RadixTooltipTrigger asChild>
-                          <span className="w-full">
+                      <span className="w-full" title={specGapTooltip}>
                             <Button
                               className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
                               onClick={handleAiOptimizer}
@@ -1015,9 +1007,6 @@ export default function ForecastDetail() {
                               {isAi ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating…</> : "Run Optimizer"}
                             </Button>
                           </span>
-                        </RadixTooltipTrigger>
-                        {specGapTooltip && <RadixTooltipContent className="max-w-xs">{specGapTooltip}</RadixTooltipContent>}
-                      </RadixTooltip>
                     </div>
                     <div className="space-y-2 pt-2 border-t border-border/50">
                       <Button
@@ -1888,9 +1877,7 @@ export default function ForecastDetail() {
               {/* Action bar */}
               <div className="flex items-center justify-between p-4 bg-muted/20 rounded-lg border border-border/50">
                 <div className="flex items-center gap-3">
-                  <RadixTooltip>
-                    <RadixTooltipTrigger asChild>
-                      <span>
+                  <span title={specGapTooltip}>
                         <Button
                           variant="outline"
                           onClick={handleAiOptimizer}
@@ -1900,9 +1887,6 @@ export default function ForecastDetail() {
                           {isAi ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</> : <><Sparkles className="h-4 w-4" /> AI Optimizer</>}
                         </Button>
                       </span>
-                    </RadixTooltipTrigger>
-                    {specGapTooltip && <RadixTooltipContent className="max-w-xs">{specGapTooltip}</RadixTooltipContent>}
-                  </RadixTooltip>
                   <Button
                     variant="outline"
                     onClick={handleRequestApproval}
@@ -1921,17 +1905,12 @@ export default function ForecastDetail() {
                     {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Save Draft
                   </Button>
-                  <RadixTooltip>
-                    <RadixTooltipTrigger asChild>
-                      <span>
+                  <span title={specGapTooltip}>
                         <Button onClick={handleCalculate} disabled={isCalculating || hasPropertySpecGap} className="gap-2 min-w-[180px]">
                           {isCalculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
                           {isCalculating ? "Calculating…" : "Save & Calculate"}
                         </Button>
                       </span>
-                    </RadixTooltipTrigger>
-                    {specGapTooltip && <RadixTooltipContent className="max-w-xs">{specGapTooltip}</RadixTooltipContent>}
-                  </RadixTooltip>
                 </div>
               </div>
             </div>

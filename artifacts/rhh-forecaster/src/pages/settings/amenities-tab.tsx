@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -161,8 +161,8 @@ function AmenityDialog({ open, onOpenChange, amenity, existingCategories, onSave
     onOpenChange(o);
   }, [form, onOpenChange]);
 
-  // Keep form in sync when amenity prop changes
-  useState(() => {
+  // Keep form in sync when the amenity prop changes (e.g. user clicks Edit on a different row)
+  useEffect(() => {
     if (amenity) {
       form.reset({
         category: amenity.category,
@@ -181,7 +181,7 @@ function AmenityDialog({ open, onOpenChange, amenity, existingCategories, onSave
         sortOrder: amenity.sortOrder,
       });
     }
-  });
+  }, [amenity]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const saveMutation = useMutation({
     mutationFn: async (data: AmenityFormValues) => {
@@ -538,10 +538,11 @@ export function AmenitiesTab() {
     // If sort orders are the same, assign distinct ones first
     if (amenity.sortOrder === sibling.sortOrder) {
       const base = amenity.sortOrder;
+      // Moving "up" means lower sortOrder (earlier in list) → base - 1
       moveMutation.mutate({
-        amenity: { ...amenity, sortOrder: direction === "up" ? base + 1 : base - 1 },
+        amenity: { ...amenity, sortOrder: direction === "up" ? base - 1 : base + 1 },
         direction,
-        sibling: { ...sibling, sortOrder: direction === "up" ? base : base },
+        sibling: { ...sibling, sortOrder: base },
       });
     } else {
       moveMutation.mutate({ amenity, direction, sibling });

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, desc, and } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { db, propertiesTable, ownersTable, propertyOwnersTable } from "@workspace/db";
 import {
   CreatePropertyBody,
@@ -85,10 +85,27 @@ async function getCoOwners(propertyId: number) {
 }
 
 router.get("/properties", requireAuth, async (_req, res): Promise<void> => {
-  const props = await db.select().from(propertiesTable)
+  const rows = await db
+    .select({
+      prop: propertiesTable,
+      ownerFirstName: ownersTable.firstName,
+      ownerLastName: ownersTable.lastName,
+      ownerTitle: ownersTable.title,
+      ownerCompanyName: ownersTable.companyName,
+    })
+    .from(propertiesTable)
+    .leftJoin(ownersTable, eq(ownersTable.id, propertiesTable.ownerId))
     .where(eq(propertiesTable.isArchived, false))
     .orderBy(desc(propertiesTable.createdAt));
-  res.json(props.map(p => formatProperty(p)));
+
+  res.json(rows.map(r => {
+    const ownerName = r.ownerCompanyName
+      ? r.ownerCompanyName
+      : r.ownerFirstName
+        ? [r.ownerTitle, r.ownerFirstName, r.ownerLastName].filter(Boolean).join(" ")
+        : null;
+    return formatProperty(r.prop, ownerName);
+  }));
 });
 
 router.post("/properties", requireAuth, async (req, res): Promise<void> => {

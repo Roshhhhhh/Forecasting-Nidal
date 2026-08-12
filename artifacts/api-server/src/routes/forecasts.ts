@@ -24,6 +24,25 @@ async function bustCacheForForecast(ownerId: number | null | undefined): Promise
   if (owner?.refereeId) bustCommissionCache(owner.refereeId);
 }
 
+/** Validate that required property specs are present before AI-sensitive operations. */
+async function checkPropertySpecs(propertyId: number | null | undefined): Promise<
+  { ok: true } | { ok: false; missingFields: string[]; propertyId: number }
+> {
+  if (!propertyId) return { ok: true };
+  const [prop] = await db.select({
+    bedrooms: propertiesTable.bedrooms,
+    internalArea: propertiesTable.internalArea,
+    furnishingStatus: propertiesTable.furnishingStatus,
+  }).from(propertiesTable).where(eq(propertiesTable.id, propertyId));
+  if (!prop) return { ok: true };
+  const missingFields: string[] = [];
+  if (prop.bedrooms == null) missingFields.push("Bedrooms");
+  if (!prop.internalArea || prop.internalArea <= 0) missingFields.push("Internal Area (SqFt)");
+  if (!prop.furnishingStatus) missingFields.push("Furnishing Status");
+  if (missingFields.length > 0) return { ok: false, missingFields, propertyId };
+  return { ok: true };
+}
+
 const router: IRouter = Router();
 
 function generateRef() {
@@ -228,6 +247,17 @@ router.post("/forecasts/:id/calculate", requireAuth, async (req, res): Promise<v
   const id = parseInt(raw, 10);
   const [f] = await db.select().from(forecastsTable).where(eq(forecastsTable.id, id));
   if (!f) { res.status(404).json({ error: "Forecast not found" }); return; }
+
+  // Required property spec check — block calculation if key fields are missing
+  const specCheck = await checkPropertySpecs(f.propertyId);
+  if (!specCheck.ok) {
+    res.status(422).json({
+      error: `This property is missing required specs (${specCheck.missingFields.join(", ")}). Please complete the property profile before calculating.`,
+      missingFields: specCheck.missingFields,
+      propertyId: specCheck.propertyId,
+    });
+    return;
+  }
 
   // Support both new single-baseAdr model and legacy 4-season ADR for backward compat
   const resolvedBaseAdr = f.baseAdr ?? f.shoulderSeasonAdr;
@@ -615,6 +645,17 @@ router.post("/forecasts/:id/ai-recommend", requireAuth, async (req, res): Promis
   const id = parseInt(raw, 10);
   const [f] = await db.select().from(forecastsTable).where(eq(forecastsTable.id, id));
   if (!f) { res.status(404).json({ error: "Forecast not found" }); return; }
+
+  // Required property spec check — block AI recommendation if key fields are missing
+  const specCheck = await checkPropertySpecs(f.propertyId);
+  if (!specCheck.ok) {
+    res.status(422).json({
+      error: `This property is missing required specs (${specCheck.missingFields.join(", ")}). Please complete the property profile before generating an AI recommendation.`,
+      missingFields: specCheck.missingFields,
+      propertyId: specCheck.propertyId,
+    });
+    return;
+  }
 
   const { bedrooms, areaName } = await resolveAreaBedrooms(f);
 

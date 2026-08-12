@@ -28,7 +28,9 @@ import {
   Building, Calendar, Sparkles, Calculator, Loader2, CheckCircle2,
   Send, FileText, Globe, Eye, Printer, User, MapPin, Ruler, Home,
   Sofa, Wind, Plus, Trash2, ExternalLink, BarChart2, TrendingDown, Info,
+  AlertTriangle,
 } from "lucide-react";
+import { Tooltip as RadixTooltip, TooltipTrigger as RadixTooltipTrigger, TooltipContent as RadixTooltipContent } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 
 // ── Revenue-yield colour coding ────────────────────────────────────────────────
@@ -701,6 +703,18 @@ export default function ForecastDetail() {
   const isCalculating = calculateForecast.isPending || isSaving;
   const isAi = aiRecommend.isPending;
 
+  // Compute required property spec gaps — used for the warning banner and disabled buttons
+  const missingPropertyFields: string[] = [];
+  if (forecast) {
+    if ((forecast as any).bedrooms == null) missingPropertyFields.push("Bedrooms");
+    if (!(forecast as any).internalArea || (forecast as any).internalArea <= 0) missingPropertyFields.push("Internal Area (SqFt)");
+    if (!(forecast as any).furnishingStatus) missingPropertyFields.push("Furnishing Status");
+  }
+  const hasPropertySpecGap = missingPropertyFields.length > 0 && !!(forecast as any)?.propertyId;
+  const specGapTooltip = hasPropertySpecGap
+    ? `Missing required property specs: ${missingPropertyFields.join(", ")}. Complete the property profile first.`
+    : undefined;
+
   if (isLoading) return <div className="p-8 text-center text-muted-foreground">Loading forecast...</div>;
   if (!forecast) return <div className="p-8 text-center text-red-500">Forecast not found.</div>;
 
@@ -747,17 +761,23 @@ export default function ForecastDetail() {
               {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               <span className="hidden sm:inline">Save Draft</span>
             </Button>
-            <Button
-              size="sm"
-              onClick={handleCalculate}
-              disabled={isCalculating}
-              className="gap-1.5 px-2 sm:px-3"
-              title="Saves inputs and recalculates all projections."
-            >
-              {isCalculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
-              <span className="hidden sm:inline">{isCalculating ? "Calculating…" : "Save & Calculate"}</span>
-              <span className="sm:hidden text-[11px]">Calc</span>
-            </Button>
+            <RadixTooltip>
+              <RadixTooltipTrigger asChild>
+                <span>
+                  <Button
+                    size="sm"
+                    onClick={handleCalculate}
+                    disabled={isCalculating || hasPropertySpecGap}
+                    className="gap-1.5 px-2 sm:px-3"
+                  >
+                    {isCalculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
+                    <span className="hidden sm:inline">{isCalculating ? "Calculating…" : "Save & Calculate"}</span>
+                    <span className="sm:hidden text-[11px]">Calc</span>
+                  </Button>
+                </span>
+              </RadixTooltipTrigger>
+              {specGapTooltip && <RadixTooltipContent className="max-w-xs">{specGapTooltip}</RadixTooltipContent>}
+            </RadixTooltip>
             <Button
               variant="default" size="sm" className="gap-1.5 px-2 sm:px-3 bg-primary/90 hover:bg-primary"
               onClick={handlePublishProposal}
@@ -774,6 +794,30 @@ export default function ForecastDetail() {
           {(forecast as any).ownerName}{(forecast as any).ownerName && " · "}{(forecast as any).propertyAddress}
         </p>
       </header>
+
+      {/* Missing property spec warning banner */}
+      {hasPropertySpecGap && (
+        <div className="px-3 sm:px-6 py-2.5 bg-amber-50 border-b border-amber-200 dark:bg-amber-950/20 dark:border-amber-800 shrink-0">
+          <div className="flex items-start gap-3 max-w-[1400px] mx-auto">
+            <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+            <div className="flex-1 text-sm text-amber-800 dark:text-amber-300">
+              <span className="font-semibold">This property is missing required specs</span>
+              {" — please complete the property profile before calculating. Missing: "}
+              {missingPropertyFields.map((field, i) => (
+                <span key={field}>
+                  {i > 0 && ", "}
+                  <Link
+                    href={`/properties/${(forecast as any).propertyId}`}
+                    className="underline font-medium hover:text-amber-900 dark:hover:text-amber-200 transition-colors"
+                  >
+                    {field}
+                  </Link>
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex-1 overflow-auto">
@@ -959,14 +1003,21 @@ export default function ForecastDetail() {
                       <p className="text-xs text-muted-foreground mb-3">
                         Generate optimized ADRs from market comps. Pre-fills the Data Inputs form.
                       </p>
-                      <Button
-                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
-                        onClick={handleAiOptimizer}
-                        disabled={isAi}
-                        size="sm"
-                      >
-                        {isAi ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating…</> : "Run Optimizer"}
-                      </Button>
+                      <RadixTooltip>
+                        <RadixTooltipTrigger asChild>
+                          <span className="w-full">
+                            <Button
+                              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground"
+                              onClick={handleAiOptimizer}
+                              disabled={isAi || hasPropertySpecGap}
+                              size="sm"
+                            >
+                              {isAi ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating…</> : "Run Optimizer"}
+                            </Button>
+                          </span>
+                        </RadixTooltipTrigger>
+                        {specGapTooltip && <RadixTooltipContent className="max-w-xs">{specGapTooltip}</RadixTooltipContent>}
+                      </RadixTooltip>
                     </div>
                     <div className="space-y-2 pt-2 border-t border-border/50">
                       <Button
@@ -1837,14 +1888,21 @@ export default function ForecastDetail() {
               {/* Action bar */}
               <div className="flex items-center justify-between p-4 bg-muted/20 rounded-lg border border-border/50">
                 <div className="flex items-center gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={handleAiOptimizer}
-                    disabled={isAi}
-                    className="gap-2 border-primary/30 text-primary hover:bg-primary/5"
-                  >
-                    {isAi ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</> : <><Sparkles className="h-4 w-4" /> AI Optimizer</>}
-                  </Button>
+                  <RadixTooltip>
+                    <RadixTooltipTrigger asChild>
+                      <span>
+                        <Button
+                          variant="outline"
+                          onClick={handleAiOptimizer}
+                          disabled={isAi || hasPropertySpecGap}
+                          className="gap-2 border-primary/30 text-primary hover:bg-primary/5"
+                        >
+                          {isAi ? <><Loader2 className="h-4 w-4 animate-spin" /> Generating…</> : <><Sparkles className="h-4 w-4" /> AI Optimizer</>}
+                        </Button>
+                      </span>
+                    </RadixTooltipTrigger>
+                    {specGapTooltip && <RadixTooltipContent className="max-w-xs">{specGapTooltip}</RadixTooltipContent>}
+                  </RadixTooltip>
                   <Button
                     variant="outline"
                     onClick={handleRequestApproval}
@@ -1863,10 +1921,17 @@ export default function ForecastDetail() {
                     {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                     Save Draft
                   </Button>
-                  <Button onClick={handleCalculate} disabled={isCalculating} className="gap-2 min-w-[180px]">
-                    {isCalculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
-                    {isCalculating ? "Calculating…" : "Save & Calculate"}
-                  </Button>
+                  <RadixTooltip>
+                    <RadixTooltipTrigger asChild>
+                      <span>
+                        <Button onClick={handleCalculate} disabled={isCalculating || hasPropertySpecGap} className="gap-2 min-w-[180px]">
+                          {isCalculating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Calculator className="h-4 w-4" />}
+                          {isCalculating ? "Calculating…" : "Save & Calculate"}
+                        </Button>
+                      </span>
+                    </RadixTooltipTrigger>
+                    {specGapTooltip && <RadixTooltipContent className="max-w-xs">{specGapTooltip}</RadixTooltipContent>}
+                  </RadixTooltip>
                 </div>
               </div>
             </div>

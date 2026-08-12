@@ -16,6 +16,7 @@ import pipelineRouter from "./pipeline";
 import notificationsRouter from "./notifications";
 import storageRouter from "./storage";
 import forecastRequestsRouter from "./forecast-requests";
+import analyticsRouter from "./analytics";
 
 const router: IRouter = Router();
 
@@ -36,5 +37,6 @@ router.use(pipelineRouter);
 router.use(notificationsRouter);
 router.use(storageRouter);
 router.use(forecastRequestsRouter);
+router.use(analyticsRouter);
 
 export default router;

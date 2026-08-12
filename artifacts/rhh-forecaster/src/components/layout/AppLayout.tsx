@@ -1,7 +1,7 @@
 import { FC, ReactNode, useEffect, useRef, useState, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import { Sidebar, SidebarContent, SidebarHeader, SidebarMenu, SidebarMenuItem, SidebarMenuButton, SidebarFooter, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, UserCheck, ShieldCheck, LayoutGrid, Bell, Eye, CheckCircle, Send, X, ClipboardList } from "lucide-react";
+import { LayoutDashboard, Users, Home, TrendingUp, LineChart, FileText, Settings, ShieldAlert, LogOut, UserCheck, ShieldCheck, LayoutGrid, Bell, Eye, CheckCircle, Send, X, ClipboardList, Trophy } from "lucide-react";
 import { useLogout, useGetMe, useListProposals } from "@workspace/api-client-react";
 import { usePermission } from "@/hooks/usePermission";
 import { useToast } from "@/hooks/use-toast";
@@ -300,6 +300,16 @@ export const AppSidebar: FC = () => {
         <div className="mt-8 px-4 pb-2">
           <p className="text-xs font-semibold text-sidebar-foreground/50 uppercase tracking-wider mb-2">Management</p>
           <SidebarMenu>
+            {(user?.role === "super_admin" || user?.role === "revenue_manager") && (
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild isActive={location.startsWith("/analytics/leaderboard")}>
+                  <Link href="/analytics/leaderboard" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-sidebar-accent">
+                    <Trophy className="h-4 w-4" />
+                    <span>Leaderboard</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            )}
             <SidebarMenuItem>
               <SidebarMenuButton asChild isActive={location === "/settings"}>
                 <Link href="/settings" className="flex items-center gap-3 px-3 py-2 rounded-md hover:bg-sidebar-accent">
